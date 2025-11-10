@@ -23,4 +23,12 @@ impl NoiseTransport {
         out.truncate(n);
         Ok(out)
     }
+
+    /// Export a stable, 32-byte session-binding tag from the handshake.
+    /// Use this to bind Paykit requests or Locks capabilities to the live channel.
+    pub fn export_session_tag(hs: &snow::HandshakeState) -> Result<[u8;32], NoiseError> {
+        let mut out = [0u8;32];
+        hs.export_keying_material(b"pubky-session-tag:v1", &mut out)?;
+        Ok(out)
+    }
 }
