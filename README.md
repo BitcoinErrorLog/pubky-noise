@@ -4,7 +4,7 @@ Pubky identity + Noise (snow) integration that keeps **Ring cold** after setup, 
 
 - **No custom crypto.** Uses `snow` for Noise, `x25519-dalek`, `ed25519-dalek`.
 - **Deterministic device statics.** Derived from the Pubky Ed25519 seed with domain separation, device_id, and epoch.
-- **Cold Ring.** Device stores the current epoch’s static; Ring can recreate and rotate at any time.
+- **Cold keys via Pubky Ring.** Device stores the current epoch’s static; Ring can recreate and rotate at any time.
 - **Revocation.** Homeservers/peers enforce the current `epoch` from PKARR; bumping epoch revokes old statics.
 - **Identity binding.** First encrypted payload proves Ed25519 control over the Noise keys and context.
 
