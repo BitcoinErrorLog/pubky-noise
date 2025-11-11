@@ -15,16 +15,10 @@ pub struct IdentityPayload {
     pub sig: [u8; 64],
 }
 
-/// Transcript/Context binding digest for identity payload signing.
 pub fn make_binding_message(
-    pattern_tag: &str,
-    prologue: &[u8],
-    ed25519_pub: &[u8; 32],
-    local_noise_pub: &[u8; 32],
-    remote_noise_pub: Option<&[u8; 32]>,
-    epoch: u32,
-    role: Role,
-    server_hint: Option<&str>,
+    pattern_tag: &str, prologue: &[u8],
+    ed25519_pub: &[u8; 32], local_noise_pub: &[u8; 32],
+    remote_noise_pub: Option<&[u8; 32]>, epoch: u32, role: Role, server_hint: Option<&str>
 ) -> [u8; 32] {
     let mut h = Blake2s256::new();
     h.update(b"pubky-noise-bind:v1");
@@ -46,7 +40,6 @@ pub fn sign_identity_payload(ed25519_sk: &SigningKey, msg32: &[u8; 32]) -> [u8; 
     let sig: Signature = ed25519_sk.sign(msg32);
     sig.to_bytes()
 }
-
 pub fn verify_identity_payload(ed25519_pub: &VerifyingKey, msg32: &[u8; 32], sig64: &[u8; 64]) -> bool {
     let sig = Signature::from_bytes(sig64);
     ed25519_pub.verify(msg32, &sig).is_ok()

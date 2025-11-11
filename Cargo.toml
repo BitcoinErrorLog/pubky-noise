@@ -1,12 +1,16 @@
 [package]
 name = "pubky-noise"
-version = "0.2.1"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
-description = "Pubky identity + Noise (snow) with Ring-cold operation, per-device deterministic statics, PKARR epoch binding, and identity payload signatures."
+description = "Direct Pubky client-server Noise (snow) with Ring-cold operation, optional PKARR-assisted rotation, and identity binding."
 readme = "README.md"
-keywords = ["pubky", "noise", "snow", "pkarr", "x25519", "ed25519"]
-categories = ["cryptography", "network-programming"]
+
+[features]
+default = []
+pkarr = []
+trace = ["tracing","hex"]
+secure-mem = ["region"]
 
 [dependencies]
 snow = "0.9"
@@ -16,16 +20,14 @@ sha2 = "0.10"
 blake2 = "0.10"
 hkdf = "0.12"
 zeroize = "1"
+secrecy = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-
-# Optional lightweight tracing
+cfg-if = "1"
 tracing = { version = "0.1", optional = true }
 hex = { version = "0.4", optional = true }
-
-[features]
-trace = ["tracing", "hex"]
+region = { version = "3", optional = true }
 
 [dev-dependencies]
 rand_core = "0.6"
