@@ -55,6 +55,7 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         let n = hs.read_message(first_msg, &mut buf)?;
         let payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
 
+        // Reject all-zero shared secret with client static
         let ok = self.ring.with_device_x25519(&self.kid, &self.device_id, self.current_epoch, |x_sk: &Zeroizing<[u8;32]>| {
             crate::kdf::shared_secret_nonzero(x_sk, &payload.noise_x25519_pub)
         })?;
@@ -63,7 +64,7 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         let tag = "IK";
         let msg32 = make_binding_message(tag, &self.prologue, &payload.ed25519_pub, &payload.noise_x25519_pub, Some(&x_pk_arr), payload.epoch, Role::Client, payload.server_hint.as_deref());
         let vk = ed25519_dalek::VerifyingKey::from_bytes(&payload.ed25519_pub).map_err(|e| NoiseError::Other(e.to_string()))?;
-        let ok = crate::identity_payload::verify_identity_payload(&vk, &msg32, &payload.sig);
+        let ok = verify_identity_payload(&vk, &msg32, &payload.sig);
         if !ok { return Err(NoiseError::IdentityVerify) }
 
         Ok((hs, payload))
