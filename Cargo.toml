@@ -3,7 +3,7 @@ name = "pubky-noise"
 version = "0.5.0"
 edition = "2021"
 license = "MIT"
-description = "Direct Pubky client-server Noise (snow) with Ring-cold operation, optional PKARR-assisted rotation, and identity binding."
+description = "Direct Pubky client-server Noise (snow) with Ring-cold operation, optional PKARR-assisted metadata, and identity binding."
 readme = "README.md"
 
 [features]
