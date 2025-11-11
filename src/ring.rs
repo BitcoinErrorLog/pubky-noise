@@ -1,27 +1,14 @@
 use crate::errors::NoiseError;
 use ed25519_dalek::{SigningKey, VerifyingKey, Signer};
-use secrecy::Zeroizing;
 
+/// Abstraction over Pubky Ring or a local delegated devicestore for cold operation.
 pub trait RingKeyProvider: Send + Sync {
     fn derive_device_x25519(&self, kid: &str, device_id: &[u8], epoch: u32) -> Result<[u8; 32], NoiseError>;
     fn ed25519_pubkey(&self, kid: &str) -> Result<[u8; 32], NoiseError>;
     fn sign_ed25519(&self, kid: &str, msg: &[u8]) -> Result<[u8; 64], NoiseError>;
 }
 
-pub trait RingKeyFiller: Send + Sync {
-    fn with_device_x25519<F, T>(&self, kid: &str, device_id: &[u8], epoch: u32, f: F) -> Result<T, NoiseError>
-    where F: FnOnce(&Zeroizing<[u8;32]>) -> T;
-}
-
-impl<T: RingKeyProvider + ?Sized> RingKeyFiller for T {
-    fn with_device_x25519<F, U>(&self, kid: &str, device_id: &[u8], epoch: u32, f: F) -> Result<U, NoiseError>
-    where F: FnOnce(&Zeroizing<[u8;32]>) -> U {
-        let sk = self.derive_device_x25519(kid, device_id, epoch)?;
-        let z = Zeroizing::new(sk);
-        Ok(f(&z))
-    }
-}
-
+/// DummyRing is for tests only. It holds a seed and signs locally.
 pub struct DummyRing {
     seed32: [u8; 32],
     kid: String,

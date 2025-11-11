@@ -1,9 +1,8 @@
 use sha2::{Sha512, Digest};
 use hkdf::Hkdf;
 use x25519_dalek::{PublicKey, StaticSecret};
-use secrecy::Zeroizing;
 
-/// HKDF-SHA512 per-device, per-epoch X25519 static.
+/// Derive deterministic per-device, per-epoch X25519 static using HKDF-SHA512.
 pub fn derive_x25519_for_device_epoch(seed: &[u8; 32], device_id: &[u8], epoch: u32) -> [u8; 32] {
     let salt = b"pubky-noise-x25519:v1";
     let hk = Hkdf::<Sha512>::new(Some(salt), seed);
@@ -21,14 +20,4 @@ pub fn x25519_pk_from_sk(sk: &[u8; 32]) -> [u8; 32] {
     let sec = StaticSecret::from(*sk);
     let pubk = PublicKey::from(&sec);
     pubk.to_bytes()
-}
-
-/// Compute X25519(shared) and return false if it is all-zero (reject low-order/invalid peer keys).
-pub fn shared_secret_nonzero(local_sk: &Zeroizing<[u8;32]>, peer_pk: &[u8;32]) -> bool {
-    let sec = StaticSecret::from(**local_sk);
-    let pk = PublicKey::from(*peer_pk);
-    let shared = sec.diffie_hellman(&pk).to_bytes();
-    let mut acc: u8 = 0;
-    for b in shared { acc |= b; }
-    acc != 0
 }

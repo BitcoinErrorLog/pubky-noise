@@ -16,8 +16,6 @@ pub enum NoiseError {
     RemoteStaticMissing,
     #[error("policy violation: {0}")]
     Policy(String),
-    #[error("invalid peer static or shared secret")]
-    InvalidPeerKey,
     #[error("other: {0}")]
     Other(String),
 }

@@ -15,6 +15,7 @@ pub struct IdentityPayload {
     pub sig: [u8; 64],
 }
 
+/// Transcript/Context binding digest for identity payload signing.
 pub fn make_binding_message(
     pattern_tag: &str,
     prologue: &[u8],
