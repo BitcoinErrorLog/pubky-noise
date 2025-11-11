@@ -15,7 +15,6 @@ pub struct IdentityPayload {
     pub sig: [u8; 64],
 }
 
-/// Transcript/Context binding digest (32 bytes) for identity payload signing.
 pub fn make_binding_message(
     pattern_tag: &str,
     prologue: &[u8],
@@ -42,19 +41,12 @@ pub fn make_binding_message(
     digest
 }
 
-pub fn sign_identity_payload(
-    ed25519_sk: &SigningKey,
-    msg32: &[u8; 32],
-) -> [u8; 64] {
+pub fn sign_identity_payload(ed25519_sk: &SigningKey, msg32: &[u8; 32]) -> [u8; 64] {
     let sig: Signature = ed25519_sk.sign(msg32);
     sig.to_bytes()
 }
 
-pub fn verify_identity_payload(
-    ed25519_pub: &VerifyingKey,
-    msg32: &[u8; 32],
-    sig64: &[u8; 64],
-) -> bool {
+pub fn verify_identity_payload(ed25519_pub: &VerifyingKey, msg32: &[u8; 32], sig64: &[u8; 64]) -> bool {
     let sig = Signature::from_bytes(sig64);
     ed25519_pub.verify(msg32, &sig).is_ok()
 }

@@ -23,4 +23,10 @@ impl NoiseTransport {
         out.truncate(n);
         Ok(out)
     }
+
+    pub fn export_session_tag(hs: &snow::HandshakeState) -> Result<[u8;32], NoiseError> {
+        let mut out = [0u8;32];
+        hs.export_keying_material(b"pubky-session-tag:v1", &mut out)?;
+        Ok(out)
+    }
 }
