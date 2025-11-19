@@ -1,0 +1,86 @@
+namespace pubky_noise {
+    // Configuration helpers
+    FfiMobileConfig default_config();
+    FfiMobileConfig battery_saver_config();
+    FfiMobileConfig performance_config();
+
+    // Key management
+    bytes derive_device_key(bytes seed, bytes device_id, u32 epoch);
+    bytes public_key_from_secret(bytes secret);
+};
+
+[Error]
+enum FfiNoiseError {
+    "Ring" (string message),
+    "Pkarr" (string message),
+    "Snow" (string message),
+    "Serde" (string message),
+    "IdentityVerify",
+    "RemoteStaticMissing",
+    "Policy" (string message),
+    "InvalidPeerKey",
+    "Network" (string message),
+    "Timeout" (string message),
+    "Storage" (string message),
+    "Decryption" (string message),
+    "Other" (string message),
+};
+
+enum FfiConnectionStatus {
+    "Connected",
+    "Reconnecting",
+    "Disconnected",
+    "Error",
+};
+
+dictionary FfiMobileConfig {
+    boolean auto_reconnect;
+    u32 max_reconnect_attempts;
+    u64 reconnect_delay_ms;
+    boolean battery_saver;
+    u64 chunk_size;
+};
+
+dictionary FfiSessionState {
+    string session_id;
+    bytes peer_static_pk;
+    u32 epoch;
+    u64 write_counter;
+    u64 read_counter;
+    FfiConnectionStatus status;
+};
+
+interface FfiNoiseManager {
+    [Throws=FfiNoiseError]
+    constructor(FfiMobileConfig config, bytes client_seed, string client_kid, bytes device_id);
+
+    [Throws=FfiNoiseError]
+    string connect_client(bytes server_pk, u32 epoch, string? hint);
+
+    [Throws=FfiNoiseError]
+    string accept_server(bytes first_msg);
+    
+    [Name=new_server, Throws=FfiNoiseError]
+    constructor(FfiMobileConfig config, bytes server_seed, string server_kid, bytes device_id);
+
+    [Throws=FfiNoiseError]
+    bytes encrypt(string session_id, bytes plaintext);
+
+    [Throws=FfiNoiseError]
+    bytes decrypt(string session_id, bytes ciphertext);
+
+    [Throws=FfiNoiseError]
+    FfiSessionState save_state(string session_id);
+
+    [Throws=FfiNoiseError]
+    void restore_state(FfiSessionState state);
+
+    sequence<string> list_sessions();
+    
+    void remove_session(string session_id);
+    
+    FfiConnectionStatus? get_status(string session_id);
+    
+    void set_status(string session_id, FfiConnectionStatus status);
+};
+
