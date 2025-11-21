@@ -5,11 +5,14 @@
 
 #[cfg(all(test, feature = "uniffi_macros"))]
 mod ffi_tests {
+    use pubky_noise::ffi::config::{
+        battery_saver_config, default_config, derive_device_key, performance_config,
+        public_key_from_secret,
+    };
+    use pubky_noise::ffi::manager::FfiNoiseManager;
+    use pubky_noise::ffi::types::{FfiConnectionStatus, FfiMobileConfig};
+    use pubky_noise::DummyRing;
     use std::sync::Arc;
-    use crate::ffi::manager::FfiNoiseManager;
-    use crate::ffi::config::{default_config, battery_saver_config, performance_config, derive_device_key, public_key_from_secret};
-    use crate::ffi::types::{FfiMobileConfig, FfiConnectionStatus};
-    use crate::DummyRing;
 
     #[test]
     fn test_config_helpers() {
@@ -55,9 +58,9 @@ mod ffi_tests {
     fn test_public_key_from_secret() {
         let secret = vec![42u8; 32];
         let pk = public_key_from_secret(secret.clone());
-        
+
         assert_eq!(pk.len(), 32);
-        
+
         // Same secret should produce same public key
         let pk2 = public_key_from_secret(secret);
         assert_eq!(pk, pk2);
@@ -83,7 +86,7 @@ mod ffi_tests {
 
         let result = FfiNoiseManager::new_client(config, seed, kid, device_id);
         assert!(result.is_err());
-        
+
         if let Err(e) = result {
             assert!(format!("{:?}", e).contains("32 bytes"));
         }
@@ -96,7 +99,7 @@ mod ffi_tests {
         let kid = "test-server".to_string();
         let device_id = b"server-device".to_vec();
 
-        let result = FfiNoiseManager::new_server_constructor(config, seed, kid, device_id);
+        let result = FfiNoiseManager::new_server(config, seed, kid, device_id);
         assert!(result.is_ok(), "Failed to create server FfiNoiseManager");
     }
 
@@ -104,12 +107,8 @@ mod ffi_tests {
     fn test_session_list_empty() {
         let config = default_config();
         let seed = vec![1u8; 32];
-        let manager = FfiNoiseManager::new_client(
-            config,
-            seed,
-            "test".to_string(),
-            b"dev".to_vec()
-        ).unwrap();
+        let manager =
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
 
         let sessions = manager.list_sessions();
         assert_eq!(sessions.len(), 0);
@@ -117,8 +116,8 @@ mod ffi_tests {
 
     #[test]
     fn test_connection_status_conversion() {
-        use crate::mobile_manager::ConnectionStatus as CoreStatus;
-        use crate::ffi::types::FfiConnectionStatus;
+        use pubky_noise::ffi::types::FfiConnectionStatus;
+        use pubky_noise::mobile_manager::ConnectionStatus as CoreStatus;
 
         // Test all conversions
         let statuses = vec![
@@ -130,22 +129,32 @@ mod ffi_tests {
 
         for (core, ffi) in statuses {
             let converted_ffi: FfiConnectionStatus = core.into();
-            assert!(matches!((converted_ffi, ffi), 
-                (FfiConnectionStatus::Connected, FfiConnectionStatus::Connected) |
-                (FfiConnectionStatus::Reconnecting, FfiConnectionStatus::Reconnecting) |
-                (FfiConnectionStatus::Disconnected, FfiConnectionStatus::Disconnected) |
-                (FfiConnectionStatus::Error, FfiConnectionStatus::Error)
+            assert!(matches!(
+                (&converted_ffi, &ffi),
+                (
+                    FfiConnectionStatus::Connected,
+                    FfiConnectionStatus::Connected
+                ) | (
+                    FfiConnectionStatus::Reconnecting,
+                    FfiConnectionStatus::Reconnecting
+                ) | (
+                    FfiConnectionStatus::Disconnected,
+                    FfiConnectionStatus::Disconnected
+                ) | (FfiConnectionStatus::Error, FfiConnectionStatus::Error)
             ));
-            
+
             let converted_back: CoreStatus = converted_ffi.into();
-            assert_eq!(std::mem::discriminant(&core), std::mem::discriminant(&converted_back));
+            assert_eq!(
+                std::mem::discriminant(&core),
+                std::mem::discriminant(&converted_back)
+            );
         }
     }
 
     #[test]
     fn test_mobile_config_conversion() {
-        use crate::mobile_manager::MobileConfig;
-        
+        use pubky_noise::mobile_manager::MobileConfig;
+
         let ffi_config = FfiMobileConfig {
             auto_reconnect: true,
             max_reconnect_attempts: 7,
@@ -156,8 +165,14 @@ mod ffi_tests {
 
         let core_config: MobileConfig = ffi_config.clone().into();
         assert_eq!(core_config.auto_reconnect, ffi_config.auto_reconnect);
-        assert_eq!(core_config.max_reconnect_attempts, ffi_config.max_reconnect_attempts);
-        assert_eq!(core_config.reconnect_delay_ms, ffi_config.reconnect_delay_ms);
+        assert_eq!(
+            core_config.max_reconnect_attempts,
+            ffi_config.max_reconnect_attempts
+        );
+        assert_eq!(
+            core_config.reconnect_delay_ms,
+            ffi_config.reconnect_delay_ms
+        );
         assert_eq!(core_config.battery_saver, ffi_config.battery_saver);
         assert_eq!(core_config.chunk_size, ffi_config.chunk_size as usize);
 
@@ -170,12 +185,8 @@ mod ffi_tests {
     fn test_invalid_session_id_parse() {
         let config = default_config();
         let seed = vec![1u8; 32];
-        let manager = FfiNoiseManager::new_client(
-            config,
-            seed,
-            "test".to_string(),
-            b"dev".to_vec()
-        ).unwrap();
+        let manager =
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
 
         // Invalid hex
         let result = manager.get_status("not-hex-at-all".to_string());
@@ -190,12 +201,8 @@ mod ffi_tests {
     fn test_encrypt_decrypt_without_session() {
         let config = default_config();
         let seed = vec![1u8; 32];
-        let manager = FfiNoiseManager::new_client(
-            config,
-            seed,
-            "test".to_string(),
-            b"dev".to_vec()
-        ).unwrap();
+        let manager =
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
 
         // Try to encrypt with non-existent session
         let fake_session = "0".repeat(64); // 32 bytes as hex
@@ -211,19 +218,15 @@ mod ffi_tests {
     fn test_remove_nonexistent_session() {
         let config = default_config();
         let seed = vec![1u8; 32];
-        let manager = FfiNoiseManager::new_client(
-            config,
-            seed,
-            "test".to_string(),
-            b"dev".to_vec()
-        ).unwrap();
+        let manager =
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
 
         let sessions_before = manager.list_sessions();
-        
+
         // Remove non-existent session (should not panic)
         let fake_session = "0".repeat(64);
         manager.remove_session(fake_session);
-        
+
         let sessions_after = manager.list_sessions();
         assert_eq!(sessions_before.len(), sessions_after.len());
     }
@@ -232,12 +235,8 @@ mod ffi_tests {
     fn test_save_state_nonexistent_session() {
         let config = default_config();
         let seed = vec![1u8; 32];
-        let manager = FfiNoiseManager::new_client(
-            config,
-            seed,
-            "test".to_string(),
-            b"dev".to_vec()
-        ).unwrap();
+        let manager =
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
 
         let fake_session = "0".repeat(64);
         let result = manager.save_state(fake_session);
@@ -250,12 +249,9 @@ mod ffi_tests {
 
         let config = default_config();
         let seed = vec![1u8; 32];
-        let manager = Arc::new(FfiNoiseManager::new_client(
-            config,
-            seed,
-            "test".to_string(),
-            b"dev".to_vec()
-        ).unwrap());
+        let manager = Arc::new(
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap(),
+        );
 
         let manager1 = manager.clone();
         let manager2 = manager.clone();
@@ -278,8 +274,8 @@ mod ffi_tests {
 
     #[test]
     fn test_error_type_conversions() {
-        use crate::NoiseError;
-        use crate::ffi::errors::FfiNoiseError;
+        use pubky_noise::ffi::errors::FfiNoiseError;
+        use pubky_noise::NoiseError;
 
         let test_cases = vec![
             NoiseError::Ring("test ring error".into()),
@@ -309,12 +305,8 @@ mod ffi_tests {
         // Test various invalid lengths
         for len in [0, 1, 15, 16, 31, 33, 64] {
             let seed = vec![1u8; len];
-            let result = FfiNoiseManager::new_client(
-                config.clone(),
-                seed,
-                kid.clone(),
-                device_id.clone()
-            );
+            let result =
+                FfiNoiseManager::new_client(config.clone(), seed, kid.clone(), device_id.clone());
             assert!(result.is_err(), "Should reject seed of length {}", len);
         }
 
@@ -341,4 +333,3 @@ mod ffi_tests {
         }
     }
 }
-
