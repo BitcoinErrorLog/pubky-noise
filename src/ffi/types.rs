@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crate::mobile_manager::{ConnectionStatus, MobileConfig, SessionState};
 use crate::session_id::SessionId;
 
@@ -34,7 +33,7 @@ impl From<FfiConnectionStatus> for ConnectionStatus {
 }
 
 /// FFI-safe mobile configuration wrapper
-#[derive(uniffi::Record)]
+#[derive(uniffi::Record, Clone)]
 pub struct FfiMobileConfig {
     pub auto_reconnect: bool,
     pub max_reconnect_attempts: u32,
@@ -97,16 +96,20 @@ impl TryFrom<FfiSessionState> for SessionState {
     fn try_from(state: FfiSessionState) -> Result<Self, Self::Error> {
         let session_id_bytes = hex::decode(&state.session_id)
             .map_err(|_| crate::NoiseError::Other("Invalid session ID hex string".to_string()))?;
-        
+
         let mut sid = [0u8; 32];
         if session_id_bytes.len() != 32 {
-            return Err(crate::NoiseError::Other("Invalid session ID length".to_string()));
+            return Err(crate::NoiseError::Other(
+                "Invalid session ID length".to_string(),
+            ));
         }
         sid.copy_from_slice(&session_id_bytes);
 
         let mut peer_pk = [0u8; 32];
         if state.peer_static_pk.len() != 32 {
-            return Err(crate::NoiseError::Other("Invalid peer public key length".to_string()));
+            return Err(crate::NoiseError::Other(
+                "Invalid peer public key length".to_string(),
+            ));
         }
         peer_pk.copy_from_slice(&state.peer_static_pk);
 
@@ -120,4 +123,3 @@ impl TryFrom<FfiSessionState> for SessionState {
         })
     }
 }
-

@@ -1,10 +1,10 @@
+use crate::client::NoiseClient;
+use crate::datalink_adapter::NoiseLink;
+use crate::ring::RingKeyProvider;
+use crate::server::NoiseServer;
+use crate::session_id::SessionId;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::session_id::SessionId;
-use crate::datalink_adapter::NoiseLink;
-use crate::client::NoiseClient;
-use crate::server::NoiseServer;
-use crate::ring::RingKeyProvider;
 
 pub enum NoiseRole<R: RingKeyProvider> {
     Client(Arc<NoiseClient<R, ()>>),
@@ -12,22 +12,22 @@ pub enum NoiseRole<R: RingKeyProvider> {
 }
 
 /// Manages multiple concurrent Noise sessions
-/// 
+///
 /// ## Thread Safety
-/// 
+///
 /// `NoiseSessionManager` is **NOT** thread-safe by itself. If you need to access it from
 /// multiple threads (e.g., in mobile apps with background workers), wrap it in
 /// `Arc<Mutex<NoiseSessionManager<R>>>`:
-/// 
+///
 /// ```rust
 /// use pubky_noise::{NoiseSessionManager, NoiseClient, DummyRing};
 /// use std::sync::{Arc, Mutex};
-/// 
+///
 /// # fn example() {
 /// let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
 /// let client = Arc::new(NoiseClient::<_, ()>::new_direct("kid", b"device", ring));
 /// let manager = Arc::new(Mutex::new(NoiseSessionManager::new_client(client)));
-/// 
+///
 /// // Now safe to share across threads
 /// let manager_clone = manager.clone();
 /// std::thread::spawn(move || {
@@ -36,7 +36,7 @@ pub enum NoiseRole<R: RingKeyProvider> {
 /// });
 /// # }
 /// ```
-/// 
+///
 /// Alternatively, use `ThreadSafeSessionManager` for built-in thread safety.
 pub struct NoiseSessionManager<R: RingKeyProvider> {
     sessions: HashMap<SessionId, NoiseLink>,
@@ -95,22 +95,22 @@ impl<R: RingKeyProvider> NoiseSessionManager<R> {
 }
 
 /// Thread-safe wrapper around NoiseSessionManager
-/// 
+///
 /// This provides built-in thread safety using a Mutex, making it safe to share
 /// across threads in mobile applications without manual locking.
-/// 
+///
 /// ## Example
-/// 
+///
 /// ```rust
 /// use pubky_noise::{NoiseClient, DummyRing};
 /// use pubky_noise::session_manager::ThreadSafeSessionManager;
 /// use std::sync::Arc;
-/// 
+///
 /// # fn example() {
 /// let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
 /// let client = Arc::new(NoiseClient::<_, ()>::new_direct("kid", b"device", ring));
 /// let manager = ThreadSafeSessionManager::new_client(client);
-/// 
+///
 /// // Clone and use in multiple threads
 /// let manager_clone = manager.clone();
 /// std::thread::spawn(move || {
@@ -144,7 +144,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     }
 
     /// Get a session by ID (returns a copy of the session for thread safety)
-    /// 
+    ///
     /// Note: For encryption/decryption, use `with_session` or `with_session_mut` instead
     pub fn has_session(&self, session_id: &SessionId) -> bool {
         self.inner.lock().unwrap().get_session(session_id).is_some()
@@ -179,17 +179,27 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     }
 
     /// Encrypt data using a specific session
-    pub fn encrypt(&self, session_id: &SessionId, plaintext: &[u8]) -> Result<Vec<u8>, crate::errors::NoiseError> {
+    pub fn encrypt(
+        &self,
+        session_id: &SessionId,
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>, crate::errors::NoiseError> {
         let mut manager = self.inner.lock().unwrap();
-        manager.get_session_mut(session_id)
+        manager
+            .get_session_mut(session_id)
             .ok_or_else(|| crate::errors::NoiseError::Other("Session not found".to_string()))?
             .encrypt(plaintext)
     }
 
     /// Decrypt data using a specific session
-    pub fn decrypt(&self, session_id: &SessionId, ciphertext: &[u8]) -> Result<Vec<u8>, crate::errors::NoiseError> {
+    pub fn decrypt(
+        &self,
+        session_id: &SessionId,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, crate::errors::NoiseError> {
         let mut manager = self.inner.lock().unwrap();
-        manager.get_session_mut(session_id)
+        manager
+            .get_session_mut(session_id)
             .ok_or_else(|| crate::errors::NoiseError::Other("Session not found".to_string()))?
             .decrypt(ciphertext)
     }

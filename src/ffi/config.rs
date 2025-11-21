@@ -1,5 +1,5 @@
-use crate::mobile_manager::MobileConfig;
 use crate::ffi::types::FfiMobileConfig;
+use crate::mobile_manager::MobileConfig;
 
 #[uniffi::export]
 pub fn default_config() -> FfiMobileConfig {
@@ -14,7 +14,8 @@ pub fn battery_saver_config() -> FfiMobileConfig {
         reconnect_delay_ms: 2000,
         battery_saver: true,
         chunk_size: 16384,
-    }.into()
+    }
+    .into()
 }
 
 #[uniffi::export]
@@ -25,7 +26,8 @@ pub fn performance_config() -> FfiMobileConfig {
         reconnect_delay_ms: 100,
         battery_saver: false,
         chunk_size: 65536,
-    }.into()
+    }
+    .into()
 }
 
 #[uniffi::export]
@@ -45,4 +47,3 @@ pub fn public_key_from_secret(secret: Vec<u8>) -> Vec<u8> {
     }
     crate::kdf::x25519_pk_from_sk(&secret_arr).to_vec()
 }
-

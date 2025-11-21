@@ -1,12 +1,12 @@
 #![cfg(feature = "pubky-sdk")]
 
-use crate::ring::RingKeyProvider;
 use crate::errors::NoiseError;
+use crate::ring::RingKeyProvider;
 use pubky::Keypair;
-use pubky::Signer; 
 
 pub struct PubkyRingProvider {
     keypair: Keypair,
+    #[allow(dead_code)]
     device_id: Vec<u8>,
 }
 
@@ -20,8 +20,13 @@ impl PubkyRingProvider {
 }
 
 impl RingKeyProvider for PubkyRingProvider {
-    fn derive_device_x25519(&self, _kid: &str, device_id: &[u8], epoch: u32) -> Result<[u8; 32], NoiseError> {
-        let seed = self.keypair.secret_key().to_bytes();
+    fn derive_device_x25519(
+        &self,
+        _kid: &str,
+        device_id: &[u8],
+        epoch: u32,
+    ) -> Result<[u8; 32], NoiseError> {
+        let seed = self.keypair.secret_key();
         let sk = crate::kdf::derive_x25519_for_device_epoch(&seed, device_id, epoch);
         Ok(sk)
     }
@@ -34,4 +39,3 @@ impl RingKeyProvider for PubkyRingProvider {
         Ok(self.keypair.sign(msg).to_bytes())
     }
 }
-

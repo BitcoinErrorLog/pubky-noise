@@ -1,15 +1,20 @@
 use crate::errors::NoiseError;
 use std::fmt;
 
-#[cfg_attr(feature = "storage-queue", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "storage-queue",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SessionId(pub [u8; 32]);
 
 impl SessionId {
     pub fn from_handshake(hs: &snow::HandshakeState) -> Result<Self, NoiseError> {
+        // Use handshake hash as session ID (available in Snow 0.9)
+        // This is cryptographically unique per handshake
+        let hash = hs.get_handshake_hash();
         let mut out = [0u8; 32];
-        hs.export_keying_material(b"pubky-session-id:v1", &mut out)
-            .map_err(|e| NoiseError::Snow(e.to_string()))?;
+        out.copy_from_slice(hash);
         Ok(Self(out))
     }
 
@@ -43,4 +48,3 @@ impl fmt::Debug for SessionId {
         write!(f, "SessionId({})", self)
     }
 }
-

@@ -1,7 +1,7 @@
 use crate::errors::NoiseError;
 use crate::session_id::SessionId;
 
-pub struct NoiseTransport { 
+pub struct NoiseTransport {
     inner: snow::TransportState,
     session_id: SessionId,
 }
@@ -9,7 +9,7 @@ pub struct NoiseTransport {
 impl NoiseTransport {
     pub fn from_handshake(hs: snow::HandshakeState) -> Result<Self, NoiseError> {
         let session_id = SessionId::from_handshake(&hs)?;
-        Ok(Self { 
+        Ok(Self {
             inner: hs.into_transport_mode()?,
             session_id,
         })
@@ -29,9 +29,11 @@ impl NoiseTransport {
         out.truncate(n);
         Ok(out)
     }
-    pub fn export_session_tag(hs: &snow::HandshakeState) -> Result<[u8;32], NoiseError> {
-        let mut out = [0u8;32];
-        hs.export_keying_material(b"pubky-session-tag:v1", &mut out)?;
+    pub fn export_session_tag(hs: &snow::HandshakeState) -> Result<[u8; 32], NoiseError> {
+        // Use handshake hash as session tag (available in Snow 0.9)
+        let hash = hs.get_handshake_hash();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(hash);
         Ok(out)
     }
 }

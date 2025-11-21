@@ -30,11 +30,11 @@ impl Default for RetryConfig {
 }
 
 /// Storage-backed messaging with Noise encryption
-/// 
+///
 /// This implementation follows the Outbox Pattern: senders write to their own
 /// repository (authenticated write), and receivers poll the sender's repository
 /// (public read).
-/// 
+///
 /// **Important**: You must persist `write_counter` and `read_counter` values
 /// across application restarts to avoid data loss or message replay.
 pub struct StorageBackedMessaging {
@@ -76,7 +76,7 @@ impl StorageBackedMessaging {
     }
 
     /// Set the initial counters (useful for resuming sessions from persisted state)
-    /// 
+    ///
     /// **Critical for production**: Always persist and restore these counters
     /// to avoid data loss or message replay across app restarts.
     pub fn with_counters(mut self, write: u64, read: u64) -> Self {
@@ -113,11 +113,11 @@ impl StorageBackedMessaging {
     pub async fn send_message(&mut self, plaintext: &[u8]) -> Result<(), NoiseError> {
         let ciphertext = self.noise_link.encrypt(plaintext)?;
         let path = format!("{}/msg_{}", self.write_path, self.write_counter);
-        
+
         // Retry with exponential backoff
         let mut attempt = 0;
         let mut backoff_ms = self.retry_config.initial_backoff_ms;
-        
+
         loop {
             match self.session.storage().put(&path, ciphertext.clone()).await {
                 Ok(_) => {
@@ -128,16 +128,16 @@ impl StorageBackedMessaging {
                     attempt += 1;
                     if attempt >= self.retry_config.max_retries {
                         return Err(NoiseError::Storage(format!(
-                            "Failed to put after {} attempts: {:?}", 
+                            "Failed to put after {} attempts: {:?}",
                             attempt, e
                         )));
                     }
-                    
+
                     // Exponential backoff with cap
                     // Note: For WASM targets, consider using gloo-timers or similar
                     #[cfg(not(target_arch = "wasm32"))]
                     tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
-                    
+
                     backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
                 }
             }
@@ -145,28 +145,33 @@ impl StorageBackedMessaging {
     }
 
     /// Receive messages with retry logic for transient errors
-    pub async fn receive_messages(&mut self, max_messages: Option<usize>) -> Result<Vec<Vec<u8>>, NoiseError> {
+    pub async fn receive_messages(
+        &mut self,
+        max_messages: Option<usize>,
+    ) -> Result<Vec<Vec<u8>>, NoiseError> {
         let mut messages = Vec::new();
         let limit = max_messages.unwrap_or(10); // Default limit to avoid infinite loops
         let mut attempts = 0;
 
         while attempts < limit {
             let path = format!("{}/msg_{}", self.read_path, self.read_counter);
-            
+
             // Retry logic for transient errors
             let mut retry_attempt = 0;
             let mut backoff_ms = self.retry_config.initial_backoff_ms;
-            
+
             loop {
-                match self.public_client.get(&path).await {
+                match self.public_client.public_storage().get(&path).await {
                     Ok(response) => {
                         if response.status().is_success() {
-                            let ciphertext = response.bytes().await
-                                .map_err(|e| NoiseError::Network(format!("Failed to read bytes: {:?}", e)))?;
-                            
-                            let plaintext = self.noise_link.decrypt(&ciphertext)
-                                .map_err(|e| NoiseError::Decryption(format!("Failed to decrypt: {:?}", e)))?;
-                            
+                            let ciphertext = response.bytes().await.map_err(|e| {
+                                NoiseError::Network(format!("Failed to read bytes: {:?}", e))
+                            })?;
+
+                            let plaintext = self.noise_link.decrypt(&ciphertext).map_err(|e| {
+                                NoiseError::Decryption(format!("Failed to decrypt: {:?}", e))
+                            })?;
+
                             messages.push(plaintext);
                             self.read_counter += 1;
                             attempts += 1;
@@ -174,44 +179,46 @@ impl StorageBackedMessaging {
                         } else if response.status().as_u16() == 404 {
                             // No more messages - this is expected, not an error
                             return Ok(messages);
-                        } else if response.status().as_u16() >= 500 && retry_attempt < self.retry_config.max_retries {
+                        } else if response.status().as_u16() >= 500
+                            && retry_attempt < self.retry_config.max_retries
+                        {
                             // Server error - retry
                             retry_attempt += 1;
-                            
+
                             #[cfg(not(target_arch = "wasm32"))]
                             tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
-                            
+
                             backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
                             continue;
                         } else {
                             // Other error (client error or exhausted retries)
                             return Err(NoiseError::Storage(format!(
-                                "Failed to get message: status {}", 
+                                "Failed to get message: status {}",
                                 response.status()
                             )));
                         }
-                    },
-                    Err(e) if retry_attempt < self.retry_config.max_retries => {
+                    }
+                    Err(_e) if retry_attempt < self.retry_config.max_retries => {
                         // Network error - retry
                         retry_attempt += 1;
-                        
+
                         #[cfg(not(target_arch = "wasm32"))]
                         tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
-                        
+
                         backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
                         continue;
                     }
                     Err(e) => {
                         // Exhausted retries
                         return Err(NoiseError::Network(format!(
-                            "Network error after {} retries: {:?}", 
+                            "Network error after {} retries: {:?}",
                             retry_attempt, e
                         )));
                     }
                 }
             }
         }
-        
+
         Ok(messages)
     }
 
@@ -219,9 +226,9 @@ impl StorageBackedMessaging {
         // Estimate by checking if next message exists
         // This is just a peek, doesn't guarantee total count without scanning
         let path = format!("{}/msg_{}", self.read_path, self.read_counter);
-        match self.public_client.get(&path).await {
+        match self.public_client.public_storage().get(&path).await {
             Ok(r) if r.status().is_success() => Ok(1), // At least 1
-            _ => Ok(0)
+            _ => Ok(0),
         }
     }
 }

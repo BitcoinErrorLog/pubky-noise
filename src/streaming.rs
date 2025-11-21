@@ -36,7 +36,11 @@ impl StreamingNoiseLink {
 
     pub fn encrypt_chunk(&mut self, chunk: &[u8]) -> Result<Vec<u8>, NoiseError> {
         if chunk.len() > self.chunk_size {
-            return Err(NoiseError::Other(format!("Chunk size {} exceeds limit {}", chunk.len(), self.chunk_size)));
+            return Err(NoiseError::Other(format!(
+                "Chunk size {} exceeds limit {}",
+                chunk.len(),
+                self.chunk_size
+            )));
         }
         self.inner.encrypt(chunk)
     }
@@ -53,4 +57,3 @@ impl StreamingNoiseLink {
         &mut self.inner
     }
 }
-
