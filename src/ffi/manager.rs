@@ -49,12 +49,9 @@ impl FfiNoiseManager {
             *seed_zeroizing, // Deref to get the value, will be zeroed on drop
             client_kid.clone(),
             device_id.clone(),
-            0, // initial epoch
         ));
 
-        let client = Arc::new(NoiseClient::<_, ()>::new_direct(
-            client_kid, device_id, ring,
-        ));
+        let client = Arc::new(NoiseClient::<_>::new_direct(client_kid, device_id, ring));
 
         let mobile_config: MobileConfig = config.into();
         let manager = NoiseManager::new_client(client, mobile_config);
@@ -67,12 +64,7 @@ impl FfiNoiseManager {
         }))
     }
 
-    pub fn connect_client(
-        &self,
-        server_pk: Vec<u8>,
-        epoch: u32,
-        hint: Option<String>,
-    ) -> Result<String, FfiNoiseError> {
+    pub fn connect_client(&self, server_pk: Vec<u8>) -> Result<String, FfiNoiseError> {
         let mut pk_arr = [0u8; 32];
         if server_pk.len() != 32 {
             return Err(FfiNoiseError::Ring {
@@ -92,7 +84,7 @@ impl FfiNoiseManager {
         // Note: tokio runtime not needed for synchronous initiate_connection
         // The method is sync and returns immediately with the first handshake message
         let (session_id, _first_msg) = manager
-            .initiate_connection(&pk_arr, epoch, hint.as_deref())
+            .initiate_connection(&pk_arr)
             .map_err(FfiNoiseError::from)?;
 
         #[cfg(feature = "trace")]
@@ -134,12 +126,9 @@ impl FfiNoiseManager {
             *seed_zeroizing,
             server_kid.clone(),
             device_id.clone(),
-            0, // initial epoch
         ));
 
-        let server = Arc::new(NoiseServer::<_, ()>::new_direct(
-            server_kid, device_id, ring, 0, // initial epoch
-        ));
+        let server = Arc::new(NoiseServer::<_>::new_direct(server_kid, device_id, ring));
 
         let mobile_config: MobileConfig = config.into();
         let manager = NoiseManager::new_server(server, mobile_config);

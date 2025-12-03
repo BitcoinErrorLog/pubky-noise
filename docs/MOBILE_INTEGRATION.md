@@ -62,7 +62,7 @@ use std::sync::Arc;
 let ring = Arc::new(DummyRing::new([1u8; 32], "my-key-id"));
 
 // 2. Create client
-let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+let client = Arc::new(NoiseClient::<_>::new_direct(
     "my-key-id",
     b"device-unique-id",
     ring
@@ -199,7 +199,7 @@ use pubky_noise::{ThreadSafeSessionManager, NoiseClient, DummyRing};
 use std::sync::Arc;
 
 let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
-let client = Arc::new(NoiseClient::<_, ()>::new_direct("kid", b"device", ring));
+let client = Arc::new(NoiseClient::<_>::new_direct("kid", b"device", ring));
 
 // Thread-safe by default
 let manager = ThreadSafeSessionManager::new_client(client);

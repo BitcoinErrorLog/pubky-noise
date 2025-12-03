@@ -16,7 +16,7 @@ use zeroize::Zeroizing;
 ///    zeroized after use. No keys persist in application memory.
 ///
 /// 2. **Hierarchical Derivation**: Device-specific keys are derived from a root
-///    seed using HKDF, allowing key rotation through epoch management.
+///    seed using HKDF, with device ID providing key isolation.
 ///
 /// 3. **Memory Safety**: The companion `RingKeyFiller` trait ensures derived keys
 ///    are wrapped in `Zeroizing` and passed through closures, preventing leakage.
@@ -51,7 +51,6 @@ use zeroize::Zeroizing;
 /// let x25519_key = ring.derive_device_x25519(
 ///     "test-key-id",
 ///     b"device-001",
-///     0, // epoch
 /// )?;
 ///
 /// // Get Ed25519 public key
@@ -79,10 +78,9 @@ use zeroize::Zeroizing;
 ///         &self,
 ///         kid: &str,
 ///         device_id: &[u8],
-///         epoch: u32,
 ///     ) -> Result<[u8; 32], NoiseError> {
 ///         // 1. Decrypt seed from secure storage
-///         // 2. Derive key using HKDF
+///         // 2. Derive key using HKDF with device_id as context
 ///         // 3. Apply X25519 clamping
 ///         // 4. Zero temporary buffers
 ///         // 5. Return derived key
@@ -111,26 +109,25 @@ use zeroize::Zeroizing;
 ///
 /// - [`RingKeyFiller`] - Companion trait that wraps keys in `Zeroizing`
 /// - [`DummyRing`] - Testing implementation
-/// - [`PubkyRingProvider`] - Production implementation using Pubky SDK (optional feature)
+/// - `PubkyRingProvider` - Production implementation using Pubky SDK (requires `pubky-sdk` feature)
 pub trait RingKeyProvider: Send + Sync {
     /// Derive a device-specific X25519 secret key.
     ///
     /// This method derives an ephemeral X25519 secret key for Noise Protocol
-    /// handshakes. The key is specific to the device ID and epoch, allowing
-    /// key rotation and per-device isolation.
+    /// handshakes. The key is specific to the device ID, allowing
+    /// per-device isolation.
     ///
     /// # Key Derivation
     ///
     /// The implementation should:
     /// 1. Use HKDF-SHA512 with domain separation salt
-    /// 2. Bind to both `device_id` and `epoch` in the HKDF info parameter
+    /// 2. Bind to `device_id` in the HKDF info parameter
     /// 3. Apply X25519 scalar clamping per RFC 7748
     ///
     /// # Arguments
     ///
     /// * `kid` - Key identifier for looking up the root seed
     /// * `device_id` - Device identifier for key isolation
-    /// * `epoch` - Key rotation epoch (increment to rotate keys)
     ///
     /// # Returns
     ///
@@ -140,12 +137,7 @@ pub trait RingKeyProvider: Send + Sync {
     ///
     /// **Important**: The returned key will be wrapped in `Zeroizing` by
     /// `RingKeyFiller::with_device_x25519()`. Never store or log this key.
-    fn derive_device_x25519(
-        &self,
-        kid: &str,
-        device_id: &[u8],
-        epoch: u32,
-    ) -> Result<[u8; 32], NoiseError>;
+    fn derive_device_x25519(&self, kid: &str, device_id: &[u8]) -> Result<[u8; 32], NoiseError>;
 
     /// Get the Ed25519 public key for identity binding.
     ///
@@ -226,7 +218,6 @@ pub trait RingKeyProvider: Send + Sync {
 /// let result = ring.with_device_x25519(
 ///     "key-id",
 ///     b"device-001",
-///     0,
 ///     |secret_key: &Zeroizing<[u8; 32]>| {
 ///         // Use secret_key here
 ///         // It will be zeroized when this closure returns
@@ -250,7 +241,6 @@ pub trait RingKeyFiller: Send + Sync {
     ///
     /// * `kid` - Key identifier
     /// * `device_id` - Device identifier
-    /// * `epoch` - Key rotation epoch
     /// * `f` - Closure that receives the zeroizing-wrapped key
     ///
     /// # Returns
@@ -273,34 +263,22 @@ pub trait RingKeyFiller: Send + Sync {
     /// let ring = Arc::new(DummyRing::new([42u8; 32], "key-id"));
     ///
     /// // Derive and use key in one operation
-    /// ring.with_device_x25519("key-id", b"device", 0, |sk| {
+    /// ring.with_device_x25519("key-id", b"device", |sk| {
     ///     // sk is &Zeroizing<[u8; 32]>
     ///     // Use sk here, it will be zeroized automatically
     /// })?;
     /// # Ok::<(), pubky_noise::NoiseError>(())
     /// ```
-    fn with_device_x25519<F, T>(
-        &self,
-        kid: &str,
-        device_id: &[u8],
-        epoch: u32,
-        f: F,
-    ) -> Result<T, NoiseError>
+    fn with_device_x25519<F, T>(&self, kid: &str, device_id: &[u8], f: F) -> Result<T, NoiseError>
     where
         F: FnOnce(&Zeroizing<[u8; 32]>) -> T;
 }
 impl<T: RingKeyProvider + ?Sized> RingKeyFiller for T {
-    fn with_device_x25519<F, U>(
-        &self,
-        kid: &str,
-        device_id: &[u8],
-        epoch: u32,
-        f: F,
-    ) -> Result<U, NoiseError>
+    fn with_device_x25519<F, U>(&self, kid: &str, device_id: &[u8], f: F) -> Result<U, NoiseError>
     where
         F: FnOnce(&Zeroizing<[u8; 32]>) -> U,
     {
-        let sk = self.derive_device_x25519(kid, device_id, epoch)?;
+        let sk = self.derive_device_x25519(kid, device_id)?;
         let z = Zeroizing::new(sk);
         Ok(f(&z))
     }
@@ -335,7 +313,7 @@ impl<T: RingKeyProvider + ?Sized> RingKeyFiller for T {
 /// let ring = DummyRing::new(seed, "test-key-id");
 ///
 /// // Derive keys
-/// let x25519_key = ring.derive_device_x25519("test-key-id", b"device-001", 0)?;
+/// let x25519_key = ring.derive_device_x25519("test-key-id", b"device-001")?;
 /// let ed25519_pub = ring.ed25519_pubkey("test-key-id")?;
 /// # Ok::<(), pubky_noise::NoiseError>(())
 /// ```
@@ -344,7 +322,6 @@ pub struct DummyRing {
     seed32: [u8; 32],
     kid: String,        // Stored for reference but not directly accessed
     device_id: Vec<u8>, // Stored for reference but not directly accessed
-    epoch: u32,         // Stored for reference but not directly accessed
 }
 impl DummyRing {
     /// Create a new dummy ring with full device parameters.
@@ -354,7 +331,6 @@ impl DummyRing {
     /// * `seed32` - 32-byte seed for key derivation
     /// * `kid` - Key identifier
     /// * `device_id` - Device identifier
-    /// * `epoch` - Initial epoch
     ///
     /// # Examples
     ///
@@ -365,25 +341,22 @@ impl DummyRing {
     ///     [42u8; 32],
     ///     "key-id",
     ///     b"device-001",
-    ///     0,
     /// );
     /// ```
     pub fn new_with_device(
         seed32: [u8; 32],
         kid: impl Into<String>,
         device_id: impl AsRef<[u8]>,
-        epoch: u32,
     ) -> Self {
         Self {
             seed32,
             kid: kid.into(),
             device_id: device_id.as_ref().to_vec(),
-            epoch,
         }
     }
     /// Create a new dummy ring with minimal parameters.
     ///
-    /// Uses default device ID ("default") and epoch (0).
+    /// Uses default device ID ("default").
     ///
     /// # Arguments
     ///
@@ -402,18 +375,12 @@ impl DummyRing {
             seed32,
             kid: kid.into(),
             device_id: b"default".to_vec(),
-            epoch: 0,
         }
     }
 }
 impl RingKeyProvider for DummyRing {
-    fn derive_device_x25519(
-        &self,
-        _kid: &str,
-        device_id: &[u8],
-        epoch: u32,
-    ) -> Result<[u8; 32], NoiseError> {
-        let sk = crate::kdf::derive_x25519_for_device_epoch(&self.seed32, device_id, epoch);
+    fn derive_device_x25519(&self, _kid: &str, device_id: &[u8]) -> Result<[u8; 32], NoiseError> {
+        let sk = crate::kdf::derive_x25519_static(&self.seed32, device_id);
         Ok(sk)
     }
     fn ed25519_pubkey(&self, _kid: &str) -> Result<[u8; 32], NoiseError> {

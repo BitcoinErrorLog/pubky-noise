@@ -1,7 +1,10 @@
-#![cfg(feature = "storage-queue")]
+//! Storage-backed messaging queue.
+//!
+//! This module provides `StorageBackedMessaging` for asynchronous messaging using
+//! Pubky storage as a queue. Requires the `storage-queue` feature.
 
-use crate::datalink_adapter::NoiseLink;
 use crate::errors::NoiseError;
+use crate::transport::NoiseSession;
 use pubky::{Pubky, PubkySession};
 use std::time::Duration;
 
@@ -38,7 +41,7 @@ impl Default for RetryConfig {
 /// **Important**: You must persist `write_counter` and `read_counter` values
 /// across application restarts to avoid data loss or message replay.
 pub struct StorageBackedMessaging {
-    noise_link: NoiseLink,
+    noise_session: NoiseSession,
     session: PubkySession,
     public_client: Pubky,
     write_path: String,
@@ -57,15 +60,15 @@ pub trait MessageQueue {
 impl StorageBackedMessaging {
     /// Create a new StorageBackedMessaging instance with default retry configuration
     pub fn new(
-        link: NoiseLink,
-        session: PubkySession,
+        session: NoiseSession,
+        pubky_session: PubkySession,
         public_client: Pubky,
         write_path: String,
         read_path: String,
     ) -> Self {
         Self {
-            noise_link: link,
-            session,
+            noise_session: session,
+            session: pubky_session,
             public_client,
             write_path,
             read_path,
@@ -111,7 +114,7 @@ impl StorageBackedMessaging {
 
     /// Send a message with retry logic and exponential backoff
     pub async fn send_message(&mut self, plaintext: &[u8]) -> Result<(), NoiseError> {
-        let ciphertext = self.noise_link.encrypt(plaintext)?;
+        let ciphertext = self.noise_session.encrypt(plaintext)?;
         let path = format!("{}/msg_{}", self.write_path, self.write_counter);
 
         // Retry with exponential backoff
@@ -168,9 +171,10 @@ impl StorageBackedMessaging {
                                 NoiseError::Network(format!("Failed to read bytes: {:?}", e))
                             })?;
 
-                            let plaintext = self.noise_link.decrypt(&ciphertext).map_err(|e| {
-                                NoiseError::Decryption(format!("Failed to decrypt: {:?}", e))
-                            })?;
+                            let plaintext =
+                                self.noise_session.decrypt(&ciphertext).map_err(|e| {
+                                    NoiseError::Decryption(format!("Failed to decrypt: {:?}", e))
+                                })?;
 
                             messages.push(plaintext);
                             self.read_counter += 1;

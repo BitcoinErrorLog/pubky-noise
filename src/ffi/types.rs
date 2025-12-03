@@ -71,7 +71,6 @@ impl From<FfiMobileConfig> for MobileConfig {
 pub struct FfiSessionState {
     pub session_id: String,
     pub peer_static_pk: Vec<u8>,
-    pub epoch: u32,
     pub write_counter: u64,
     pub read_counter: u64,
     pub status: FfiConnectionStatus,
@@ -82,7 +81,6 @@ impl From<SessionState> for FfiSessionState {
         Self {
             session_id: state.session_id.to_string(),
             peer_static_pk: state.peer_static_pk.to_vec(),
-            epoch: state.epoch,
             write_counter: state.write_counter,
             read_counter: state.read_counter,
             status: state.status.into(),
@@ -116,7 +114,6 @@ impl TryFrom<FfiSessionState> for SessionState {
         Ok(Self {
             session_id: SessionId(sid),
             peer_static_pk: peer_pk,
-            epoch: state.epoch,
             write_counter: state.write_counter,
             read_counter: state.read_counter,
             status: state.status.into(),

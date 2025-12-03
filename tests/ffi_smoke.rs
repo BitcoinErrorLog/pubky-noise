@@ -8,7 +8,7 @@
 use pubky_noise::ffi::config::{default_config, performance_config};
 use pubky_noise::ffi::manager::FfiNoiseManager;
 use pubky_noise::ffi::types::{FfiConnectionStatus, FfiMobileConfig};
-use pubky_noise::kdf::derive_x25519_for_device_epoch;
+use pubky_noise::kdf::derive_x25519_static;
 use pubky_noise::kdf::x25519_pk_from_sk;
 
 #[test]
@@ -21,7 +21,7 @@ fn test_ffi_smoke() {
     let server_device_id = b"server_device".to_vec();
 
     // Server setup (manual for now as FFI doesn't expose server)
-    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0);
+    let server_sk = derive_x25519_static(&server_seed, &server_device_id);
     let server_pk = x25519_pk_from_sk(&server_sk);
 
     // Create manager
@@ -31,7 +31,7 @@ fn test_ffi_smoke() {
 
     // Connect
     let session_id = manager
-        .connect_client(server_pk.to_vec(), 0, None)
+        .connect_client(server_pk.to_vec())
         .expect("Failed to connect");
 
     println!("Connected with session ID: {}", session_id);

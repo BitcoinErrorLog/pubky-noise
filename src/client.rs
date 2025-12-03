@@ -1,8 +1,6 @@
 use crate::errors::NoiseError;
 use crate::identity_payload::{make_binding_message, IdentityPayload, Role};
 use crate::ring::{RingKeyFiller, RingKeyProvider};
-#[cfg(not(feature = "pkarr"))]
-use std::marker::PhantomData;
 use zeroize::Zeroizing;
 
 /// Noise Protocol client for initiating encrypted sessions.
@@ -17,9 +15,6 @@ use zeroize::Zeroizing;
 /// * `R: RingKeyProvider` - Key provider for device-specific X25519 and Ed25519 keys.
 ///   Keys are derived on-demand and never stored in application memory.
 ///
-/// * `P` - Optional PKARR resolver for out-of-band metadata. Use `()` for direct
-///   connections without PKARR support.
-///
 /// # Key Features
 ///
 /// - **Secure Key Management**: Keys are derived in closures and passed directly
@@ -27,9 +22,6 @@ use zeroize::Zeroizing;
 ///
 /// - **Identity Binding**: Each session binds the long-term Ed25519 identity to
 ///   the ephemeral X25519 session key, preventing identity substitution.
-///
-/// - **Epoch-Based Rotation**: Supports key rotation through epoch values, allowing
-///   clients to evolve their keys over time.
 ///
 /// - **All-Zero DH Rejection**: Automatically rejects invalid peer keys that would
 ///   result in weak/trivial shared secrets.
@@ -73,35 +65,12 @@ use zeroize::Zeroizing;
 ///
 /// // Initiate IK handshake with known server
 /// let server_static_pk = [0u8; 32]; // Server's public key
-/// let epoch = 0;
-/// let (handshake_state, first_message, used_epoch) =
-///     client.build_initiator_ik_direct(&server_static_pk, epoch, None)?;
+/// let (handshake_state, first_message) =
+///     client.build_initiator_ik_direct(&server_static_pk)?;
 ///
 /// // Send first_message to server...
 /// # Ok(())
 /// # }
-/// ```
-///
-/// ## With PKARR Support
-///
-/// ```ignore
-/// // Requires the 'pkarr' feature to be enabled
-/// use pubky_noise::{NoiseClient, DummyRing, DummyPkarr};
-/// use std::sync::Arc;
-///
-/// let ring = Arc::new(DummyRing::new([0u8; 32], "key-id"));
-/// let pkarr = Arc::new(DummyPkarr);
-///
-/// // Client with PKARR resolver
-/// let client = NoiseClient {
-///     kid: "key-id".into(),
-///     device_id: b"device-001".to_vec(),
-///     ring,
-///     pkarr,
-///     prologue: b"pubky-noise-v1".to_vec(),
-///     suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
-///     now_unix: None,
-/// };
 /// ```
 ///
 /// # Security Considerations
@@ -113,9 +82,6 @@ use zeroize::Zeroizing;
 /// - **Server Key Validation**: Always verify the server's static public key
 ///   through a trusted channel before using IK pattern.
 ///
-/// - **Epoch Management**: Coordinate epoch values with the server. Mismatched
-///   epochs will cause handshake failures.
-///
 /// - **Weak DH Detection**: The client automatically rejects peer keys that would
 ///   result in all-zero shared secrets, preventing weak DH attacks.
 ///
@@ -123,24 +89,17 @@ use zeroize::Zeroizing;
 ///
 /// `NoiseClient` is `Send` and `Sync` if its generic parameters are. The key
 /// provider `R` must implement `Send + Sync` as enforced by the trait bounds.
-pub struct NoiseClient<R: RingKeyProvider, P> {
+pub struct NoiseClient<R: RingKeyProvider> {
     pub kid: String,
     pub device_id: Vec<u8>,
     pub ring: std::sync::Arc<R>,
-    #[cfg(feature = "pkarr")]
-    pub pkarr: std::sync::Arc<P>,
-    #[cfg(not(feature = "pkarr"))]
-    _phantom: PhantomData<P>,
     pub prologue: Vec<u8>,
     pub suite: String,
     pub now_unix: Option<u64>,
 }
 
-impl<R: RingKeyProvider> NoiseClient<R, ()> {
-    /// Create a new Noise client for direct connections (without PKARR).
-    ///
-    /// This is the most common constructor for applications that don't use PKARR
-    /// metadata. The client will use the IK pattern with a known server static key.
+impl<R: RingKeyProvider> NoiseClient<R> {
+    /// Create a new Noise client for direct connections.
     ///
     /// # Arguments
     ///
@@ -148,8 +107,7 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     ///   This should uniquely identify the keypair for this client.
     ///
     /// * `device_id` - Device identifier used for key derivation. Each device
-    ///   should have a unique identifier. This is combined with the epoch to
-    ///   derive device-specific ephemeral keys.
+    ///   should have a unique identifier.
     ///
     /// * `ring` - Arc-wrapped key provider implementing `RingKeyProvider`.
     ///   The provider will be called to derive keys on-demand.
@@ -159,7 +117,6 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     /// A new `NoiseClient` configured with:
     /// - Prologue: `"pubky-noise-v1"`
     /// - Suite: `Noise_IK_25519_ChaChaPoly_BLAKE2s`
-    /// - No PKARR resolver
     ///
     /// # Examples
     ///
@@ -179,10 +136,6 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
             kid: kid.into(),
             device_id: device_id.as_ref().to_vec(),
             ring,
-            #[cfg(feature = "pkarr")]
-            pkarr: std::sync::Arc::new(()),
-            #[cfg(not(feature = "pkarr"))]
-            _phantom: PhantomData,
             prologue: b"pubky-noise-v1".to_vec(),
             suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
             now_unix: None,
@@ -203,18 +156,11 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     ///   This must be known in advance (pinned or delivered out-of-band).
     ///   **Security**: Verify this key through a trusted channel.
     ///
-    /// * `epoch` - Key rotation epoch. Must match the server's expected epoch.
-    ///   Different epochs derive different keys, allowing key rotation.
-    ///
-    /// * `server_hint` - Optional server identifier for identity binding.
-    ///   Used to prevent cross-server signature replay.
-    ///
     /// # Returns
     ///
-    /// Returns `Ok((handshake_state, first_message, used_epoch))` on success:
+    /// Returns `Ok((handshake_state, first_message))` on success:
     /// - `handshake_state` - Snow handshake state for completing the handshake
     /// - `first_message` - Encrypted handshake message to send to server
-    /// - `used_epoch` - The epoch value used (same as input)
     ///
     /// # Errors
     ///
@@ -229,7 +175,7 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     /// - **All-Zero DH Check**: Automatically rejects weak peer keys
     /// - **Identity Binding**: Binds Ed25519 identity to X25519 session key
     /// - **Key Zeroization**: Ephemeral secret keys are zeroized after use
-    /// - **Domain Separation**: Uses "pubky-noise-bind:v1" prefix
+    /// - **Domain Separation**: Uses "pubky-noise-bind:v2" prefix
     ///
     /// # Examples
     ///
@@ -242,10 +188,9 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     /// let client = NoiseClient::new_direct("key-id", b"device-001", ring);
     ///
     /// let server_pk = [0u8; 32]; // Server's static public key
-    /// let epoch = 0;
     ///
-    /// let (hs, first_msg, epoch) = client
-    ///     .build_initiator_ik_direct(&server_pk, epoch, Some("server.example.com"))?;
+    /// let (hs, first_msg) = client
+    ///     .build_initiator_ik_direct(&server_pk)?;
     ///
     /// // Send first_msg to server over your transport...
     /// // Then complete handshake with server's response
@@ -255,9 +200,7 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     pub fn build_initiator_ik_direct(
         &self,
         server_static_pub: &[u8; 32],
-        epoch: u32,
-        server_hint: Option<&str>,
-    ) -> Result<(snow::HandshakeState, Vec<u8>, u32), NoiseError> {
+    ) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
         let builder = snow::Builder::new(
             self.suite
                 .parse::<snow::params::NoiseParams>()
@@ -267,7 +210,6 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
         let (mut hs, x_pk_arr) = self.ring.with_device_x25519(
             &self.kid,
             &self.device_id,
-            epoch,
             |x_sk: &Zeroizing<[u8; 32]>| {
                 if !crate::kdf::shared_secret_nonzero(x_sk, server_static_pub) {
                     return Err(NoiseError::InvalidPeerKey);
@@ -277,9 +219,9 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
 
                 // Chain builder calls since each method consumes and returns self
                 let hs = builder
-                    .local_private_key(&**x_sk) // Deref Zeroizing to &[u8; 32] to &[u8]
-                    .remote_public_key(server_static_pub)
-                    .prologue(&self.prologue)
+                    .local_private_key(&**x_sk)?
+                    .remote_public_key(server_static_pub)?
+                    .prologue(&self.prologue)?
                     .build_initiator()
                     .map_err(NoiseError::from)?;
                 Ok((hs, x_pk_arr))
@@ -294,18 +236,14 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
             &ed_pub,
             &x_pk_arr,
             Some(server_static_pub),
-            epoch,
             Role::Client,
-            server_hint,
         );
         let sig64 = self.ring.sign_ed25519(&self.kid, &msg32)?;
 
         let payload = IdentityPayload {
             ed25519_pub: ed_pub,
             noise_x25519_pub: x_pk_arr,
-            epoch,
             role: Role::Client,
-            server_hint: server_hint.map(|s| s.to_string()),
             sig: sig64,
         };
 
@@ -313,7 +251,7 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
         let mut out = vec![0u8; payload_bytes.len() + 128];
         let n = hs.write_message(&payload_bytes, &mut out)?;
         out.truncate(n);
-        Ok((hs, out, epoch))
+        Ok((hs, out))
     }
 
     /// Build an XX pattern handshake initiator (Trust On First Use).
@@ -325,10 +263,6 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     /// **Use Case**: Initial connection before the server's key is pinned.
     /// After the first successful XX handshake, switch to IK pattern with the
     /// now-known server key for better performance and stronger guarantees.
-    ///
-    /// # Arguments
-    ///
-    /// * `_server_hint` - Currently unused, reserved for future TOFU policy.
     ///
     /// # Returns
     ///
@@ -364,7 +298,7 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     /// let client = NoiseClient::new_direct("key-id", b"device-001", ring);
     ///
     /// // First contact - server key unknown
-    /// let (hs, first_msg) = client.build_initiator_xx_tofu(None)?;
+    /// let (hs, first_msg) = client.build_initiator_xx_tofu()?;
     ///
     /// // Send first_msg to server...
     /// // After handshake completes, extract and pin server's static key
@@ -372,24 +306,20 @@ impl<R: RingKeyProvider> NoiseClient<R, ()> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build_initiator_xx_tofu(
-        &self,
-        _server_hint: Option<&str>,
-    ) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
+    pub fn build_initiator_xx_tofu(&self) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
         let suite = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
         let builder = snow::Builder::new(
             suite
                 .parse::<snow::params::NoiseParams>()
                 .map_err(|e: snow::Error| NoiseError::Other(e.to_string()))?,
         );
-        let epoch = 0u32;
         let hs = self
             .ring
-            .with_device_x25519(&self.kid, &self.device_id, epoch, |x_sk| {
+            .with_device_x25519(&self.kid, &self.device_id, |x_sk| {
                 // Chain builder calls since each method consumes and returns self
                 builder
-                    .local_private_key(&**x_sk) // Deref Zeroizing to &[u8; 32] to &[u8]
-                    .prologue(&self.prologue)
+                    .local_private_key(&**x_sk)?
+                    .prologue(&self.prologue)?
                     .build_initiator()
                     .map_err(NoiseError::from)
             })?;

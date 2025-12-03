@@ -1,10 +1,19 @@
+//! Identity payload for binding Ed25519 identities to X25519 Noise sessions.
+//!
+//! This module provides the `IdentityPayload` structure and binding message functions
+//! used to cryptographically bind a long-term Ed25519 identity to ephemeral X25519
+//! session keys during Noise Protocol handshakes.
+
 use blake2::{Blake2s256, Digest};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
+/// Role in the Noise handshake.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Role {
+    /// Client/initiator role
     Client,
+    /// Server/responder role
     Server,
 }
 
@@ -33,29 +42,53 @@ mod signature_serde {
     }
 }
 
+/// Identity payload transmitted during Noise handshakes.
+///
+/// Binds a long-term Ed25519 identity to the ephemeral X25519 session key,
+/// preventing identity substitution attacks.
+///
+/// # Fields
+///
+/// - `ed25519_pub`: The sender's long-term Ed25519 public key (32 bytes)
+/// - `noise_x25519_pub`: The sender's X25519 key for this session (32 bytes)
+/// - `role`: Whether sender is Client or Server
+/// - `sig`: Ed25519 signature over the binding message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityPayload {
+    /// Long-term Ed25519 public key
     pub ed25519_pub: [u8; 32],
+    /// X25519 session key (derived from Ed25519 seed via HKDF)
     pub noise_x25519_pub: [u8; 32],
-    pub epoch: u32,
+    /// Handshake role
     pub role: Role,
-    pub server_hint: Option<String>,
+    /// Ed25519 signature over binding message
     #[serde(with = "signature_serde")]
     pub sig: [u8; 64],
 }
 
+/// Create a binding message hash for identity binding.
+///
+/// The binding message is a BLAKE2s hash of:
+/// - Domain separator: `"pubky-noise-bind:v2"` (v2 removes epoch)
+/// - Pattern tag (e.g., "IK", "XX")
+/// - Prologue
+/// - Ed25519 public key
+/// - Local X25519 public key
+/// - Remote X25519 public key (if known)
+/// - Role ("client" or "server")
+///
+/// This hash is signed by the Ed25519 key to prove ownership and bind
+/// the long-term identity to the session keys.
 pub fn make_binding_message(
     pattern_tag: &str,
     prologue: &[u8],
     ed25519_pub: &[u8; 32],
     local_noise_pub: &[u8; 32],
     remote_noise_pub: Option<&[u8; 32]>,
-    epoch: u32,
     role: Role,
-    server_hint: Option<&str>,
 ) -> [u8; 32] {
     let mut h = Blake2s256::new();
-    h.update(b"pubky-noise-bind:v1");
+    h.update(b"pubky-noise-bind:v2"); // v2: epoch removed
     h.update(pattern_tag.as_bytes());
     h.update(prologue);
     h.update(ed25519_pub);
@@ -63,24 +96,25 @@ pub fn make_binding_message(
     if let Some(r) = remote_noise_pub {
         h.update(r);
     }
-    h.update(epoch.to_le_bytes()); // Fixed: removed redundant & borrow
     h.update(match role {
         Role::Client => b"client",
         Role::Server => b"server",
     });
-    if let Some(hint) = server_hint {
-        h.update(hint.as_bytes());
-    }
     let out = h.finalize();
     let mut digest = [0u8; 32];
     digest.copy_from_slice(&out[..32]);
     digest
 }
 
+/// Sign a binding message with an Ed25519 signing key.
 pub fn sign_identity_payload(ed25519_sk: &SigningKey, msg32: &[u8; 32]) -> [u8; 64] {
     let sig: Signature = ed25519_sk.sign(msg32);
     sig.to_bytes()
 }
+
+/// Verify a binding message signature.
+///
+/// Returns `true` if the signature is valid for the given message and public key.
 pub fn verify_identity_payload(
     ed25519_pub: &VerifyingKey,
     msg32: &[u8; 32],

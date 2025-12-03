@@ -354,7 +354,7 @@ let ring = Arc::new(DummyRing::new_with_device(
     0
 ));
 
-let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+let client = Arc::new(NoiseClient::<_>::new_direct(
     client_kid,  // Original moved here
     device_id,   // Original moved here
     ring
@@ -369,7 +369,7 @@ let ring = Arc::new(DummyRing::new_with_device(
     &device_id,
     0
 ));
-let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+let client = Arc::new(NoiseClient::<_>::new_direct(
     client_kid,
     device_id,
     ring

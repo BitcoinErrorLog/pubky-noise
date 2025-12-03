@@ -92,8 +92,8 @@ pub enum NoiseErrorCode {
 ///     let ring = Arc::new(DummyRing::new([0u8; 32], "key-id"));
 ///     let client = NoiseClient::new_direct("key-id", b"device", ring);
 ///     
-///     match client.build_initiator_ik_direct(&[0u8; 32], 0, None) {
-///         Ok((hs, msg, epoch)) => {
+///     match client.build_initiator_ik_direct(&[0u8; 32]) {
+///         Ok((hs, msg)) => {
 ///             // Success - proceed with handshake
 ///             Ok(())
 ///         }
@@ -206,7 +206,6 @@ pub enum NoiseError {
     /// The connection was rejected due to policy constraints:
     /// - Too many connections from this IP
     /// - Too many sessions for this identity
-    /// - Client epoch below minimum
     /// - Rate limiting triggered
     ///
     /// **Recovery**: Back off and retry later, or contact server administrator.

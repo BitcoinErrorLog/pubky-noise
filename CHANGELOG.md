@@ -5,6 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-12-03
+
+### Added - Cold Key Architecture Support
+
+#### New Noise Patterns
+- **IK-raw**: IK handshake without in-band identity binding
+  - For cold key scenarios where identity is verified via pkarr
+  - `NoiseSender::initiate_ik_raw()` and `NoiseReceiver::respond_ik_raw()`
+- **N pattern**: Anonymous initiator, authenticated responder
+  - One-message pattern for anonymous clients
+  - `NoiseSender::initiate_n()` and `NoiseReceiver::respond_n()`
+- **NN pattern**: Fully anonymous (ephemeral-only)
+  - Two-message pattern with no static keys
+  - `NoiseSender::initiate_nn()` and `NoiseReceiver::respond_nn()`
+- **XX pattern improvements**: Better TOFU support
+  - `NoiseSender::initiate_xx()` and `NoiseReceiver::respond_xx()`
+
+#### Cold Key Infrastructure
+- **`RawNoiseManager`**: Pattern-selectable session manager for cold keys
+  - `initiate_connection_with_pattern()` and `accept_connection_with_pattern()`
+  - Supports all patterns: IK, IKRaw, N, NN, XX
+- **`NoisePattern` enum**: Pattern selection for managers
+- **`docs/COLD_KEY_ARCHITECTURE.md`**: Comprehensive documentation
+
+#### Datalink Adapter Helpers
+- `start_ik_raw()` / `accept_ik_raw()`: IK-raw convenience functions
+- `start_n()` / `accept_n()` / `complete_n()`: N pattern helpers
+- `start_nn()` / `accept_nn()`: NN pattern helpers
+- `complete_raw()`: Generic completion for raw patterns
+
+### Changed - Breaking Changes
+
+#### Snow 0.10 Upgrade
+- Upgraded from `snow = "0.9"` to `snow = "0.10"`
+- Builder methods now return `Result<Self, Error>` instead of `Self`
+- All builder chains updated with proper error propagation
+
+#### API Renames (with deprecated aliases)
+- `NoiseTransport` → `NoiseSession` (alias retained)
+- `StreamingNoiseLink` → `StreamingNoiseSession` (alias retained)
+- `NoiseLink` → `NoiseSession` (alias retained)
+- `derive_x25519_for_device_epoch()` → `derive_x25519_static()` (alias retained)
+
+#### Identity Binding Changes
+- Domain separator updated to `"pubky-noise-bind:v2"` (was v1)
+- `epoch` parameter removed from identity binding
+- `server_hint` removed entirely
+
+### Removed
+
+- **PKARR module**: Unused scaffolding removed
+- **`server_hint`**: Half-baked feature removed from `IdentityPayload`
+- **`epoch` from binding**: No longer part of handshake binding message
+- **`PhantomData<P>`**: Removed from `NoiseClient` and `NoiseServer`
+
+### Fixed
+
+- **Weak key rejection**: `respond_ik_raw()` now validates peer keys
+- **N pattern flow**: Fixed immediate transport transition
+- **XX pattern flow**: Fixed 3-message handshake state management
+- **Snow 0.10 API**: Fixed all builder method chains
+
+### Security
+
+- All raw patterns validate peer keys via `shared_secret_nonzero()`
+- Constant-time zero check prevents timing attacks
+- Cold key patterns document trust assumptions (pkarr verification required)
+
+### Documentation
+
+- Updated README with cold key architecture section
+- Updated pattern selection guide
+- Added `RawNoiseManager` usage examples
+- Created `COLD_KEY_ARCHITECTURE.md`
+- Created `PRODUCTION_READINESS_REPORT.md`
+
+### Testing
+
+- Added `tests/cold_key_patterns.rs` (13 new tests)
+- Weak key rejection tests
+- Session ID uniqueness tests
+- `RawNoiseManager` integration tests
+- All 140+ tests pass
+
 ## [0.7.0] - 2025-01-19
 
 ### Added - Mobile Integration
@@ -118,6 +202,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PKARR integration (optional)
 - Identity binding and payload verification
 
+[0.8.0]: https://github.com/pubky/pubky-noise/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/pubky/pubky-noise/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/pubky/pubky-noise/releases/tag/v0.6.0
 
