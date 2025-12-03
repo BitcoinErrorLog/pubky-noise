@@ -15,17 +15,16 @@ fn test_mobile_lifecycle() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "client-kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "server-kid"));
 
-    let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+    let client = Arc::new(NoiseClient::<_>::new_direct(
         "client-kid",
         b"mobile-device-123",
         ring_client,
     ));
 
-    let server = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server = Arc::new(NoiseServer::<_>::new_direct(
         "server-kid",
         b"server-device",
         ring_server.clone(),
-        3,
     ));
 
     // Create mobile manager
@@ -42,14 +41,14 @@ fn test_mobile_lifecycle() {
 
     // Get server's public key
     let server_sk = ring_server
-        .derive_device_x25519("server-kid", b"server-device", 3)
+        .derive_device_x25519("server-kid", b"server-device")
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // 3-step handshake using mobile_manager API
     // Step 1: Client initiates
     let (session_id, first_msg) = client_manager
-        .initiate_connection(&server_static_pk, 3, None)
+        .initiate_connection(&server_static_pk)
         .unwrap();
 
     // Step 2: Server accepts and responds
@@ -75,7 +74,7 @@ fn test_mobile_lifecycle() {
 
     // Simulate app resume - restore state
     let ring_client2 = Arc::new(DummyRing::new([1u8; 32], "client-kid"));
-    let client2 = Arc::new(NoiseClient::<_, ()>::new_direct(
+    let client2 = Arc::new(NoiseClient::<_>::new_direct(
         "client-kid",
         b"mobile-device-123",
         ring_client2,
@@ -96,29 +95,28 @@ fn test_session_id_serialization() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+    let client = Arc::new(NoiseClient::<_>::new_direct(
         "kid",
         b"dev-client",
         ring_client,
     ));
-    let server = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server = Arc::new(NoiseServer::<_>::new_direct(
         "kid",
         b"dev-server",
         ring_server.clone(),
-        3,
     ));
 
     // Perform 3-step handshake
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 3)
+        .derive_device_x25519("kid", b"dev-server")
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // Step 1: Client initiates
-    let (c_hs, _, first_msg) = client_start_ik_direct(&client, &server_static_pk, 3, None).unwrap();
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
 
     // Step 2: Server accepts and responds
-    let (s_hs, _, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let (s_hs, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
 
     // Step 3: Both complete
     let c_link = pubky_noise::datalink_adapter::client_complete_ik(c_hs, &response).unwrap();
@@ -144,32 +142,27 @@ fn test_session_id_serialization() {
 #[test]
 fn test_thread_safe_manager() {
     let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
-    let client = Arc::new(NoiseClient::<_, ()>::new_direct(
-        "kid",
-        b"device",
-        ring.clone(),
-    ));
+    let client = Arc::new(NoiseClient::<_>::new_direct("kid", b"device", ring.clone()));
 
     // Create thread-safe manager
     let manager = ThreadSafeSessionManager::new_client(client.clone());
 
     // Setup a session with 3-step handshake
     let server_ring = Arc::new(DummyRing::new([2u8; 32], "server"));
-    let server = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server = Arc::new(NoiseServer::<_>::new_direct(
         "server",
         b"server",
         server_ring.clone(),
-        3,
     ));
     let server_sk = server_ring
-        .derive_device_x25519("server", b"server", 3)
+        .derive_device_x25519("server", b"server")
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // Step 1: Client initiates
-    let (c_hs, _, first_msg) = client_start_ik_direct(&client, &server_static_pk, 3, None).unwrap();
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
     // Step 2: Server accepts
-    let (_, _, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let (_, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
     // Step 3: Client completes
     let link = client_complete_ik(c_hs, &response).unwrap();
     let session_id = link.session_id().clone();
@@ -219,23 +212,24 @@ fn test_error_codes() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_streaming_for_mobile() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone(), 3);
+    let client = NoiseClient::<_>::new_direct("kid", b"dev-client", ring_client);
+    let server = NoiseServer::<_>::new_direct("kid", b"dev-server", ring_server.clone());
 
     // 3-step handshake
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 3)
+        .derive_device_x25519("kid", b"dev-server")
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // Step 1: Client initiates
-    let (c_hs, _, first_msg) = client_start_ik_direct(&client, &server_static_pk, 3, None).unwrap();
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
     // Step 2: Server accepts and responds
-    let (s_hs, _, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let (s_hs, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
     // Step 3: Both complete
     let c_link = client_complete_ik(c_hs, &response).unwrap();
     let s_link = server_complete_ik(s_hs).unwrap();
@@ -297,11 +291,7 @@ fn test_mobile_config_presets() {
 #[test]
 fn test_multiple_session_management() {
     let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
-    let client = Arc::new(NoiseClient::<_, ()>::new_direct(
-        "kid",
-        b"device",
-        ring.clone(),
-    ));
+    let client = Arc::new(NoiseClient::<_>::new_direct("kid", b"device", ring.clone()));
 
     let mut manager = NoiseManager::new_client(client.clone(), MobileConfig::default());
 
@@ -309,26 +299,24 @@ fn test_multiple_session_management() {
     let ring_server1 = Arc::new(DummyRing::new([2u8; 32], "server1"));
     let ring_server2 = Arc::new(DummyRing::new([3u8; 32], "server2"));
 
-    let server1 = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server1 = Arc::new(NoiseServer::<_>::new_direct(
         "server1",
         b"server1",
         ring_server1.clone(),
-        3,
     ));
-    let server2 = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server2 = Arc::new(NoiseServer::<_>::new_direct(
         "server2",
         b"server2",
         ring_server2.clone(),
-        3,
     ));
 
     let server1_sk = ring_server1
-        .derive_device_x25519("server1", b"server1", 3)
+        .derive_device_x25519("server1", b"server1")
         .unwrap();
     let server1_pk = pubky_noise::kdf::x25519_pk_from_sk(&server1_sk);
 
     let server2_sk = ring_server2
-        .derive_device_x25519("server2", b"server2", 3)
+        .derive_device_x25519("server2", b"server2")
         .unwrap();
     let server2_pk = pubky_noise::kdf::x25519_pk_from_sk(&server2_sk);
 
@@ -337,12 +325,12 @@ fn test_multiple_session_management() {
     let mut server_manager2 = NoiseManager::new_server(server2, MobileConfig::default());
 
     // Session 1: Complete 3-step handshake using manager API
-    let (sid1_temp, first_msg1) = manager.initiate_connection(&server1_pk, 3, None).unwrap();
+    let (sid1_temp, first_msg1) = manager.initiate_connection(&server1_pk).unwrap();
     let (_, response1) = server_manager1.accept_connection(&first_msg1).unwrap();
     let sid1 = manager.complete_connection(&sid1_temp, &response1).unwrap();
 
     // Session 2: Complete 3-step handshake using manager API
-    let (sid2_temp, first_msg2) = manager.initiate_connection(&server2_pk, 3, None).unwrap();
+    let (sid2_temp, first_msg2) = manager.initiate_connection(&server2_pk).unwrap();
     let (_, response2) = server_manager2.accept_connection(&first_msg2).unwrap();
     let sid2 = manager.complete_connection(&sid2_temp, &response2).unwrap();
 
@@ -393,7 +381,7 @@ fn test_retry_config_mobile() {
 fn test_connection_status_tracking() {
     // Setup client
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "client_kid"));
-    let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+    let client = Arc::new(NoiseClient::<_>::new_direct(
         "client_kid",
         b"client_device",
         ring_client.clone(),
@@ -402,25 +390,22 @@ fn test_connection_status_tracking() {
 
     // Setup server
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "server_kid"));
-    let server = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server = Arc::new(NoiseServer::<_>::new_direct(
         "server_kid",
         b"server_device",
         ring_server.clone(),
-        3, // epoch
     ));
     let mut server_manager = NoiseManager::new_server(server.clone(), MobileConfig::default());
 
     // Get server's static public key
     let server_sk = ring_server
-        .derive_device_x25519("server_kid", b"server_device", 3)
+        .derive_device_x25519("server_kid", b"server_device")
         .unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // 3-step handshake
     // Step 1: Client initiates
-    let (temp_id, first_msg) = client_manager
-        .initiate_connection(&server_pk, 3, None)
-        .unwrap();
+    let (temp_id, first_msg) = client_manager.initiate_connection(&server_pk).unwrap();
 
     // Step 2: Server accepts and generates response
     let (server_session_id, response) = server_manager.accept_connection(&first_msg).unwrap();

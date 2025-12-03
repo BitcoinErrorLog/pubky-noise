@@ -3,8 +3,6 @@ use crate::identity_payload::{
     make_binding_message, verify_identity_payload, IdentityPayload, Role,
 };
 use crate::ring::{RingKeyFiller, RingKeyProvider};
-#[cfg(not(feature = "pkarr"))]
-use std::marker::PhantomData;
 use zeroize::Zeroizing;
 
 /// Server policy configuration for connection management.
@@ -24,7 +22,6 @@ use zeroize::Zeroizing;
 /// let policy = ServerPolicy {
 ///     max_handshakes_per_ip: Some(100),
 ///     max_sessions_per_ed25519: Some(10),
-///     min_client_epoch: Some(1),
 /// };
 /// ```
 #[derive(Clone, Debug, Default)]
@@ -40,36 +37,24 @@ pub struct ServerPolicy {
     /// Prevents a single client from consuming too many resources.
     /// `None` means unlimited.
     pub max_sessions_per_ed25519: Option<u32>,
-
-    /// Minimum acceptable client epoch.
-    ///
-    /// Reject clients using old/revoked epochs.
-    /// `None` means accept all epochs.
-    pub min_client_epoch: Option<u32>,
 }
 
 /// Noise Protocol server for accepting encrypted sessions.
 ///
 /// `NoiseServer` manages the server side of Noise Protocol handshakes, supporting
-/// both IK (Interactive, Known responder) and XX (eXchange, eXchange) patterns.
-/// The server accepts connections, validates client identities, and enforces
-/// policy constraints.
+/// the IK (Interactive, Known responder) pattern. The server accepts connections,
+/// validates client identities, and enforces policy constraints.
 ///
 /// # Type Parameters
 ///
 /// * `R: RingKeyProvider` - Key provider for device-specific X25519 and Ed25519 keys.
 ///   Keys are derived on-demand and never stored in application memory.
 ///
-/// * `P` - Optional PKARR resolver for out-of-band metadata. Use `()` for direct
-///   connections without PKARR support.
-///
 /// # Key Features
 ///
 /// - **Identity Verification**: Validates client Ed25519 signatures on identity bindings
-/// - **Epoch Tracking**: Tracks seen client epochs to detect potential replay attacks
 /// - **Policy Enforcement**: Configurable limits on connections and resources
 /// - **All-Zero DH Rejection**: Automatically rejects weak client keys
-/// - **Thread-Safe**: Epoch tracking uses interior mutability via Mutex
 ///
 /// # Security Architecture
 ///
@@ -78,8 +63,7 @@ pub struct ServerPolicy {
 /// 1. **Noise Handshake Validation**: Verifies Noise protocol messages
 /// 2. **DH Shared Secret Check**: Rejects all-zero shared secrets
 /// 3. **Identity Binding Verification**: Validates Ed25519 signature over session binding
-/// 4. **Epoch Tracking**: Records client epochs for replay detection
-/// 5. **Policy Enforcement**: Applies configured limits
+/// 4. **Policy Enforcement**: Applies configured limits
 ///
 /// # Examples
 ///
@@ -94,19 +78,17 @@ pub struct ServerPolicy {
 /// let seed = [0u8; 32]; // Use secure random seed in production
 /// let ring = Arc::new(DummyRing::new(seed, "server-key-id"));
 ///
-/// // Create server at epoch 0
+/// // Create server
 /// let mut server = NoiseServer::new_direct(
 ///     "server-key-id",
 ///     b"server-device",
 ///     ring,
-///     0, // current epoch
 /// );
 ///
 /// // Configure policy
 /// server.policy = ServerPolicy {
 ///     max_handshakes_per_ip: Some(100),
 ///     max_sessions_per_ed25519: Some(10),
-///     min_client_epoch: None,
 /// };
 /// ```
 ///
@@ -117,7 +99,7 @@ pub struct ServerPolicy {
 /// # use std::sync::Arc;
 /// # fn main() -> Result<(), pubky_noise::NoiseError> {
 /// # let ring = Arc::new(DummyRing::new([0u8; 32], "key-id"));
-/// # let server = NoiseServer::new_direct("key-id", b"device", ring, 0);
+/// # let server = NoiseServer::new_direct("key-id", b"device", ring);
 /// // Receive first message from client over your transport
 /// let client_first_msg: Vec<u8> = vec![]; // From network
 ///
@@ -127,7 +109,6 @@ pub struct ServerPolicy {
 ///
 /// // Extract client information
 /// println!("Client Ed25519: {:?}", client_identity.ed25519_pub);
-/// println!("Client epoch: {}", client_identity.epoch);
 ///
 /// // Continue handshake to establish session...
 /// # Ok(())
@@ -136,54 +117,30 @@ pub struct ServerPolicy {
 ///
 /// # Thread Safety
 ///
-/// `NoiseServer` contains a `Mutex` for epoch tracking, making it safe to share
-/// across threads (if `R: Send + Sync`). The mutex protects the `seen_client_epochs`
-/// map from concurrent access.
-///
-/// # Epoch Management
-///
-/// The server tracks client epochs to detect potential issues:
-/// - First connection from a client stores their epoch
-/// - Subsequent connections check if epoch has regressed
-/// - Applications can use this for replay detection
-///
-/// **Note**: The server's `current_epoch` should be coordinated with clients.
-/// Epoch mismatches will cause handshake failures.
-pub struct NoiseServer<R: RingKeyProvider, P> {
+/// `NoiseServer` is `Send + Sync` if `R: Send + Sync`.
+pub struct NoiseServer<R: RingKeyProvider> {
     pub kid: String,
     pub device_id: Vec<u8>,
     pub ring: std::sync::Arc<R>,
-    #[cfg(feature = "pkarr")]
-    pub pkarr: std::sync::Arc<P>,
-    #[cfg(not(feature = "pkarr"))]
-    _phantom: PhantomData<P>,
     pub prologue: Vec<u8>,
     pub suite: String,
-    pub current_epoch: u32,
-    pub seen_client_epochs: std::sync::Mutex<std::collections::HashMap<[u8; 32], u32>>,
     pub policy: ServerPolicy,
 }
 
-impl<R: RingKeyProvider> NoiseServer<R, ()> {
-    /// Create a new Noise server for direct connections (without PKARR).
-    ///
-    /// This is the most common constructor for servers that don't use PKARR
-    /// metadata. The server will accept IK pattern handshakes from clients
-    /// who know the server's static public key.
+impl<R: RingKeyProvider> NoiseServer<R> {
+    /// Create a new Noise server for direct connections.
     ///
     /// # Arguments
     ///
     /// * `kid` - Key identifier for looking up server keys from the ring provider
     /// * `device_id` - Device identifier for key derivation
     /// * `ring` - Arc-wrapped key provider implementing `RingKeyProvider`
-    /// * `current_epoch` - The server's current epoch for key derivation
     ///
     /// # Returns
     ///
     /// A new `NoiseServer` configured with:
     /// - Prologue: `"pubky-noise-v1"`
     /// - Suite: `Noise_IK_25519_ChaChaPoly_BLAKE2s`
-    /// - Empty seen epochs map
     /// - Default policy (no limits)
     ///
     /// # Examples
@@ -197,27 +154,19 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
     ///     "server-key-id",
     ///     b"server-device-001",
     ///     ring,
-    ///     0, // epoch 0
     /// );
     /// ```
     pub fn new_direct(
         kid: impl Into<String>,
         device_id: impl AsRef<[u8]>,
         ring: std::sync::Arc<R>,
-        current_epoch: u32,
     ) -> Self {
         Self {
             kid: kid.into(),
             device_id: device_id.as_ref().to_vec(),
             ring,
-            #[cfg(feature = "pkarr")]
-            pkarr: std::sync::Arc::new(()),
-            #[cfg(not(feature = "pkarr"))]
-            _phantom: PhantomData,
             prologue: b"pubky-noise-v1".to_vec(),
             suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
-            current_epoch,
-            seen_client_epochs: std::sync::Mutex::new(Default::default()),
             policy: ServerPolicy::default(),
         }
     }
@@ -247,9 +196,7 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
     /// - `client_identity` - Parsed and validated client identity payload containing:
     ///   - `ed25519_pub`: Client's long-term Ed25519 public key
     ///   - `noise_x25519_pub`: Client's ephemeral X25519 public key
-    ///   - `epoch`: Client's key epoch
     ///   - `role`: Should be `Role::Client`
-    ///   - `server_hint`: Optional server identifier from client
     ///   - `sig`: Ed25519 signature (already verified)
     ///
     /// # Errors
@@ -270,15 +217,12 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
     /// - Client's Ed25519 public key
     /// - Client's X25519 ephemeral key
     /// - Server's X25519 static key
-    /// - Client's epoch
     /// - Role (Client)
-    /// - Optional server hint
     ///
     /// This binding prevents:
     /// - Key substitution attacks
     /// - Identity confusion attacks
     /// - Cross-pattern replay attacks
-    /// - Epoch confusion attacks
     ///
     /// # Examples
     ///
@@ -287,7 +231,7 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
     /// # use std::sync::Arc;
     /// # fn main() -> Result<(), pubky_noise::NoiseError> {
     /// # let ring = Arc::new(DummyRing::new([0u8; 32], "key-id"));
-    /// # let server = NoiseServer::new_direct("key-id", b"device", ring, 0);
+    /// # let server = NoiseServer::new_direct("key-id", b"device", ring);
     /// // Receive client's first message from network
     /// let client_msg: Vec<u8> = vec![]; // From TCP/WebSocket/etc
     ///
@@ -295,12 +239,6 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
     ///     Ok((hs, identity)) => {
     ///         // Handshake message valid, identity verified
     ///         println!("Client identity: {:?}", identity.ed25519_pub);
-    ///         
-    ///         // Check if client epoch is acceptable
-    ///         if identity.epoch < server.current_epoch.saturating_sub(1) {
-    ///             // Reject old epoch
-    ///             eprintln!("Client epoch too old");
-    ///         }
     ///         
     ///         // Continue with handshake completion...
     ///     }
@@ -335,15 +273,14 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
         let (hs, x_pk_arr) = self.ring.with_device_x25519(
             &self.kid,
             &self.device_id,
-            self.current_epoch,
             |x_sk: &Zeroizing<[u8; 32]>| -> Result<(snow::HandshakeState, [u8; 32]), NoiseError> {
                 // Derive public key from private key before passing to builder
                 let x_pk_arr = crate::kdf::x25519_pk_from_sk(x_sk);
 
                 // Chain builder calls since each method consumes and returns self
                 let hs = builder
-                    .local_private_key(&**x_sk) // Deref Zeroizing to &[u8; 32] to &[u8]
-                    .prologue(&self.prologue)
+                    .local_private_key(&**x_sk)?
+                    .prologue(&self.prologue)?
                     .build_responder()
                     .map_err(NoiseError::from)?;
                 Ok((hs, x_pk_arr))
@@ -360,7 +297,6 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
         let ok = self.ring.with_device_x25519(
             &self.kid,
             &self.device_id,
-            self.current_epoch,
             |x_sk: &Zeroizing<[u8; 32]>| {
                 crate::kdf::shared_secret_nonzero(x_sk, &payload.noise_x25519_pub)
             },
@@ -376,9 +312,7 @@ impl<R: RingKeyProvider> NoiseServer<R, ()> {
             &payload.ed25519_pub,
             &payload.noise_x25519_pub,
             Some(&x_pk_arr),
-            payload.epoch,
             Role::Client,
-            payload.server_hint.as_deref(),
         );
         let vk = ed25519_dalek::VerifyingKey::from_bytes(&payload.ed25519_pub)
             .map_err(|e| NoiseError::Other(e.to_string()))?;

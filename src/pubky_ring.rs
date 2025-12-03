@@ -1,4 +1,7 @@
-#![cfg(feature = "pubky-sdk")]
+//! Pubky SDK ring provider implementation.
+//!
+//! This module provides a `RingKeyProvider` implementation using Pubky SDK's `Keypair`.
+//! Requires the `pubky-sdk` feature.
 
 use crate::errors::NoiseError;
 use crate::ring::RingKeyProvider;
@@ -20,14 +23,9 @@ impl PubkyRingProvider {
 }
 
 impl RingKeyProvider for PubkyRingProvider {
-    fn derive_device_x25519(
-        &self,
-        _kid: &str,
-        device_id: &[u8],
-        epoch: u32,
-    ) -> Result<[u8; 32], NoiseError> {
+    fn derive_device_x25519(&self, _kid: &str, device_id: &[u8]) -> Result<[u8; 32], NoiseError> {
         let seed = self.keypair.secret_key();
-        let sk = crate::kdf::derive_x25519_for_device_epoch(&seed, device_id, epoch);
+        let sk = crate::kdf::derive_x25519_static(&seed, device_id);
         Ok(sk)
     }
 

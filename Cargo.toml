@@ -1,6 +1,6 @@
 [package]
 name = "pubky-noise"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 license = "MIT"
 description = "Production-ready Noise Protocol implementation for Pubky with mobile-optimized lifecycle management, thread safety, and network resilience."
@@ -11,7 +11,6 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [features]
 default = []
-pkarr = []
 trace = ["tracing"]
 secure-mem = ["region"]
 pubky-sdk = ["dep:pubky"]
@@ -19,7 +18,7 @@ storage-queue = ["dep:pubky", "dep:async-trait"]
 uniffi_macros = ["dep:uniffi", "dep:tokio"]
 
 [dependencies]
-snow = "0.9"
+snow = "0.10"
 x25519-dalek = "2"
 ed25519-dalek = "2"
 curve25519-dalek = "4"

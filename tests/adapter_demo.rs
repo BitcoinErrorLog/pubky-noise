@@ -8,31 +8,32 @@ use std::sync::Arc;
 fn adapter_smoke_compiles() {
     let ring_client = std::sync::Arc::new(pubky_noise::DummyRing::new([1u8; 32], "kid"));
     let ring_server = std::sync::Arc::new(pubky_noise::DummyRing::new([2u8; 32], "kid"));
-    let _client = pubky_noise::NoiseClient::<_, ()>::new_direct("kid", b"devC", ring_client);
-    let _server = pubky_noise::NoiseServer::<_, ()>::new_direct("kid", b"devS", ring_server, 3);
+    let _client = pubky_noise::NoiseClient::<_>::new_direct("kid", b"devC", ring_client);
+    let _server = pubky_noise::NoiseServer::<_>::new_direct("kid", b"devS", ring_server);
     assert!(true);
 }
 
 #[test]
-fn test_streaming_link() {
+#[allow(deprecated)]
+fn test_streaming_link_legacy() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone(), 3);
+    let client = NoiseClient::<_>::new_direct("kid", b"dev-client", ring_client);
+    let server = NoiseServer::<_>::new_direct("kid", b"dev-server", ring_server.clone());
 
     // Server static
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 3)
+        .derive_device_x25519("kid", b"dev-server")
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // Handshake (3-step process)
     // Step 1: Client initiates
-    let (c_hs, _, first_msg) = client_start_ik_direct(&client, &server_static_pk, 3, None).unwrap();
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
 
     // Step 2: Server accepts and responds
-    let (s_hs, _, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let (s_hs, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
 
     // Step 3: Both complete
     let c_link = client_complete_ik(c_hs, &response).unwrap();
@@ -44,13 +45,81 @@ fn test_streaming_link() {
 
     let data = b"This is a long message that should be split into chunks";
 
-    // Encrypt
+    // Encrypt (legacy mode)
     let chunks = c_stream.encrypt_streaming(data).unwrap();
     assert!(chunks.len() > 1, "Should be split into multiple chunks");
 
-    // Decrypt
+    // Decrypt (legacy mode)
     let decrypted = s_stream.decrypt_streaming(&chunks).unwrap();
     assert_eq!(data.to_vec(), decrypted);
+}
+
+#[test]
+fn test_streaming_link_framed() {
+    let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
+    let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
+
+    let client = NoiseClient::<_>::new_direct("kid", b"dev-client", ring_client);
+    let server = NoiseServer::<_>::new_direct("kid", b"dev-server", ring_server.clone());
+
+    // Server static
+    let server_sk = ring_server
+        .derive_device_x25519("kid", b"dev-server")
+        .unwrap();
+    let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
+
+    // Handshake
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
+    let (s_hs, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let c_link = client_complete_ik(c_hs, &response).unwrap();
+    let s_link = server_complete_ik(s_hs).unwrap();
+
+    // Create streaming links with small chunk size
+    let mut c_stream = StreamingNoiseLink::new(c_link, 10);
+    let mut s_stream = StreamingNoiseLink::new(s_link, 10);
+
+    let data = b"This is a long message that should be split into chunks and framed";
+
+    // Encrypt with framing
+    let framed = c_stream.encrypt_framed(data).unwrap();
+
+    // Framed output should be larger than raw data (includes length prefixes + AEAD overhead)
+    assert!(framed.len() > data.len());
+
+    // Decrypt framed data
+    let decrypted = s_stream.decrypt_framed(&framed).unwrap();
+    assert_eq!(data.to_vec(), decrypted);
+}
+
+#[test]
+fn test_streaming_framed_roundtrip_large() {
+    let ring_client = Arc::new(DummyRing::new([3u8; 32], "kid"));
+    let ring_server = Arc::new(DummyRing::new([4u8; 32], "kid"));
+
+    let client = NoiseClient::<_>::new_direct("kid", b"dev-client", ring_client);
+    let server = NoiseServer::<_>::new_direct("kid", b"dev-server", ring_server.clone());
+
+    let server_sk = ring_server
+        .derive_device_x25519("kid", b"dev-server")
+        .unwrap();
+    let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
+
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
+    let (s_hs, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let c_link = client_complete_ik(c_hs, &response).unwrap();
+    let s_link = server_complete_ik(s_hs).unwrap();
+
+    // 32KB chunks
+    let mut c_stream = StreamingNoiseLink::new(c_link, 32768);
+    let mut s_stream = StreamingNoiseLink::new(s_link, 32768);
+
+    // 100KB message
+    let large_data = vec![0x42u8; 100_000];
+
+    let framed = c_stream.encrypt_framed(&large_data).unwrap();
+    let decrypted = s_stream.decrypt_framed(&framed).unwrap();
+
+    assert_eq!(large_data, decrypted);
 }
 
 #[test]
@@ -58,16 +127,15 @@ fn test_session_manager() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+    let client = Arc::new(NoiseClient::<_>::new_direct(
         "kid",
         b"dev-client",
         ring_client,
     ));
-    let server = Arc::new(NoiseServer::<_, ()>::new_direct(
+    let server = Arc::new(NoiseServer::<_>::new_direct(
         "kid",
         b"dev-server",
         ring_server.clone(),
-        3,
     ));
 
     let mut client_manager = NoiseSessionManager::new_client(client.clone());
@@ -75,16 +143,16 @@ fn test_session_manager() {
 
     // Server static
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 3)
+        .derive_device_x25519("kid", b"dev-server")
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // Handshake (3-step process)
     // Step 1: Client initiates
-    let (c_hs, _, first_msg) = client_start_ik_direct(&client, &server_static_pk, 3, None).unwrap();
+    let (c_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk).unwrap();
 
     // Step 2: Server accepts and responds
-    let (s_hs, _, response) = server_accept_ik(&server, &first_msg).unwrap();
+    let (s_hs, _identity, response) = server_accept_ik(&server, &first_msg).unwrap();
 
     // Step 3: Both complete
     let c_link = client_complete_ik(c_hs, &response).unwrap();

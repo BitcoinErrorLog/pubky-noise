@@ -31,12 +31,12 @@ pub fn performance_config() -> FfiMobileConfig {
 }
 
 #[uniffi::export]
-pub fn derive_device_key(seed: Vec<u8>, device_id: Vec<u8>, epoch: u32) -> Vec<u8> {
+pub fn derive_device_key(seed: Vec<u8>, device_id: Vec<u8>) -> Vec<u8> {
     let mut seed_arr = [0u8; 32];
     if seed.len() >= 32 {
         seed_arr.copy_from_slice(&seed[0..32]);
     }
-    crate::kdf::derive_x25519_for_device_epoch(&seed_arr, &device_id, epoch).to_vec()
+    crate::kdf::derive_x25519_static(&seed_arr, &device_id).to_vec()
 }
 
 #[uniffi::export]
