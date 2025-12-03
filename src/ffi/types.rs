@@ -1,5 +1,71 @@
-use crate::mobile_manager::{ConnectionStatus, MobileConfig, SessionState};
+use crate::mobile_manager::{ConnectionStatus, MobileConfig, NoisePattern, SessionState};
 use crate::session_id::SessionId;
+
+/// FFI-safe Noise pattern enum for cold key scenarios.
+///
+/// Allows mobile apps to select the appropriate Noise pattern:
+/// - IK: Full mutual authentication with Ring-based key derivation
+/// - IKRaw: IK with raw X25519 keys (for pkarr-based identity)
+/// - N: Anonymous sender to known receiver
+/// - NN: Fully anonymous (ephemeral both sides)
+/// - XX: Mutual authentication with deferred identity
+#[derive(uniffi::Enum, Clone, Copy)]
+pub enum FfiNoisePattern {
+    /// IK pattern with Ring-based key derivation
+    IK,
+    /// IK pattern with raw X25519 keys (cold key scenario)
+    IKRaw,
+    /// N pattern: anonymous sender to known receiver
+    N,
+    /// NN pattern: fully anonymous ephemeral connection
+    NN,
+    /// XX pattern: mutual auth with deferred identity
+    XX,
+}
+
+impl From<FfiNoisePattern> for NoisePattern {
+    fn from(pattern: FfiNoisePattern) -> Self {
+        match pattern {
+            FfiNoisePattern::IK => NoisePattern::IK,
+            FfiNoisePattern::IKRaw => NoisePattern::IKRaw,
+            FfiNoisePattern::N => NoisePattern::N,
+            FfiNoisePattern::NN => NoisePattern::NN,
+            FfiNoisePattern::XX => NoisePattern::XX,
+        }
+    }
+}
+
+impl From<NoisePattern> for FfiNoisePattern {
+    fn from(pattern: NoisePattern) -> Self {
+        match pattern {
+            NoisePattern::IK => FfiNoisePattern::IK,
+            NoisePattern::IKRaw => FfiNoisePattern::IKRaw,
+            NoisePattern::N => FfiNoisePattern::N,
+            NoisePattern::NN => FfiNoisePattern::NN,
+            NoisePattern::XX => FfiNoisePattern::XX,
+        }
+    }
+}
+
+/// Result of initiating a Noise handshake.
+#[derive(uniffi::Record)]
+pub struct FfiHandshakeResult {
+    /// Session ID for tracking this connection
+    pub session_id: String,
+    /// First handshake message to send to peer
+    pub message: Vec<u8>,
+}
+
+/// Result of accepting a Noise handshake.
+#[derive(uniffi::Record)]
+pub struct FfiAcceptResult {
+    /// Session ID for tracking this connection
+    pub session_id: String,
+    /// Response message to send back to initiator
+    pub response: Vec<u8>,
+    /// Remote peer's static public key (if pattern provides it)
+    pub client_static_pk: Option<Vec<u8>>,
+}
 
 /// FFI-safe connection status wrapper
 #[derive(uniffi::Enum)]

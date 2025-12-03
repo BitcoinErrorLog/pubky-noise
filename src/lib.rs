@@ -6,6 +6,7 @@ pub mod ffi;
 pub mod identity_payload;
 pub mod kdf;
 pub mod mobile_manager;
+pub mod pkarr_helpers;
 #[cfg(feature = "pubky-sdk")]
 pub mod pubky_ring;
 pub mod receiver;
