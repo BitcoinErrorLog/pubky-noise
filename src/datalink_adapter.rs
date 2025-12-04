@@ -195,8 +195,10 @@ pub fn complete_raw(
     mut hs: snow::HandshakeState,
     response: &[u8],
 ) -> Result<NoiseSession, NoiseError> {
-    let mut buf = vec![0u8; response.len() + 256];
-    hs.read_message(response, &mut buf)?;
+    if !response.is_empty() {
+        let mut buf = vec![0u8; response.len() + 256];
+        hs.read_message(response, &mut buf)?;
+    }
     NoiseSession::from_handshake(hs)
 }
 
