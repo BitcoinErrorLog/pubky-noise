@@ -189,13 +189,18 @@ For scenarios where Ed25519 identity keys are kept cold (offline), pubky-noise s
 
 ### Pattern Selection Guide
 
-| Pattern | Use Case | Identity Binding | Ed25519 Access |
-|---------|----------|------------------|----------------|
-| **IK** | Hot keys, real-time sessions | In handshake | Required at handshake |
-| **IK-raw** | Cold keys + pkarr | Via pkarr (pre-signed) | Not required |
-| **N** | Anonymous client, known server | Server only (via pkarr) | Not required |
-| **NN** | Post-handshake auth | External (application layer) | Not required |
-| **XX** | Trust-on-first-use | Both parties during handshake | Optional |
+| Pattern | Use Case | Identity Binding | Ed25519 Access | Bidirectional |
+|---------|----------|------------------|----------------|---------------|
+| **IK** | Hot keys, real-time sessions | In handshake | Required at handshake | ✅ Yes |
+| **IK-raw** | Cold keys + pkarr | Via pkarr (pre-signed) | Not required | ✅ Yes |
+| **N** | Anonymous client, known server | Server only (via pkarr) | Not required | ⚠️ **ONE-WAY** |
+| **NN** | Post-handshake auth | External (application layer) | Not required | ✅ Yes |
+| **XX** | Trust-on-first-use | Both parties during handshake | Optional | ✅ Yes |
+
+> ⚠️ **N Pattern Limitation**: The N pattern is **ONE-WAY** only.
+> - ✅ Client can encrypt messages to server
+> - ❌ Server **cannot** send encrypted responses to client  
+> - Use IK, IK-raw, NN, or XX for bidirectional communication
 
 ### Cold Key Example
 

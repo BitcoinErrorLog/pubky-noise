@@ -59,6 +59,63 @@ pub enum NoisePattern {
     XX,
 }
 
+impl NoisePattern {
+    /// Single-byte identifier used during pattern negotiation.
+    ///
+    /// Clients send this byte before the handshake to indicate which pattern to use.
+    pub fn negotiation_byte(self) -> u8 {
+        match self {
+            NoisePattern::IK => 0,
+            NoisePattern::IKRaw => 1,
+            NoisePattern::N => 2,
+            NoisePattern::NN => 3,
+            NoisePattern::XX => 4,
+        }
+    }
+
+    /// Create pattern from negotiation byte.
+    pub fn from_byte(byte: u8) -> Option<Self> {
+        match byte {
+            0 => Some(NoisePattern::IK),
+            1 => Some(NoisePattern::IKRaw),
+            2 => Some(NoisePattern::N),
+            3 => Some(NoisePattern::NN),
+            4 => Some(NoisePattern::XX),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for NoisePattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NoisePattern::IK => write!(f, "IK"),
+            NoisePattern::IKRaw => write!(f, "IK-raw"),
+            NoisePattern::N => write!(f, "N"),
+            NoisePattern::NN => write!(f, "NN"),
+            NoisePattern::XX => write!(f, "XX"),
+        }
+    }
+}
+
+impl std::str::FromStr for NoisePattern {
+    type Err = crate::NoiseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "ik" => Ok(NoisePattern::IK),
+            "ik-raw" | "ikraw" | "ik_raw" => Ok(NoisePattern::IKRaw),
+            "n" => Ok(NoisePattern::N),
+            "nn" => Ok(NoisePattern::NN),
+            "xx" => Ok(NoisePattern::XX),
+            _ => Err(crate::NoiseError::Snow(format!(
+                "Unknown pattern: {}. Valid patterns: ik, ik-raw, n, nn, xx",
+                s
+            ))),
+        }
+    }
+}
+
 /// Connection status for a Noise session
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
