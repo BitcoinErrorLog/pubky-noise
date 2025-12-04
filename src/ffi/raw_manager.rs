@@ -8,10 +8,7 @@
 //! - Anonymous and ephemeral connection patterns (N, NN)
 
 use crate::ffi::errors::FfiNoiseError;
-use crate::ffi::types::{
-    FfiAcceptResult, FfiConnectionStatus, FfiHandshakeResult, FfiMobileConfig, FfiNoisePattern,
-    FfiSessionState,
-};
+use crate::ffi::types::{FfiAcceptResult, FfiHandshakeResult, FfiMobileConfig};
 use crate::mobile_manager::{MobileConfig, NoisePattern, RawNoiseManager};
 use crate::session_id::SessionId;
 use std::sync::{Arc, Mutex};
@@ -59,11 +56,7 @@ impl FfiRawNoiseManager {
 
         let mut manager = lock_manager(&self.inner)?;
         let (session_id, message) = manager
-            .initiate_connection_with_pattern(
-                NoisePattern::IKRaw,
-                Some(&zeroizing_sk),
-                Some(&server_pk),
-            )
+            .initiate_connection_with_pattern(Some(&zeroizing_sk), Some(&server_pk), NoisePattern::IKRaw)
             .map_err(FfiNoiseError::from)?;
 
         Ok(FfiHandshakeResult {
@@ -87,7 +80,7 @@ impl FfiRawNoiseManager {
 
         let mut manager = lock_manager(&self.inner)?;
         let (session_id, message) = manager
-            .initiate_connection_with_pattern(NoisePattern::N, None, Some(&server_pk))
+            .initiate_connection_with_pattern(None, Some(&server_pk), NoisePattern::N)
             .map_err(FfiNoiseError::from)?;
 
         Ok(FfiHandshakeResult {
@@ -103,7 +96,7 @@ impl FfiRawNoiseManager {
     pub fn initiate_ephemeral(&self) -> Result<FfiHandshakeResult, FfiNoiseError> {
         let mut manager = lock_manager(&self.inner)?;
         let (session_id, message) = manager
-            .initiate_connection_with_pattern(NoisePattern::NN, None, None)
+            .initiate_connection_with_pattern(None, None, NoisePattern::NN)
             .map_err(FfiNoiseError::from)?;
 
         Ok(FfiHandshakeResult {
@@ -125,7 +118,7 @@ impl FfiRawNoiseManager {
 
         let mut manager = lock_manager(&self.inner)?;
         let (session_id, message) = manager
-            .initiate_connection_with_pattern(NoisePattern::XX, Some(&zeroizing_sk), None)
+            .initiate_connection_with_pattern(Some(&zeroizing_sk), None, NoisePattern::XX)
             .map_err(FfiNoiseError::from)?;
 
         Ok(FfiHandshakeResult {
@@ -148,14 +141,15 @@ impl FfiRawNoiseManager {
         let zeroizing_sk = zeroize::Zeroizing::new(local_sk);
 
         let mut manager = lock_manager(&self.inner)?;
-        let (session_id, response, client_pk) = manager
-            .accept_connection_with_pattern(NoisePattern::IKRaw, Some(&zeroizing_sk), &first_msg)
+        let (session_id, response) = manager
+            .accept_connection_with_pattern(Some(&zeroizing_sk), &first_msg, NoisePattern::IKRaw)
             .map_err(FfiNoiseError::from)?;
 
+        // IK-raw doesn't return client_pk in this API
         Ok(FfiAcceptResult {
             session_id: session_id.to_string(),
             response,
-            client_static_pk: client_pk.map(|pk| pk.to_vec()),
+            client_static_pk: None,
         })
     }
 
@@ -175,8 +169,8 @@ impl FfiRawNoiseManager {
         let zeroizing_sk = zeroize::Zeroizing::new(local_sk);
 
         let mut manager = lock_manager(&self.inner)?;
-        let (session_id, response, _) = manager
-            .accept_connection_with_pattern(NoisePattern::N, Some(&zeroizing_sk), &first_msg)
+        let (session_id, response) = manager
+            .accept_connection_with_pattern(Some(&zeroizing_sk), &first_msg, NoisePattern::N)
             .map_err(FfiNoiseError::from)?;
 
         Ok(FfiAcceptResult {
@@ -194,8 +188,8 @@ impl FfiRawNoiseManager {
     /// * `first_msg` - First handshake message from initiator
     pub fn accept_ephemeral(&self, first_msg: Vec<u8>) -> Result<FfiAcceptResult, FfiNoiseError> {
         let mut manager = lock_manager(&self.inner)?;
-        let (session_id, response, _) = manager
-            .accept_connection_with_pattern(NoisePattern::NN, None, &first_msg)
+        let (session_id, response) = manager
+            .accept_connection_with_pattern(None, &first_msg, NoisePattern::NN)
             .map_err(FfiNoiseError::from)?;
 
         Ok(FfiAcceptResult {
@@ -206,8 +200,6 @@ impl FfiRawNoiseManager {
     }
 
     /// Accept an XX pattern handshake.
-    ///
-    /// Returns the client's static public key after the handshake completes.
     ///
     /// # Arguments
     /// * `local_sk` - Your X25519 secret key (32 bytes)
@@ -221,37 +213,69 @@ impl FfiRawNoiseManager {
         let zeroizing_sk = zeroize::Zeroizing::new(local_sk);
 
         let mut manager = lock_manager(&self.inner)?;
-        let (session_id, response, client_pk) = manager
-            .accept_connection_with_pattern(NoisePattern::XX, Some(&zeroizing_sk), &first_msg)
+        let (session_id, response) = manager
+            .accept_connection_with_pattern(Some(&zeroizing_sk), &first_msg, NoisePattern::XX)
             .map_err(FfiNoiseError::from)?;
 
+        // XX pattern provides client_pk after complete_accept
         Ok(FfiAcceptResult {
             session_id: session_id.to_string(),
             response,
-            client_static_pk: client_pk.map(|pk| pk.to_vec()),
+            client_static_pk: None, // Will be available after complete_accept
         })
     }
 
-    /// Complete handshake for patterns requiring multiple round-trips (XX).
+    /// Complete handshake for patterns requiring multiple round-trips.
     ///
     /// Call this after receiving the server's response to complete the handshake.
+    /// For IK-raw/NN: use complete_handshake
+    /// For XX: use complete_handshake_xx
     ///
     /// # Arguments
     /// * `session_id` - Session ID from initiate call
     /// * `response` - Response message from server
+    ///
+    /// # Returns
+    /// The session ID (confirming session is established). No message returned.
     pub fn complete_handshake(
         &self,
         session_id: String,
         response: Vec<u8>,
-    ) -> Result<Vec<u8>, FfiNoiseError> {
+    ) -> Result<String, FfiNoiseError> {
         let sid = parse_session_id(&session_id)?;
 
         let mut manager = lock_manager(&self.inner)?;
-        let final_msg = manager
+        let final_session_id = manager
             .complete_connection(&sid, &response)
             .map_err(FfiNoiseError::from)?;
 
-        Ok(final_msg)
+        Ok(final_session_id.to_string())
+    }
+
+    /// Complete XX handshake for initiator (receives server's static key).
+    ///
+    /// # Arguments
+    /// * `session_id` - Session ID from initiate_xx call
+    /// * `response` - Response message from server
+    ///
+    /// # Returns
+    /// Handshake result with session ID and final message to send
+    pub fn complete_handshake_xx(
+        &self,
+        session_id: String,
+        response: Vec<u8>,
+    ) -> Result<FfiHandshakeResult, FfiNoiseError> {
+        let sid = parse_session_id(&session_id)?;
+
+        let mut manager = lock_manager(&self.inner)?;
+        let (final_session_id, final_msg) = manager
+            .complete_connection_xx(&sid, &response)
+            .map_err(FfiNoiseError::from)?;
+
+        Ok(FfiHandshakeResult {
+            session_id: final_session_id.to_string(),
+            message: final_msg,
+        })
     }
 
     /// Encrypt a message for the given session.
@@ -280,24 +304,6 @@ impl FfiRawNoiseManager {
             .map_err(FfiNoiseError::from)
     }
 
-    /// Save session state for persistence.
-    pub fn save_state(&self, session_id: String) -> Result<FfiSessionState, FfiNoiseError> {
-        let sid = parse_session_id(&session_id)?;
-        let manager = lock_manager(&self.inner)?;
-        let state = manager.save_state(&sid).map_err(FfiNoiseError::from)?;
-        Ok(state.into())
-    }
-
-    /// Restore a saved session state.
-    pub fn restore_state(&self, state: FfiSessionState) -> Result<(), FfiNoiseError> {
-        let session_state: crate::mobile_manager::SessionState =
-            state.try_into().map_err(FfiNoiseError::from)?;
-        let mut manager = lock_manager(&self.inner)?;
-        manager
-            .restore_state(session_state)
-            .map_err(FfiNoiseError::from)
-    }
-
     /// List all active session IDs.
     pub fn list_sessions(&self) -> Vec<String> {
         match self.inner.lock() {
@@ -315,22 +321,6 @@ impl FfiRawNoiseManager {
         if let Ok(sid) = parse_session_id(&session_id) {
             if let Ok(mut manager) = self.inner.lock() {
                 manager.remove_session(&sid);
-            }
-        }
-    }
-
-    /// Get connection status for a session.
-    pub fn get_status(&self, session_id: String) -> Option<FfiConnectionStatus> {
-        let sid = parse_session_id(&session_id).ok()?;
-        let manager = self.inner.lock().ok()?;
-        manager.get_status(&sid).map(|s| s.into())
-    }
-
-    /// Set connection status for a session.
-    pub fn set_status(&self, session_id: String, status: FfiConnectionStatus) {
-        if let Ok(sid) = parse_session_id(&session_id) {
-            if let Ok(mut manager) = self.inner.lock() {
-                manager.set_status(&sid, status.into());
             }
         }
     }
@@ -384,12 +374,10 @@ pub fn ffi_x25519_public_key(secret_key: Vec<u8>) -> Result<Vec<u8>, FfiNoiseErr
     let mut sk_arr = [0u8; 32];
     sk_arr.copy_from_slice(&secret_key);
 
-    // Use x25519_dalek to compute public key
-    use x25519_dalek::{PublicKey, StaticSecret};
-    let secret = StaticSecret::from(sk_arr);
-    let public = PublicKey::from(&secret);
+    // Compute public key using base point multiplication
+    let public = x25519_dalek::x25519(sk_arr, x25519_dalek::X25519_BASEPOINT_BYTES);
 
-    Ok(public.as_bytes().to_vec())
+    Ok(public.to_vec())
 }
 
 // ============================================================================
@@ -466,4 +454,3 @@ mod tests {
         assert!(ffi_x25519_public_key(short).is_err());
     }
 }
-
