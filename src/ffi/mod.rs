@@ -1,6 +1,7 @@
 pub mod config;
 pub mod errors;
 pub mod manager;
+pub mod pkarr;
 pub mod raw_manager;
 pub mod types;
 
@@ -8,5 +9,6 @@ pub mod types;
 pub use config::*;
 pub use errors::*;
 pub use manager::*;
+pub use pkarr::*;
 pub use raw_manager::*;
 pub use types::*;

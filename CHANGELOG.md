@@ -35,6 +35,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `start_nn()` / `accept_nn()`: NN pattern helpers
 - `complete_raw()`: Generic completion for raw patterns
 
+#### FFI Additions (UniFFI)
+- **`FfiRawNoiseManager`**: Cold key manager for mobile platforms
+  - `initiateIkRaw()`, `acceptIkRaw()`: IK-raw pattern
+  - `initiateAnonymous()`, `acceptAnonymous()`: N pattern
+  - `initiateEphemeral()`, `acceptEphemeral()`: NN pattern
+  - `initiateXx()`, `acceptXx()`: XX pattern
+  - `completeHandshake()`, `encrypt()`, `decrypt()`
+- **pkarr FFI helpers** in `src/ffi/pkarr.rs`:
+  - `ffi_sign_pkarr_key_binding()`: Ed25519 signature for key binding
+  - `ffi_format_x25519_for_pkarr()`: Format for pkarr TXT record
+  - `ffi_parse_x25519_from_pkarr()`: Parse X25519 key from TXT record
+  - `ffi_parse_and_verify_pkarr_key()`: Parse and verify signature
+  - `ffi_verify_pkarr_key_binding()`: Verify binding signature
+  - `ffi_pkarr_noise_subdomain()`: Generate subdomain string
+  - `ffi_create_pkarr_binding_message()`: Create binding message
+- **Key derivation FFI**:
+  - `ffi_derive_x25519_static()`: Derive X25519 from seed
+  - `ffi_x25519_public_key()`: Compute public key from secret
+
 ### Changed - Breaking Changes
 
 #### Snow 0.10 Upgrade
