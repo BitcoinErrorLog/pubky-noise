@@ -24,9 +24,21 @@ Direct client↔server Noise sessions for Pubky using `snow`. Minimal, direct-on
 
 ## Specs and suites
 
-* Noise revision: 34 (as implemented by current `snow`).
-* Suites: `Noise_XX_25519_ChaChaPoly_BLAKE2s` and `Noise_IK_25519_ChaChaPoly_BLAKE2s`.
+* **Noise Protocol Framework**: [noiseprotocol.org/noise.html](https://noiseprotocol.org/noise.html), revision 34
+* Implemented via [`snow`](https://github.com/mcginty/snow) crate (0.10+)
 * Hash: BLAKE2s. AEAD: ChaCha20-Poly1305. DH: X25519.
+
+### Supported Patterns
+
+| Pattern | Noise Tokens | Use Case |
+|---------|--------------|----------|
+| **IK** | `<- s / -> e, es, s, ss` | Mutual auth with Ed25519 binding |
+| **IK-raw** | `<- s / -> e, es, s, ss` | Cold key (identity via pkarr) |
+| **N** | `<- s / -> e, es` | Anonymous client (ONE-WAY only) |
+| **NN** | `-> e / <- e, ee` | Fully anonymous (needs attestation) |
+| **XX** | `-> e / <- e, ee, s, es / -> s, se` | TOFU / first contact |
+
+See [Noise spec §7 (handshake patterns)](https://noiseprotocol.org/noise.html#handshake-patterns) for token semantics.
 
 ## Features
 
@@ -256,6 +268,46 @@ let (session_id, first_msg) = manager.initiate_connection_with_pattern(
     None,  // No server key for NN
     NoisePattern::NN,
 )?;
+```
+
+### NN Attestation Protocol
+
+NN pattern requires post-handshake attestation to authenticate both parties.
+Without attestation, NN is **MITM-vulnerable**.
+
+**Message Format:**
+```
+message = SHA256("pubky-noise-nn-attestation-v1:" || local_ephemeral || remote_ephemeral)
+signature = Ed25519_Sign(ed25519_sk, message)
+```
+
+**Protocol Flow:**
+1. NN handshake completes → encrypted channel established
+2. Server sends attestation: `{ ed25519_pk, signature }`
+3. Client verifies server attestation
+4. Client sends own attestation
+5. Server verifies client attestation
+6. **Authenticated** - proceed with application messages
+
+See `paykit-demo-core::attestation` for reference implementation, or implement directly:
+
+```rust
+use sha2::{Sha256, Digest};
+use ed25519_dalek::{SigningKey, Signer};
+
+fn create_attestation(
+    ed25519_sk: &[u8; 32],
+    local_ephemeral: &[u8; 32],
+    remote_ephemeral: &[u8; 32],
+) -> [u8; 64] {
+    let mut hasher = Sha256::new();
+    hasher.update(b"pubky-noise-nn-attestation-v1:");
+    hasher.update(local_ephemeral);
+    hasher.update(remote_ephemeral);
+    let message: [u8; 32] = hasher.finalize().into();
+    
+    SigningKey::from_bytes(ed25519_sk).sign(&message).to_bytes()
+}
 ```
 
 ## Quick Start
