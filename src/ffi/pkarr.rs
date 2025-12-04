@@ -71,6 +71,47 @@ pub fn ffi_format_x25519_for_pkarr(
     ))
 }
 
+/// Format an X25519 public key for pkarr publication with timestamp.
+///
+/// Creates a TXT record value including a Unix timestamp for freshness validation.
+/// Recommended for production use.
+///
+/// # Arguments
+/// * `x25519_pk` - 32-byte X25519 public key
+/// * `signature` - Optional 64-byte Ed25519 signature
+/// * `timestamp` - Unix timestamp (seconds since epoch)
+///
+/// # Returns
+/// Formatted TXT record value string (e.g., "v=1;k=...;sig=...;ts=...")
+#[uniffi::export]
+pub fn ffi_format_x25519_for_pkarr_with_timestamp(
+    x25519_pk: Vec<u8>,
+    signature: Option<Vec<u8>>,
+    timestamp: u64,
+) -> Result<String, FfiNoiseError> {
+    let x25519_pk = parse_key_32(&x25519_pk, "X25519 public key")?;
+
+    let sig_arr = match signature {
+        Some(sig) => {
+            if sig.len() != 64 {
+                return Err(FfiNoiseError::Ring {
+                    message: format!("Signature must be 64 bytes, got {}", sig.len()),
+                });
+            }
+            let mut arr = [0u8; 64];
+            arr.copy_from_slice(&sig);
+            Some(arr)
+        }
+        None => None,
+    };
+
+    Ok(crate::pkarr_helpers::format_x25519_for_pkarr_with_timestamp(
+        &x25519_pk,
+        sig_arr.as_ref(),
+        timestamp,
+    ))
+}
+
 /// Parse an X25519 public key from a pkarr TXT record value.
 ///
 /// Extracts the X25519 key without signature verification.
@@ -117,6 +158,53 @@ pub fn ffi_parse_and_verify_pkarr_key(
         })?;
 
     Ok(key.to_vec())
+}
+
+/// Parse and verify an X25519 key with timestamp expiry check.
+///
+/// This is the recommended secure method for production use.
+/// Verifies both the Ed25519 signature and the key freshness.
+///
+/// # Arguments
+/// * `txt_record` - TXT record value string
+/// * `ed25519_pk` - 32-byte Ed25519 public key
+/// * `device_id` - Device identifier
+/// * `max_age_seconds` - Maximum acceptable key age
+///
+/// # Returns
+/// 32-byte X25519 public key if all checks pass
+#[uniffi::export]
+pub fn ffi_parse_and_verify_with_expiry(
+    txt_record: String,
+    ed25519_pk: Vec<u8>,
+    device_id: String,
+    max_age_seconds: u64,
+) -> Result<Vec<u8>, FfiNoiseError> {
+    let ed25519_pk = parse_key_32(&ed25519_pk, "Ed25519 public key")?;
+
+    let key = crate::pkarr_helpers::parse_and_verify_with_expiry(
+        &txt_record,
+        &ed25519_pk,
+        &device_id,
+        max_age_seconds,
+    )
+    .map_err(|e| FfiNoiseError::Pkarr {
+        message: format!("Failed to verify pkarr key with expiry: {}", e),
+    })?;
+
+    Ok(key.to_vec())
+}
+
+/// Extract timestamp from a pkarr TXT record.
+///
+/// # Arguments
+/// * `txt_record` - TXT record value string
+///
+/// # Returns
+/// Timestamp in Unix seconds, or None if not present
+#[uniffi::export]
+pub fn ffi_extract_timestamp_from_pkarr(txt_record: String) -> Option<u64> {
+    crate::pkarr_helpers::extract_timestamp_from_pkarr(&txt_record)
 }
 
 /// Verify a pkarr key binding signature.

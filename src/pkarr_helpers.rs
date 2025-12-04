@@ -23,14 +23,19 @@
 //! # TXT Record Format
 //!
 //! ```text
-//! _noise.{device_id}.{pubky}  IN TXT "v=1;k={base64_x25519_pk};sig={base64_signature}"
+//! _noise.{device_id}.{pubky}  IN TXT "v=1;k={base64_x25519_pk};sig={base64_signature};ts={unix_seconds}"
 //! ```
+//!
+//! The `ts` field (timestamp) is recommended for production use to prevent stale key attacks.
 
 use crate::NoiseError;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 
 /// pkarr TXT record version
 pub const PKARR_NOISE_VERSION: &str = "1";
+
+/// Default maximum age for pkarr keys (30 days in seconds)
+pub const DEFAULT_MAX_KEY_AGE_SECONDS: u64 = 30 * 24 * 60 * 60;
 
 /// Prefix for Noise key TXT records
 pub const PKARR_NOISE_PREFIX: &str = "_noise";
@@ -93,10 +98,13 @@ pub fn parse_x25519_from_pkarr(txt_record: &str) -> Result<[u8; 32], NoiseError>
     Ok(key)
 }
 
-/// Format X25519 public key for pkarr publication.
+/// Format X25519 public key for pkarr publication (without timestamp).
 ///
 /// Creates a TXT record value with the X25519 public key and optional
 /// Ed25519 signature binding.
+///
+/// **Note**: For production use, prefer `format_x25519_for_pkarr_with_timestamp()`
+/// which includes a timestamp for freshness validation.
 ///
 /// # Arguments
 /// * `x25519_pk` - 32-byte X25519 public key
@@ -122,6 +130,48 @@ pub fn format_x25519_for_pkarr(x25519_pk: &[u8; 32], signature: Option<&[u8; 64]
             format!("v={};k={};sig={}", PKARR_NOISE_VERSION, key_b64, sig_b64)
         }
         None => format!("v={};k={}", PKARR_NOISE_VERSION, key_b64),
+    }
+}
+
+/// Format X25519 public key for pkarr publication with timestamp.
+///
+/// Creates a TXT record value including a Unix timestamp for freshness validation.
+/// This is the recommended format for production use.
+///
+/// # Arguments
+/// * `x25519_pk` - 32-byte X25519 public key
+/// * `signature` - Optional 64-byte Ed25519 signature over the binding message
+/// * `timestamp` - Unix timestamp (seconds since epoch) when key was created
+///
+/// # Returns
+/// Formatted TXT record value with timestamp
+///
+/// # Example
+/// ```
+/// use pubky_noise::pkarr_helpers::format_x25519_for_pkarr_with_timestamp;
+/// use std::time::{SystemTime, UNIX_EPOCH};
+///
+/// let x25519_pk = [0u8; 32];
+/// let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+/// let txt = format_x25519_for_pkarr_with_timestamp(&x25519_pk, None, now);
+/// assert!(txt.contains(";ts="));
+/// ```
+pub fn format_x25519_for_pkarr_with_timestamp(
+    x25519_pk: &[u8; 32],
+    signature: Option<&[u8; 64]>,
+    timestamp: u64,
+) -> String {
+    let key_b64 = BASE64.encode(x25519_pk);
+
+    match signature {
+        Some(sig) => {
+            let sig_b64 = BASE64.encode(sig);
+            format!(
+                "v={};k={};sig={};ts={}",
+                PKARR_NOISE_VERSION, key_b64, sig_b64, timestamp
+            )
+        }
+        None => format!("v={};k={};ts={}", PKARR_NOISE_VERSION, key_b64, timestamp),
     }
 }
 
@@ -279,6 +329,122 @@ pub fn parse_and_verify_pkarr_key(
     Ok(x25519_pk)
 }
 
+/// Parse a pkarr TXT record with timestamp and verify freshness.
+///
+/// This is the recommended function for production use. It validates:
+/// 1. TXT record format and version
+/// 2. X25519 key extraction
+/// 3. Ed25519 signature binding
+/// 4. Key age (must be within `max_age_seconds`)
+///
+/// # Arguments
+/// * `txt_record` - The TXT record value string
+/// * `ed25519_pk` - The expected Ed25519 identity public key
+/// * `device_id` - Device identifier used in binding
+/// * `max_age_seconds` - Maximum acceptable key age (e.g., 30 days)
+///
+/// # Returns
+/// The verified 32-byte X25519 public key if all checks pass
+///
+/// # Errors
+/// Returns error if:
+/// - Record format is invalid
+/// - Signature verification fails
+/// - Timestamp is missing
+/// - Key is older than `max_age_seconds`
+///
+/// # Example
+/// ```no_run
+/// use pubky_noise::pkarr_helpers::{parse_and_verify_with_expiry, DEFAULT_MAX_KEY_AGE_SECONDS};
+///
+/// let txt = "v=1;k=...;sig=...;ts=1733356800";
+/// let ed25519_pk = [0u8; 32];
+/// // Verify key is less than 30 days old
+/// let key = parse_and_verify_with_expiry(&txt, &ed25519_pk, "device", DEFAULT_MAX_KEY_AGE_SECONDS)?;
+/// # Ok::<(), pubky_noise::NoiseError>(())
+/// ```
+pub fn parse_and_verify_with_expiry(
+    txt_record: &str,
+    ed25519_pk: &[u8; 32],
+    device_id: &str,
+    max_age_seconds: u64,
+) -> Result<[u8; 32], NoiseError> {
+    // Parse parts
+    let parts: std::collections::HashMap<&str, &str> = txt_record
+        .split(';')
+        .filter_map(|part| {
+            let mut kv = part.splitn(2, '=');
+            Some((kv.next()?, kv.next()?))
+        })
+        .collect();
+
+    // First, verify the key and signature using existing function
+    let x25519_pk = parse_and_verify_pkarr_key(txt_record, ed25519_pk, device_id)?;
+
+    // Then check timestamp freshness
+    let ts_str = parts
+        .get("ts")
+        .ok_or_else(|| NoiseError::Other("Missing timestamp in pkarr record".to_string()))?;
+
+    let key_timestamp = ts_str
+        .parse::<u64>()
+        .map_err(|_| NoiseError::Other(format!("Invalid timestamp: {}", ts_str)))?;
+
+    // Get current time
+    let current_time = current_unix_timestamp();
+
+    // Check if key is too old
+    if current_time > key_timestamp {
+        let age = current_time - key_timestamp;
+        if age > max_age_seconds {
+            return Err(NoiseError::Other(format!(
+                "pkarr key is stale: {} seconds old (max age: {})",
+                age, max_age_seconds
+            )));
+        }
+    } else {
+        // Timestamp is in the future - clock skew or invalid
+        let skew = key_timestamp - current_time;
+        if skew > 300 {
+            // Allow 5 minutes of clock skew
+            return Err(NoiseError::Other(format!(
+                "pkarr key timestamp is {} seconds in the future (clock skew too large)",
+                skew
+            )));
+        }
+    }
+
+    Ok(x25519_pk)
+}
+
+/// Get current Unix timestamp (seconds since epoch).
+///
+/// Uses `std::time::SystemTime` for portability across platforms.
+fn current_unix_timestamp() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
+/// Extract timestamp from a pkarr TXT record (if present).
+///
+/// # Returns
+/// `Some(timestamp)` if present, `None` if missing
+pub fn extract_timestamp_from_pkarr(txt_record: &str) -> Option<u64> {
+    let parts: std::collections::HashMap<&str, &str> = txt_record
+        .split(';')
+        .filter_map(|part| {
+            let mut kv = part.splitn(2, '=');
+            Some((kv.next()?, kv.next()?))
+        })
+        .collect();
+
+    parts.get("ts").and_then(|s| s.parse::<u64>().ok())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,6 +541,136 @@ mod tests {
 
         // Invalid base64
         assert!(parse_x25519_from_pkarr("v=1;k=!!!invalid!!!").is_err());
+    }
+
+    #[test]
+    fn test_format_with_timestamp() {
+        let x25519_pk = [42u8; 32];
+        let timestamp = 1733356800u64; // Dec 5, 2024
+
+        // Without signature
+        let txt = format_x25519_for_pkarr_with_timestamp(&x25519_pk, None, timestamp);
+        assert!(txt.starts_with("v=1;k="));
+        assert!(txt.contains(";ts=1733356800"));
+
+        // With signature
+        let sig = [99u8; 64];
+        let txt_signed = format_x25519_for_pkarr_with_timestamp(&x25519_pk, Some(&sig), timestamp);
+        assert!(txt_signed.contains(";sig="));
+        assert!(txt_signed.contains(";ts=1733356800"));
+    }
+
+    #[test]
+    fn test_extract_timestamp() {
+        let txt_with_ts = "v=1;k=AAAA;ts=1733356800";
+        assert_eq!(extract_timestamp_from_pkarr(txt_with_ts), Some(1733356800));
+
+        let txt_without_ts = "v=1;k=AAAA";
+        assert_eq!(extract_timestamp_from_pkarr(txt_without_ts), None);
+
+        let txt_invalid_ts = "v=1;k=AAAA;ts=invalid";
+        assert_eq!(extract_timestamp_from_pkarr(txt_invalid_ts), None);
+    }
+
+    #[test]
+    fn test_parse_and_verify_with_expiry_fresh_key() {
+        use ed25519_dalek::SigningKey;
+        use rand::RngCore;
+
+        let mut ed25519_sk_bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut ed25519_sk_bytes);
+        let signing_key = SigningKey::from_bytes(&ed25519_sk_bytes);
+        let ed25519_sk = signing_key.to_bytes();
+        let ed25519_pk = signing_key.verifying_key().to_bytes();
+
+        let x25519_pk = [123u8; 32];
+        let device_id = "test-device";
+
+        // Create fresh key (current time)
+        let now = current_unix_timestamp();
+        let signature = sign_pkarr_key_binding(&ed25519_sk, &x25519_pk, device_id);
+        let txt = format_x25519_for_pkarr_with_timestamp(&x25519_pk, Some(&signature), now);
+
+        // Should pass with max age of 30 days
+        let verified = parse_and_verify_with_expiry(&txt, &ed25519_pk, device_id, 30 * 24 * 60 * 60)
+            .expect("Fresh key should verify");
+        assert_eq!(verified, x25519_pk);
+    }
+
+    #[test]
+    fn test_parse_and_verify_with_expiry_stale_key() {
+        use ed25519_dalek::SigningKey;
+        use rand::RngCore;
+
+        let mut ed25519_sk_bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut ed25519_sk_bytes);
+        let signing_key = SigningKey::from_bytes(&ed25519_sk_bytes);
+        let ed25519_sk = signing_key.to_bytes();
+        let ed25519_pk = signing_key.verifying_key().to_bytes();
+
+        let x25519_pk = [123u8; 32];
+        let device_id = "test-device";
+
+        // Create old key (60 days ago)
+        let now = current_unix_timestamp();
+        let old_timestamp = now - (60 * 24 * 60 * 60);
+        let signature = sign_pkarr_key_binding(&ed25519_sk, &x25519_pk, device_id);
+        let txt = format_x25519_for_pkarr_with_timestamp(&x25519_pk, Some(&signature), old_timestamp);
+
+        // Should fail with max age of 30 days
+        let result = parse_and_verify_with_expiry(&txt, &ed25519_pk, device_id, 30 * 24 * 60 * 60);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("stale"));
+    }
+
+    #[test]
+    fn test_parse_and_verify_with_expiry_future_timestamp() {
+        use ed25519_dalek::SigningKey;
+        use rand::RngCore;
+
+        let mut ed25519_sk_bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut ed25519_sk_bytes);
+        let signing_key = SigningKey::from_bytes(&ed25519_sk_bytes);
+        let ed25519_sk = signing_key.to_bytes();
+        let ed25519_pk = signing_key.verifying_key().to_bytes();
+
+        let x25519_pk = [123u8; 32];
+        let device_id = "test-device";
+
+        // Create key with timestamp 10 minutes in the future
+        let now = current_unix_timestamp();
+        let future_timestamp = now + 600;
+        let signature = sign_pkarr_key_binding(&ed25519_sk, &x25519_pk, device_id);
+        let txt = format_x25519_for_pkarr_with_timestamp(&x25519_pk, Some(&signature), future_timestamp);
+
+        // Should fail due to excessive clock skew
+        let result = parse_and_verify_with_expiry(&txt, &ed25519_pk, device_id, 30 * 24 * 60 * 60);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("future"));
+    }
+
+    #[test]
+    fn test_parse_and_verify_with_expiry_no_timestamp_fails() {
+        use ed25519_dalek::SigningKey;
+        use rand::RngCore;
+
+        let mut ed25519_sk_bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut ed25519_sk_bytes);
+        let signing_key = SigningKey::from_bytes(&ed25519_sk_bytes);
+        let ed25519_sk = signing_key.to_bytes();
+        let ed25519_pk = signing_key.verifying_key().to_bytes();
+
+        let x25519_pk = [123u8; 32];
+        let device_id = "test-device";
+
+        // Create record without timestamp (old format)
+        let signature = sign_pkarr_key_binding(&ed25519_sk, &x25519_pk, device_id);
+        let txt = format_x25519_for_pkarr(&x25519_pk, Some(&signature));
+
+        // Should fail when timestamp is required
+        let result = parse_and_verify_with_expiry(&txt, &ed25519_pk, device_id, 30 * 24 * 60 * 60);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Missing timestamp"));
     }
 }
 

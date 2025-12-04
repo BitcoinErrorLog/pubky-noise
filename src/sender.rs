@@ -350,11 +350,21 @@ impl NoiseSender {
     /// The initiator has no static key (anonymous), while the responder's
     /// static key is known in advance (typically from pkarr).
     ///
+    /// # ⚠️ Critical Limitation: ONE-WAY Communication Only
+    ///
+    /// **The N pattern only supports client → server encryption.**
+    /// - ✅ Client can send encrypted messages to server
+    /// - ❌ Server **cannot** send encrypted responses to client
+    ///
+    /// This is a fundamental Noise protocol limitation. The N pattern derives
+    /// keys in only one direction. For bidirectional anonymous communication,
+    /// use the NN pattern instead.
+    ///
     /// # Use Cases
     ///
-    /// - Cold client keys connecting to a known server
-    /// - Anonymous clients with authenticated servers
-    /// - One-way authentication (server only)
+    /// - Donation boxes (anonymous payer, no response needed)
+    /// - Anonymous tips or data submission
+    /// - One-way anonymous messaging
     ///
     /// # Arguments
     ///
@@ -369,6 +379,7 @@ impl NoiseSender {
     /// - **Anonymous Initiator**: Client identity is not authenticated
     /// - **Authenticated Responder**: Server identity via pkarr
     /// - **Forward Secrecy**: Provided by ephemeral keys
+    /// - **Bidirectional**: NO - one-way encryption only
     ///
     /// # Example
     ///

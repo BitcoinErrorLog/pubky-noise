@@ -106,3 +106,80 @@ try {
 }
 ```
 
+## Pattern-Aware APIs
+
+pubky-noise v0.8.0 supports multiple Noise patterns for different authentication scenarios:
+
+| Pattern | Use Case | FFI Functions |
+|---------|----------|---------------|
+| IK | Hot keys, full auth | `connect_client` (default) |
+| IK-raw | Cold keys + pkarr | `ffi_start_ik_raw`, `ffi_accept_ik_raw` |
+| N | Anonymous client | `ffi_start_n`, `ffi_accept_n` |
+| NN | Ephemeral (attestation) | `ffi_start_nn`, `ffi_accept_nn` |
+| XX | Trust-on-first-use | `ffi_start_xx`, `ffi_accept_xx` |
+
+### Cold Key Pattern (IK-raw)
+
+For scenarios where Ed25519 keys are kept offline:
+
+```rust
+// Rust FFI - derive X25519 key from seed
+let x25519_sk = ffi_derive_x25519_static(seed.to_vec(), b"device-id".to_vec())?;
+let x25519_pk = ffi_x25519_public_key(x25519_sk.clone())?;
+
+// Start IK-raw handshake (no Ed25519 signing required)
+let (hs_state, first_msg) = ffi_start_ik_raw(x25519_sk, server_pk.to_vec())?;
+```
+
+```swift
+// Swift
+let x25519Sk = try ffiDeriveX25519Static(seed: seedData, context: "device-id".data(using: .utf8)!)
+let firstMsg = try ffiStartIkRaw(localSk: x25519Sk, serverPk: serverPublicKey)
+```
+
+### Anonymous Pattern (N)
+
+For donation boxes or anonymous requests:
+
+```rust
+// Rust FFI - anonymous client connecting to known server
+let (hs_state, first_msg) = ffi_start_n(server_pk.to_vec())?;
+// Note: N pattern is ONE-WAY (client → server only)
+```
+
+### Ephemeral Pattern (NN)
+
+For connections requiring post-handshake attestation:
+
+```rust
+// Rust FFI
+let (hs_state, first_msg) = ffi_start_nn()?;
+// After handshake, perform attestation to verify identities
+```
+
+### Key Derivation for Cold Keys
+
+```rust
+// Derive X25519 key from Ed25519 seed (one-time cold operation)
+let x25519_sk = ffi_derive_x25519_static(ed25519_seed.to_vec(), device_id.to_vec())?;
+
+// Get public key for publishing to pkarr
+let x25519_pk = ffi_x25519_public_key(x25519_sk.clone())?;
+
+// Sign binding for pkarr publication
+let signature = ffi_sign_pkarr_key_binding(ed25519_sk.to_vec(), x25519_pk.clone(), device_id.to_vec())?;
+```
+
+### Pattern Negotiation
+
+When connecting to a pattern-aware server, send a pattern byte before the handshake:
+
+```
+Pattern Bytes:
+  0x00 = IK
+  0x01 = IK-raw
+  0x02 = N
+  0x03 = NN
+  0x04 = XX
+```
+

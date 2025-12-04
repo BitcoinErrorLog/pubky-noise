@@ -413,7 +413,7 @@ fn parse_session_id(session_id: &str) -> Result<SessionId, FfiNoiseError> {
 
 fn lock_manager(
     inner: &Arc<Mutex<RawNoiseManager>>,
-) -> Result<std::sync::MutexGuard<RawNoiseManager>, FfiNoiseError> {
+) -> Result<std::sync::MutexGuard<'_, RawNoiseManager>, FfiNoiseError> {
     inner.lock().map_err(|_| FfiNoiseError::Other {
         message: "Mutex poisoned".to_string(),
     })
