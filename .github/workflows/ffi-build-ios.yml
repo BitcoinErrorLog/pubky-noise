@@ -1,0 +1,32 @@
+name: Build iOS Bindings
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "src/**", "Cargo.toml", "build-ios.sh" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "src/**", "Cargo.toml", "build-ios.sh" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-apple-ios, x86_64-apple-ios
+
+    - name: Build iOS Framework
+      run: |
+        chmod +x build-ios.sh
+        ./build-ios.sh
+
+    - name: Archive Framework
+      uses: actions/upload-artifact@v3
+      with:
+        name: PubkyNoise.xcframework
+        path: platforms/ios/PubkyNoise.xcframework
+

@@ -1,0 +1,9 @@
+# uniffi.toml
+# Configuration for UniFFI binding generation
+
+[bindings.kotlin]
+package_name = "com.pubky.noise"
+
+[bindings.swift]
+module_name = "PubkyNoise"
+

@@ -1,0 +1,51 @@
+name: Release FFI Bindings
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-apple-ios, x86_64-apple-ios
+    - run: |
+        chmod +x build-ios.sh
+        ./build-ios.sh
+    - name: Zip Framework
+      run: zip -r PubkyNoise.xcframework.zip platforms/ios/PubkyNoise.xcframework
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./PubkyNoise.xcframework.zip
+        asset_name: PubkyNoise.xcframework.zip
+        asset_content_type: application/zip
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+    - run: |
+        chmod +x build-android.sh
+        ./build-android.sh
+    - working-directory: platforms/android
+      run: ./gradlew assembleRelease
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: platforms/android/build/outputs/aar/pubky-noise-release.aar
+        asset_name: pubky-noise.aar
+        asset_content_type: application/zip
+

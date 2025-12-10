@@ -1,0 +1,39 @@
+name: Build Android Bindings
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "src/**", "Cargo.toml", "build-android.sh" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "src/**", "Cargo.toml", "build-android.sh" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+
+    - name: Build Android Libs
+      run: |
+        chmod +x build-android.sh
+        ./build-android.sh
+
+    - name: Build AAR
+      working-directory: platforms/android
+      run: ./gradlew assembleRelease
+
+    - name: Archive AAR
+      uses: actions/upload-artifact@v3
+      with:
+        name: pubky-noise.aar
+        path: platforms/android/build/outputs/aar/pubky-noise-release.aar
+

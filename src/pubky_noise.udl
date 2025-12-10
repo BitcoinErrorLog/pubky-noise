@@ -1,0 +1,9 @@
+// UniFFI 0.25+ with proc macros doesn't require UDL declarations
+// All types and functions are defined in Rust with #[uniffi::*] attributes:
+// - #[uniffi::export] for functions and impl blocks
+// - #[derive(uniffi::Error)] for error enums
+// - #[derive(uniffi::Enum)] for enums
+// - #[derive(uniffi::Record)] for structs (dictionary)
+// - #[derive(uniffi::Object)] for objects (interface)
+
+namespace pubky_noise {};
