@@ -266,13 +266,9 @@ fn test_race_concurrent_add_same_id() {
         let m1 = manager.clone();
         let m2 = manager.clone();
 
-        let t1 = thread::spawn(move || {
-            m1.add_session(id.clone(), MockNoiseLink::new())
-        });
+        let t1 = thread::spawn(move || m1.add_session(id.clone(), MockNoiseLink::new()));
 
-        let t2 = thread::spawn(move || {
-            m2.add_session(id.clone(), MockNoiseLink::new())
-        });
+        let t2 = thread::spawn(move || m2.add_session(id.clone(), MockNoiseLink::new()));
 
         let r1 = t1.join().unwrap();
         let r2 = t2.join().unwrap();
