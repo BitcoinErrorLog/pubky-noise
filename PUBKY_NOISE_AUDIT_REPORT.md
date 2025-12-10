@@ -27,7 +27,7 @@ Pubky-noise is a well-architected, security-focused implementation of the Noise 
 - ❌ **6 Clippy errors** (duplicated attributes, too many arguments, missing Default)
 - ❌ **Formatting violations** (trailing whitespace, line length)
 - ⚠️ **1 failing FFI test** (`test_ffi_smoke`)
-- ⚠️ **Minor warnings** (unused imports, deprecated function usage)
+- ⚠️ **Minor warnings** (unused imports)
 
 **Critical Issues**: **NONE**  
 **Security Vulnerabilities**: **NONE**
@@ -621,7 +621,7 @@ where
 
 **Unit Tests** (`cargo test --all-features`):
 - 67 passed, 1 failed ❌
-- Numerous warnings (unused imports, deprecated functions)
+- Numerous warnings (unused imports)
 
 **Doctests**:
 - Not explicitly run (should run `cargo test --doc`)
@@ -697,7 +697,6 @@ where
 
 7. **Unused Imports/Warnings** ⚠️
    - Clean up unused imports (e.g., `tests/property_tests.rs:1`)
-   - Remove deprecated function calls or update to new API
 
 #### **LOW PRIORITY** (Documentation):
 

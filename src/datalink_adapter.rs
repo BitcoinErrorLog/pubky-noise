@@ -93,7 +93,9 @@ pub fn client_complete_ik(
 
 /// Server accepts IK handshake (step 2 of 3 for server).
 ///
-/// Reads client's first message and prepares response.
+/// This is a convenience function that wraps `server.build_responder_read_ik()`
+/// and generates the response message in one call. For more control, use
+/// the individual steps directly.
 ///
 /// # Arguments
 ///

@@ -429,16 +429,6 @@ export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin:$PATH"
 xcode-select --install
 ```
 
-### Build Warnings about Deprecated APIs
-
-**Status**: Known warnings from dependencies
-
-**To suppress**: Add to `~/.cargo/config.toml`:
-```toml
-[build]
-rustflags = ["-A", "deprecated"]
-```
-
 ---
 
 ## Performance
