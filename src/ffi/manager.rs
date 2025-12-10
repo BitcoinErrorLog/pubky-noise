@@ -1,5 +1,7 @@
 use crate::ffi::errors::FfiNoiseError;
-use crate::ffi::types::{FfiConnectionStatus, FfiMobileConfig, FfiSessionState};
+use crate::ffi::types::{
+    FfiAcceptResult, FfiConnectionStatus, FfiInitiateResult, FfiMobileConfig, FfiSessionState,
+};
 use crate::mobile_manager::{MobileConfig, NoiseManager};
 use crate::session_id::SessionId;
 use crate::{DummyRing, NoiseClient, NoiseServer};
@@ -49,9 +51,12 @@ impl FfiNoiseManager {
             *seed_zeroizing, // Deref to get the value, will be zeroed on drop
             client_kid.clone(),
             device_id.clone(),
+            0, // initial epoch
         ));
 
-        let client = Arc::new(NoiseClient::<_>::new_direct(client_kid, device_id, ring));
+        let client = Arc::new(NoiseClient::<_, ()>::new_direct(
+            client_kid, device_id, ring,
+        ));
 
         let mobile_config: MobileConfig = config.into();
         let manager = NoiseManager::new_client(client, mobile_config);
@@ -64,7 +69,15 @@ impl FfiNoiseManager {
         }))
     }
 
-    pub fn connect_client(&self, server_pk: Vec<u8>) -> Result<String, FfiNoiseError> {
+    /// Initiate a client connection (step 1 of 3-step handshake).
+    ///
+    /// Returns the temporary session ID and the first handshake message to send.
+    /// After sending the message and receiving a response, call `complete_connection`.
+    pub fn connect_client(
+        &self,
+        server_pk: Vec<u8>,
+        hint: Option<String>,
+    ) -> Result<String, FfiNoiseError> {
         let mut pk_arr = [0u8; 32];
         if server_pk.len() != 32 {
             return Err(FfiNoiseError::Ring {
@@ -81,16 +94,80 @@ impl FfiNoiseManager {
             }
         })?;
 
-        // Note: tokio runtime not needed for synchronous initiate_connection
-        // The method is sync and returns immediately with the first handshake message
         let (session_id, _first_msg) = manager
-            .initiate_connection(&pk_arr)
+            .initiate_connection(&pk_arr, hint.as_deref())
             .map_err(FfiNoiseError::from)?;
 
         #[cfg(feature = "trace")]
-        tracing::info!("Client connected successfully: session_id={}", session_id);
+        tracing::info!("Client connection initiated: session_id={}", session_id);
 
         Ok(session_id.to_string())
+    }
+
+    /// Initiate a client connection and get the handshake message.
+    ///
+    /// Returns FfiInitiateResult with session_id and first_message to send to server.
+    pub fn initiate_connection(
+        &self,
+        server_pk: Vec<u8>,
+        hint: Option<String>,
+    ) -> Result<FfiInitiateResult, FfiNoiseError> {
+        let mut pk_arr = [0u8; 32];
+        if server_pk.len() != 32 {
+            return Err(FfiNoiseError::Ring {
+                message: "Server public key must be 32 bytes".to_string(),
+            });
+        }
+        pk_arr.copy_from_slice(&server_pk);
+
+        let mut manager = self.inner.lock().map_err(|e| {
+            #[cfg(feature = "trace")]
+            tracing::error!("Mutex poisoned in initiate_connection: {}", e);
+            FfiNoiseError::Other {
+                message: "Mutex poisoned".to_string(),
+            }
+        })?;
+
+        let (session_id, first_msg) = manager
+            .initiate_connection(&pk_arr, hint.as_deref())
+            .map_err(FfiNoiseError::from)?;
+
+        #[cfg(feature = "trace")]
+        tracing::info!("Client connection initiated: session_id={}", session_id);
+
+        Ok(FfiInitiateResult {
+            session_id: session_id.to_string(),
+            first_message: first_msg,
+        })
+    }
+
+    /// Complete a client connection after receiving server response.
+    pub fn complete_connection(
+        &self,
+        session_id: String,
+        server_response: Vec<u8>,
+    ) -> Result<String, FfiNoiseError> {
+        let sid = self.parse_session_id(&session_id)?;
+
+        let mut manager = self.inner.lock().map_err(|e| {
+            #[cfg(feature = "trace")]
+            tracing::error!("Mutex poisoned in complete_connection: {}", e);
+            FfiNoiseError::Other {
+                message: "Mutex poisoned".to_string(),
+            }
+        })?;
+
+        let final_session_id = manager
+            .complete_connection(&sid, &server_response)
+            .map_err(FfiNoiseError::from)?;
+
+        #[cfg(feature = "trace")]
+        tracing::info!(
+            "Client connection completed: session_id={}",
+            final_session_id
+        );
+
+        Ok(final_session_id.to_string())
     }
 
     #[uniffi::constructor]
@@ -126,9 +203,12 @@ impl FfiNoiseManager {
             *seed_zeroizing,
             server_kid.clone(),
             device_id.clone(),
+            0, // internal epoch
         ));
 
-        let server = Arc::new(NoiseServer::<_>::new_direct(server_kid, device_id, ring));
+        let server = Arc::new(NoiseServer::<_, ()>::new_direct(
+            server_kid, device_id, ring,
+        ));
 
         let mobile_config: MobileConfig = config.into();
         let manager = NoiseManager::new_server(server, mobile_config);
@@ -138,25 +218,31 @@ impl FfiNoiseManager {
         }))
     }
 
-    pub fn accept_server(&self, first_msg: Vec<u8>) -> Result<String, FfiNoiseError> {
+    /// Accept a client connection (server-side handshake).
+    ///
+    /// Returns FfiAcceptResult with session_id and response_message to send to client.
+    pub fn accept_connection(&self, first_msg: Vec<u8>) -> Result<FfiAcceptResult, FfiNoiseError> {
         #[cfg(feature = "trace")]
-        tracing::debug!("accept_server called: msg_len={}", first_msg.len());
+        tracing::debug!("accept_connection called: msg_len={}", first_msg.len());
 
         let mut manager = self.inner.lock().map_err(|e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in accept_server: {}", e);
+            tracing::error!("Mutex poisoned in accept_connection: {}", e);
             FfiNoiseError::Other {
                 message: "Mutex poisoned".to_string(),
             }
         })?;
-        let (session_id, _response_msg) = manager
+        let (session_id, response) = manager
             .accept_connection(&first_msg)
             .map_err(FfiNoiseError::from)?;
 
         #[cfg(feature = "trace")]
         tracing::info!("Server accepted connection: session_id={}", session_id);
 
-        Ok(session_id.to_string())
+        Ok(FfiAcceptResult {
+            session_id: session_id.to_string(),
+            response_message: response,
+        })
     }
 
     pub fn encrypt(

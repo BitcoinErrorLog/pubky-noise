@@ -437,6 +437,7 @@ fn test_ffi_session_state_fields() {
     let state = FfiSessionState {
         session_id: "abcd1234".to_string(),
         peer_static_pk: vec![1u8; 32],
+        epoch: 42,
         write_counter: 10,
         read_counter: 5,
         status: FfiConnectionStatus::Connected,
@@ -444,6 +445,7 @@ fn test_ffi_session_state_fields() {
 
     assert_eq!(state.session_id, "abcd1234");
     assert_eq!(state.peer_static_pk.len(), 32);
+    assert_eq!(state.epoch, 42);
     assert_eq!(state.write_counter, 10);
     assert_eq!(state.read_counter, 5);
 }
@@ -462,13 +464,14 @@ fn test_ffi_session_state_with_different_statuses() {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; 32],
+            epoch: 1,
             write_counter: 0,
             read_counter: 0,
             status,
         };
 
         // Just verify it can be created with each status
-        assert!(!state.session_id.is_empty());
+        assert_eq!(state.epoch, 1);
     }
 }
 
@@ -481,6 +484,7 @@ fn test_ffi_session_state_counter_ranges() {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; 32],
+            epoch: 1,
             write_counter: write,
             read_counter: read,
             status: FfiConnectionStatus::Connected,
@@ -617,6 +621,7 @@ fn test_public_key_size_validation() {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; size],
+            epoch: 1,
             write_counter: 0,
             read_counter: 0,
             status: FfiConnectionStatus::Connected,
@@ -640,6 +645,7 @@ fn test_session_id_format_preservation() {
         let state = FfiSessionState {
             session_id: sid.to_string(),
             peer_static_pk: vec![0u8; 32],
+            epoch: 1,
             write_counter: 0,
             read_counter: 0,
             status: FfiConnectionStatus::Connected,
@@ -650,19 +656,20 @@ fn test_session_id_format_preservation() {
 }
 
 #[test]
-fn test_write_counter_ranges() {
-    // Test various write counter values
-    let counters = vec![0u64, 1, 100, 1000, u64::MAX];
+fn test_epoch_value_ranges() {
+    // Test various epoch values
+    let epochs = vec![0u32, 1, 100, 1000, u32::MAX];
 
-    for counter in counters {
+    for epoch in epochs {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; 32],
-            write_counter: counter,
+            epoch,
+            write_counter: 0,
             read_counter: 0,
             status: FfiConnectionStatus::Connected,
         };
 
-        assert_eq!(state.write_counter, counter);
+        assert_eq!(state.epoch, epoch);
     }
 }

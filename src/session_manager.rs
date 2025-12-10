@@ -1,14 +1,14 @@
 use crate::client::NoiseClient;
+use crate::datalink_adapter::NoiseLink;
 use crate::ring::RingKeyProvider;
 use crate::server::NoiseServer;
 use crate::session_id::SessionId;
-use crate::transport::NoiseSession;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 pub enum NoiseRole<R: RingKeyProvider> {
-    Client(Arc<NoiseClient<R>>),
-    Server(Arc<NoiseServer<R>>),
+    Client(Arc<NoiseClient<R, ()>>),
+    Server(Arc<NoiseServer<R, ()>>),
 }
 
 /// Manages multiple concurrent Noise sessions
@@ -25,7 +25,7 @@ pub enum NoiseRole<R: RingKeyProvider> {
 ///
 /// # fn example() {
 /// let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
-/// let client = Arc::new(NoiseClient::<_>::new_direct("kid", b"device", ring));
+/// let client = Arc::new(NoiseClient::<_, ()>::new_direct("kid", b"device", ring));
 /// let manager = Arc::new(Mutex::new(NoiseSessionManager::new_client(client)));
 ///
 /// // Now safe to share across threads
@@ -39,19 +39,19 @@ pub enum NoiseRole<R: RingKeyProvider> {
 ///
 /// Alternatively, use `ThreadSafeSessionManager` for built-in thread safety.
 pub struct NoiseSessionManager<R: RingKeyProvider> {
-    sessions: HashMap<SessionId, NoiseSession>,
+    sessions: HashMap<SessionId, NoiseLink>,
     role: NoiseRole<R>,
 }
 
 impl<R: RingKeyProvider> NoiseSessionManager<R> {
-    pub fn new_client(client: Arc<NoiseClient<R>>) -> Self {
+    pub fn new_client(client: Arc<NoiseClient<R, ()>>) -> Self {
         Self {
             sessions: HashMap::new(),
             role: NoiseRole::Client(client),
         }
     }
 
-    pub fn new_server(server: Arc<NoiseServer<R>>) -> Self {
+    pub fn new_server(server: Arc<NoiseServer<R, ()>>) -> Self {
         Self {
             sessions: HashMap::new(),
             role: NoiseRole::Server(server),
@@ -59,23 +59,19 @@ impl<R: RingKeyProvider> NoiseSessionManager<R> {
     }
 
     /// Adds a session to the manager. Returns the old session if one existed with the same ID.
-    pub fn add_session(
-        &mut self,
-        session_id: SessionId,
-        session: NoiseSession,
-    ) -> Option<NoiseSession> {
-        self.sessions.insert(session_id, session)
+    pub fn add_session(&mut self, session_id: SessionId, link: NoiseLink) -> Option<NoiseLink> {
+        self.sessions.insert(session_id, link)
     }
 
-    pub fn get_session(&self, session_id: &SessionId) -> Option<&NoiseSession> {
+    pub fn get_session(&self, session_id: &SessionId) -> Option<&NoiseLink> {
         self.sessions.get(session_id)
     }
 
-    pub fn get_session_mut(&mut self, session_id: &SessionId) -> Option<&mut NoiseSession> {
+    pub fn get_session_mut(&mut self, session_id: &SessionId) -> Option<&mut NoiseLink> {
         self.sessions.get_mut(session_id)
     }
 
-    pub fn remove_session(&mut self, session_id: &SessionId) -> Option<NoiseSession> {
+    pub fn remove_session(&mut self, session_id: &SessionId) -> Option<NoiseLink> {
         self.sessions.remove(session_id)
     }
 
@@ -83,14 +79,14 @@ impl<R: RingKeyProvider> NoiseSessionManager<R> {
         self.sessions.keys().cloned().collect()
     }
 
-    pub fn client(&self) -> Option<&Arc<NoiseClient<R>>> {
+    pub fn client(&self) -> Option<&Arc<NoiseClient<R, ()>>> {
         match &self.role {
             NoiseRole::Client(c) => Some(c),
             _ => None,
         }
     }
 
-    pub fn server(&self) -> Option<&Arc<NoiseServer<R>>> {
+    pub fn server(&self) -> Option<&Arc<NoiseServer<R, ()>>> {
         match &self.role {
             NoiseRole::Server(s) => Some(s),
             _ => None,
@@ -112,7 +108,7 @@ impl<R: RingKeyProvider> NoiseSessionManager<R> {
 ///
 /// # fn example() {
 /// let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
-/// let client = Arc::new(NoiseClient::<_>::new_direct("kid", b"device", ring));
+/// let client = Arc::new(NoiseClient::<_, ()>::new_direct("kid", b"device", ring));
 /// let manager = ThreadSafeSessionManager::new_client(client);
 ///
 /// // Clone and use in multiple threads
@@ -129,26 +125,22 @@ pub struct ThreadSafeSessionManager<R: RingKeyProvider> {
 
 impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     /// Create a new thread-safe manager for client role
-    pub fn new_client(client: Arc<NoiseClient<R>>) -> Self {
+    pub fn new_client(client: Arc<NoiseClient<R, ()>>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(NoiseSessionManager::new_client(client))),
         }
     }
 
     /// Create a new thread-safe manager for server role
-    pub fn new_server(server: Arc<NoiseServer<R>>) -> Self {
+    pub fn new_server(server: Arc<NoiseServer<R, ()>>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(NoiseSessionManager::new_server(server))),
         }
     }
 
     /// Add a session to the manager
-    pub fn add_session(
-        &self,
-        session_id: SessionId,
-        session: NoiseSession,
-    ) -> Option<NoiseSession> {
-        self.inner.lock().unwrap().add_session(session_id, session)
+    pub fn add_session(&self, session_id: SessionId, link: NoiseLink) -> Option<NoiseLink> {
+        self.inner.lock().unwrap().add_session(session_id, link)
     }
 
     /// Get a session by ID (returns a copy of the session for thread safety)
@@ -159,7 +151,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     }
 
     /// Remove a session
-    pub fn remove_session(&self, session_id: &SessionId) -> Option<NoiseSession> {
+    pub fn remove_session(&self, session_id: &SessionId) -> Option<NoiseLink> {
         self.inner.lock().unwrap().remove_session(session_id)
     }
 
@@ -171,7 +163,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     /// Execute a closure with read access to a session
     pub fn with_session<F, T>(&self, session_id: &SessionId, f: F) -> Option<T>
     where
-        F: FnOnce(&NoiseSession) -> T,
+        F: FnOnce(&NoiseLink) -> T,
     {
         let manager = self.inner.lock().unwrap();
         manager.get_session(session_id).map(f)
@@ -180,7 +172,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     /// Execute a closure with mutable access to a session
     pub fn with_session_mut<F, T>(&self, session_id: &SessionId, f: F) -> Option<T>
     where
-        F: FnOnce(&mut NoiseSession) -> T,
+        F: FnOnce(&mut NoiseLink) -> T,
     {
         let mut manager = self.inner.lock().unwrap();
         manager.get_session_mut(session_id).map(f)

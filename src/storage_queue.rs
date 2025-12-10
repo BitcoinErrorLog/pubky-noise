@@ -1,10 +1,7 @@
-//! Storage-backed messaging queue.
-//!
-//! This module provides `StorageBackedMessaging` for asynchronous messaging using
-//! Pubky storage as a queue. Requires the `storage-queue` feature.
+//! Storage-backed messaging queue using Pubky storage (optional feature).
 
+use crate::datalink_adapter::NoiseLink;
 use crate::errors::NoiseError;
-use crate::transport::NoiseSession;
 use pubky::{Pubky, PubkySession};
 use std::time::Duration;
 
@@ -41,7 +38,7 @@ impl Default for RetryConfig {
 /// **Important**: You must persist `write_counter` and `read_counter` values
 /// across application restarts to avoid data loss or message replay.
 pub struct StorageBackedMessaging {
-    noise_session: NoiseSession,
+    noise_link: NoiseLink,
     session: PubkySession,
     public_client: Pubky,
     write_path: String,
@@ -60,15 +57,15 @@ pub trait MessageQueue {
 impl StorageBackedMessaging {
     /// Create a new StorageBackedMessaging instance with default retry configuration
     pub fn new(
-        session: NoiseSession,
-        pubky_session: PubkySession,
+        link: NoiseLink,
+        session: PubkySession,
         public_client: Pubky,
         write_path: String,
         read_path: String,
     ) -> Self {
         Self {
-            noise_session: session,
-            session: pubky_session,
+            noise_link: link,
+            session,
             public_client,
             write_path,
             read_path,
@@ -114,7 +111,7 @@ impl StorageBackedMessaging {
 
     /// Send a message with retry logic and exponential backoff
     pub async fn send_message(&mut self, plaintext: &[u8]) -> Result<(), NoiseError> {
-        let ciphertext = self.noise_session.encrypt(plaintext)?;
+        let ciphertext = self.noise_link.encrypt(plaintext)?;
         let path = format!("{}/msg_{}", self.write_path, self.write_counter);
 
         // Retry with exponential backoff
@@ -164,17 +161,16 @@ impl StorageBackedMessaging {
             let mut backoff_ms = self.retry_config.initial_backoff_ms;
 
             loop {
-                match self.public_client.public_storage().get(&path).await {
+                match self.public_client.get(&path).await {
                     Ok(response) => {
                         if response.status().is_success() {
                             let ciphertext = response.bytes().await.map_err(|e| {
                                 NoiseError::Network(format!("Failed to read bytes: {:?}", e))
                             })?;
 
-                            let plaintext =
-                                self.noise_session.decrypt(&ciphertext).map_err(|e| {
-                                    NoiseError::Decryption(format!("Failed to decrypt: {:?}", e))
-                                })?;
+                            let plaintext = self.noise_link.decrypt(&ciphertext).map_err(|e| {
+                                NoiseError::Decryption(format!("Failed to decrypt: {:?}", e))
+                            })?;
 
                             messages.push(plaintext);
                             self.read_counter += 1;
@@ -202,7 +198,7 @@ impl StorageBackedMessaging {
                             )));
                         }
                     }
-                    Err(_e) if retry_attempt < self.retry_config.max_retries => {
+                    Err(e) if retry_attempt < self.retry_config.max_retries => {
                         // Network error - retry
                         retry_attempt += 1;
 
@@ -230,7 +226,7 @@ impl StorageBackedMessaging {
         // Estimate by checking if next message exists
         // This is just a peek, doesn't guarantee total count without scanning
         let path = format!("{}/msg_{}", self.read_path, self.read_counter);
-        match self.public_client.public_storage().get(&path).await {
+        match self.public_client.get(&path).await {
             Ok(r) if r.status().is_success() => Ok(1), // At least 1
             _ => Ok(0),
         }

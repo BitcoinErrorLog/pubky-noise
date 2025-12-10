@@ -5,10 +5,9 @@
 
 #![cfg(feature = "uniffi_macros")]
 
-use pubky_noise::ffi::config::{default_config, performance_config};
+use pubky_noise::ffi::config::performance_config;
 use pubky_noise::ffi::manager::FfiNoiseManager;
-use pubky_noise::ffi::types::{FfiConnectionStatus, FfiMobileConfig};
-use pubky_noise::kdf::derive_x25519_static;
+use pubky_noise::kdf::derive_x25519_for_device_epoch;
 use pubky_noise::kdf::x25519_pk_from_sk;
 
 #[test]
@@ -21,7 +20,7 @@ fn test_ffi_smoke() {
     let server_device_id = b"server_device".to_vec();
 
     // Server setup (manual for now as FFI doesn't expose server)
-    let server_sk = derive_x25519_static(&server_seed, &server_device_id);
+    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0);
     let server_pk = x25519_pk_from_sk(&server_sk);
 
     // Create manager
@@ -29,38 +28,105 @@ fn test_ffi_smoke() {
     let manager = FfiNoiseManager::new_client(config, client_seed.to_vec(), client_kid, device_id)
         .expect("Failed to create manager");
 
-    // Connect
-    let session_id = manager
-        .connect_client(server_pk.to_vec())
-        .expect("Failed to connect");
+    // Initiate connection (step 1 of 3-step handshake)
+    // Note: This only initiates the handshake; we need a server to complete it
+    let (session_id, first_msg) = manager
+        .initiate_connection(server_pk.to_vec(), None)
+        .expect("Failed to initiate connection");
 
-    println!("Connected with session ID: {}", session_id);
+    println!("Initiated connection with session ID: {}", session_id);
+    println!("First message length: {} bytes", first_msg.len());
 
-    // Check status
-    let status = manager
-        .get_status(session_id.clone())
-        .expect("Failed to get status");
+    // Verify first message was generated
+    assert!(!first_msg.is_empty(), "First message should not be empty");
 
-    assert!(matches!(status, FfiConnectionStatus::Connected));
-
-    // Save state
-    let state = manager
-        .save_state(session_id.clone())
-        .expect("Failed to save state");
-
-    assert_eq!(state.session_id, session_id);
-
-    // Encrypt (will fail without real server response, but validates API)
-    // Note: In a real test we'd need a server to complete the handshake
-    // But connect_client only initiates the handshake for IK
-
-    // List sessions
+    // List sessions (should have the pending session)
     let sessions = manager.list_sessions();
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0], session_id);
+    // Note: Pending handshakes are tracked separately, so sessions may be empty
+    // until the handshake is completed
 
-    // Remove session
-    manager.remove_session(session_id);
-    let sessions = manager.list_sessions();
-    assert_eq!(sessions.len(), 0);
+    // Remove session (cleanup)
+    manager.remove_session(session_id.clone());
+
+    println!("FFI smoke test passed!");
+}
+
+#[test]
+fn test_ffi_server_client_handshake() {
+    // This test verifies the full 3-step handshake via FFI
+
+    // Setup keys
+    let client_seed = [1u8; 32];
+    let server_seed = [2u8; 32];
+    let server_device_id = b"server_device".to_vec();
+
+    // Get server's public key (derived the same way the server will derive it)
+    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0);
+    let server_pk = x25519_pk_from_sk(&server_sk);
+
+    // Create client manager
+    let client_config = performance_config();
+    let client_manager = FfiNoiseManager::new_client(
+        client_config,
+        client_seed.to_vec(),
+        "client_kid".to_string(),
+        b"client_device".to_vec(),
+    )
+    .expect("Failed to create client manager");
+
+    // Create server manager
+    let server_config = performance_config();
+    let server_manager = FfiNoiseManager::new_server(
+        server_config,
+        server_seed.to_vec(),
+        "server_kid".to_string(),
+        server_device_id.clone(),
+    )
+    .expect("Failed to create server manager");
+
+    // Step 1: Client initiates connection
+    let (temp_session_id, first_msg) = client_manager
+        .initiate_connection(server_pk.to_vec(), None)
+        .expect("Failed to initiate connection");
+
+    println!("Client initiated: session_id={}", temp_session_id);
+
+    // Step 2: Server accepts connection
+    let (server_session_id, response_msg) = server_manager
+        .accept_connection(first_msg)
+        .expect("Failed to accept connection");
+
+    println!("Server accepted: session_id={}", server_session_id);
+
+    // Step 3: Client completes connection
+    let final_session_id = client_manager
+        .complete_connection(temp_session_id, response_msg)
+        .expect("Failed to complete connection");
+
+    println!("Client completed: session_id={}", final_session_id);
+
+    // Now both sides should have established sessions
+    let client_sessions = client_manager.list_sessions();
+    let server_sessions = server_manager.list_sessions();
+
+    assert_eq!(client_sessions.len(), 1, "Client should have 1 session");
+    assert_eq!(server_sessions.len(), 1, "Server should have 1 session");
+
+    // Test encryption/decryption
+    let plaintext = b"Hello, secure world!";
+    let ciphertext = client_manager
+        .encrypt(final_session_id.clone(), plaintext.to_vec())
+        .expect("Failed to encrypt");
+
+    let decrypted = server_manager
+        .decrypt(server_session_id.clone(), ciphertext)
+        .expect("Failed to decrypt");
+
+    assert_eq!(
+        decrypted,
+        plaintext.to_vec(),
+        "Decrypted message should match"
+    );
+
+    println!("Full handshake test passed!");
 }

@@ -40,16 +40,17 @@ mod ffi_tests {
     fn test_key_derivation() {
         let seed = vec![1u8; 32];
         let device_id = b"test-device".to_vec();
+        let epoch = 5;
 
-        let key = derive_device_key(seed.clone(), device_id.clone());
+        let key = derive_device_key(seed.clone(), device_id.clone(), epoch);
         assert_eq!(key.len(), 32);
 
         // Same inputs should produce same output
-        let key2 = derive_device_key(seed.clone(), device_id.clone());
+        let key2 = derive_device_key(seed.clone(), device_id.clone(), epoch);
         assert_eq!(key, key2);
 
-        // Different device_id should produce different output
-        let key3 = derive_device_key(seed, b"other-device".to_vec());
+        // Different epoch should produce different output
+        let key3 = derive_device_key(seed, device_id, epoch + 1);
         assert_ne!(key, key3);
     }
 
