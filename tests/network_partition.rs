@@ -31,11 +31,7 @@ impl RingKeyProvider for TestRing {
         Ok(signing_key.verifying_key().to_bytes())
     }
 
-    fn sign_ed25519(
-        &self,
-        _kid: &str,
-        msg: &[u8],
-    ) -> Result<[u8; 64], pubky_noise::NoiseError> {
+    fn sign_ed25519(&self, _kid: &str, msg: &[u8]) -> Result<[u8; 64], pubky_noise::NoiseError> {
         use ed25519_dalek::{Signer, SigningKey};
         let signing_key = SigningKey::from_bytes(&self.seed);
         Ok(signing_key.sign(msg).to_bytes())
@@ -48,15 +44,11 @@ impl RingKeyProvider for TestRing {
 /// in an inconsistent state.
 #[test]
 fn test_partition_during_handshake() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
 
     // Get server's public key
     let server_sk = server_ring
@@ -87,12 +79,8 @@ fn test_partition_during_handshake() {
 /// Simulate network partition during message exchange
 #[test]
 fn test_partition_during_message_exchange() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
     let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
@@ -105,7 +93,7 @@ fn test_partition_during_message_exchange() {
 
     // Complete handshake
     let (c_hs, first_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
-    let (mut s_hs, _id, response) = {
+    let (s_hs, _id, response) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -126,7 +114,7 @@ fn test_partition_during_message_exchange() {
     // After partition heals, need to establish new session
     // Old session cannot be resumed (Noise doesn't support session resumption)
     let (new_c_hs, new_first_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
-    let (mut new_s_hs, _new_id, new_response) = {
+    let (new_s_hs, _new_id, new_response) = {
         let (mut hs, id) = server.build_responder_read_ik(&new_first_msg).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -153,12 +141,8 @@ fn test_partition_during_message_exchange() {
 /// Test that multiple partition/reconnect cycles work correctly
 #[test]
 fn test_multiple_partition_cycles() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
     let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
@@ -173,7 +157,7 @@ fn test_multiple_partition_cycles() {
     for cycle in 0..3 {
         // Establish new session
         let (c_hs, first_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
-        let (mut s_hs, _id, response) = {
+        let (s_hs, _id, response) = {
             let (mut hs, id) = server.build_responder_read_ik(&first_msg).unwrap();
             let mut resp = vec![0u8; 128];
             let n = hs.write_message(&[], &mut resp).unwrap();

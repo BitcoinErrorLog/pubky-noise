@@ -4,8 +4,8 @@
 //! Note: Currently ServerPolicy fields are defined but enforcement logic
 //! is not yet implemented. These tests document expected behavior.
 
-use pubky_noise::{NoiseServer, RingKeyProvider};
 use pubky_noise::server::ServerPolicy;
+use pubky_noise::{NoiseServer, RingKeyProvider};
 use std::sync::Arc;
 
 struct TestRing {
@@ -30,11 +30,7 @@ impl RingKeyProvider for TestRing {
         Ok(signing_key.verifying_key().to_bytes())
     }
 
-    fn sign_ed25519(
-        &self,
-        _kid: &str,
-        msg: &[u8],
-    ) -> Result<[u8; 64], pubky_noise::NoiseError> {
+    fn sign_ed25519(&self, _kid: &str, msg: &[u8]) -> Result<[u8; 64], pubky_noise::NoiseError> {
         use ed25519_dalek::{Signer, SigningKey};
         let signing_key = SigningKey::from_bytes(&self.seed);
         Ok(signing_key.sign(msg).to_bytes())
@@ -67,9 +63,10 @@ fn test_server_policy_default() {
 /// Test ServerPolicy clone
 #[test]
 fn test_server_policy_clone() {
-    let mut policy = ServerPolicy::default();
-    policy.max_handshakes_per_ip = Some(10);
-    policy.max_sessions_per_ed25519 = Some(5);
+    let policy = ServerPolicy {
+        max_handshakes_per_ip: Some(10),
+        max_sessions_per_ed25519: Some(5),
+    };
 
     let cloned = policy.clone();
     assert_eq!(cloned.max_handshakes_per_ip, Some(10));

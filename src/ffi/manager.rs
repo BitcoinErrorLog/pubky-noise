@@ -355,6 +355,8 @@ impl FfiNoiseManager {
                 Err(e) => {
                     #[cfg(feature = "trace")]
                     tracing::warn!("Mutex poisoned in remove_session: {}", e);
+                    #[cfg(not(feature = "trace"))]
+                    let _ = e;
                 }
             }
         }
@@ -367,6 +369,8 @@ impl FfiNoiseManager {
             Err(e) => {
                 #[cfg(feature = "trace")]
                 tracing::warn!("Mutex poisoned in get_status: {}", e);
+                #[cfg(not(feature = "trace"))]
+                let _ = e;
                 return None;
             }
         };
@@ -382,6 +386,8 @@ impl FfiNoiseManager {
                 Err(e) => {
                     #[cfg(feature = "trace")]
                     tracing::warn!("Mutex poisoned in set_status: {}", e);
+                    #[cfg(not(feature = "trace"))]
+                    let _ = e;
                 }
             }
         }

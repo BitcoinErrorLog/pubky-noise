@@ -31,11 +31,7 @@ impl RingKeyProvider for TestRing {
         Ok(signing_key.verifying_key().to_bytes())
     }
 
-    fn sign_ed25519(
-        &self,
-        _kid: &str,
-        msg: &[u8],
-    ) -> Result<[u8; 64], pubky_noise::NoiseError> {
+    fn sign_ed25519(&self, _kid: &str, msg: &[u8]) -> Result<[u8; 64], pubky_noise::NoiseError> {
         use ed25519_dalek::{Signer, SigningKey};
         let signing_key = SigningKey::from_bytes(&self.seed);
         Ok(signing_key.sign(msg).to_bytes())
@@ -49,12 +45,8 @@ impl RingKeyProvider for TestRing {
 /// nonce progression in transport mode, not from rejecting duplicate handshakes.
 #[test]
 fn test_handshake_creates_independent_sessions() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
     let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
@@ -69,7 +61,7 @@ fn test_handshake_creates_independent_sessions() {
     let (hs1, first_msg1) = client_start_ik_direct(&client, &server_pk, None).unwrap();
 
     // Step 2: Server processes first handshake
-    let (mut hs_s1, _id1, response1) = {
+    let (hs_s1, _id1, response1) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg1).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -84,7 +76,7 @@ fn test_handshake_creates_independent_sessions() {
     // Create a second handshake with the same message
     // This creates a NEW session (not a replay)
     let (hs2, first_msg2) = client_start_ik_direct(&client, &server_pk, None).unwrap();
-    let (mut hs_s2, _id2, response2) = {
+    let (hs_s2, _id2, response2) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg2).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -115,12 +107,8 @@ fn test_handshake_creates_independent_sessions() {
 /// Test that encrypted messages cannot be replayed within a session
 #[test]
 fn test_message_replay_detection() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
     let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
@@ -133,7 +121,7 @@ fn test_message_replay_detection() {
 
     // Complete handshake
     let (c_hs, first_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
-    let (mut s_hs, _id, response) = {
+    let (s_hs, _id, response) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -166,12 +154,8 @@ fn test_message_replay_detection() {
 /// Test that messages from one session cannot be replayed in another session
 #[test]
 fn test_cross_session_replay_detection() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client1 = NoiseClient::<_, ()>::new_direct("kid", b"client1", client_ring.clone());
     let client2 = NoiseClient::<_, ()>::new_direct("kid", b"client2", client_ring.clone());
@@ -185,7 +169,7 @@ fn test_cross_session_replay_detection() {
 
     // Create first session
     let (c1_hs, first_msg1) = client_start_ik_direct(&client1, &server_pk, None).unwrap();
-    let (mut s1_hs, _id1, response1) = {
+    let (s1_hs, _id1, response1) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg1).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -197,7 +181,7 @@ fn test_cross_session_replay_detection() {
 
     // Create second session
     let (c2_hs, first_msg2) = client_start_ik_direct(&client2, &server_pk, None).unwrap();
-    let (mut s2_hs, _id2, response2) = {
+    let (s2_hs, _id2, response2) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg2).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();
@@ -232,12 +216,8 @@ fn test_cross_session_replay_detection() {
 fn test_epoch_replay_prevention() {
     // Note: Currently epoch is always 0, but this test documents the expected behavior
     // if epoch rotation is implemented in the future
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
     let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
@@ -252,7 +232,7 @@ fn test_epoch_replay_prevention() {
     let (hs, first_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
 
     // Server processes it
-    let (mut s_hs, _id, response) = {
+    let (s_hs, _id, response) = {
         let (mut hs, id) = server.build_responder_read_ik(&first_msg).unwrap();
         let mut resp = vec![0u8; 128];
         let n = hs.write_message(&[], &mut resp).unwrap();

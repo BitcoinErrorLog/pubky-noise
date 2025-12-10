@@ -5,8 +5,7 @@
 //! the handshake and should pin it for future use (IK pattern).
 
 use pubky_noise::{
-    datalink_adapter::{client_complete_ik, client_start_ik_direct, server_complete_ik},
-    NoiseClient, NoiseServer, RingKeyProvider,
+    datalink_adapter::client_start_ik_direct, NoiseClient, NoiseServer, RingKeyProvider,
 };
 use std::sync::Arc;
 
@@ -32,11 +31,7 @@ impl RingKeyProvider for TestRing {
         Ok(signing_key.verifying_key().to_bytes())
     }
 
-    fn sign_ed25519(
-        &self,
-        _kid: &str,
-        msg: &[u8],
-    ) -> Result<[u8; 64], pubky_noise::NoiseError> {
+    fn sign_ed25519(&self, _kid: &str, msg: &[u8]) -> Result<[u8; 64], pubky_noise::NoiseError> {
         use ed25519_dalek::{Signer, SigningKey};
         let signing_key = SigningKey::from_bytes(&self.seed);
         Ok(signing_key.sign(msg).to_bytes())
@@ -49,12 +44,8 @@ impl RingKeyProvider for TestRing {
 /// This test documents the expected behavior.
 #[test]
 fn test_xx_pattern_first_contact() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
     let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
@@ -63,7 +54,10 @@ fn test_xx_pattern_first_contact() {
     let (hs, first_msg) = client.build_initiator_xx_tofu(None).unwrap();
 
     // First message should be generated
-    assert!(!first_msg.is_empty(), "XX pattern first message should not be empty");
+    assert!(
+        !first_msg.is_empty(),
+        "XX pattern first message should not be empty"
+    );
 
     // In a complete XX handshake:
     // 1. Client sends -> e (ephemeral)
@@ -78,12 +72,8 @@ fn test_xx_pattern_first_contact() {
 /// Test that XX and IK patterns produce different handshake messages
 #[test]
 fn test_xx_vs_ik_different_messages() {
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
     let server_ring_clone = server_ring.clone();
@@ -113,12 +103,8 @@ fn test_xx_pattern_first_contact_scenario() {
     // 2. Pin the key
     // 3. Use IK pattern for future connections
 
-    let client_ring = Arc::new(TestRing {
-        seed: [1u8; 32],
-    });
-    let server_ring = Arc::new(TestRing {
-        seed: [2u8; 32],
-    });
+    let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
     let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
