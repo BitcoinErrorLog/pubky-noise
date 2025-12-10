@@ -27,9 +27,6 @@ use std::sync::Arc;
 #[cfg(feature = "storage-queue")]
 use crate::storage_queue::{RetryConfig, StorageBackedMessaging};
 
-/// Internal epoch value - always 0 (epoch is not a user-facing concept).
-const INTERNAL_EPOCH: u32 = 0;
-
 /// Connection status for a Noise session
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
@@ -442,7 +439,7 @@ impl<R: RingKeyProvider> NoiseManager<R> {
         &mut self,
         session_id: &SessionId,
         session: pubky::PubkySession,
-        public_client: pubky::Pubky,
+        public_client: pubky::PublicStorage,
         write_path: String,
         read_path: String,
     ) -> Result<StorageBackedMessaging, NoiseError> {

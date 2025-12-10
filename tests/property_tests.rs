@@ -1,6 +1,6 @@
 //! Property-based tests for cryptographic operations.
 
-use ed25519_dalek::{SigningKey, VerifyingKey, SECRET_KEY_LENGTH};
+use ed25519_dalek::{SigningKey, SECRET_KEY_LENGTH};
 use pubky_noise::identity_payload::{
     make_binding_message, sign_identity_payload, verify_identity_payload, BindingMessageParams,
     Role,
@@ -36,7 +36,7 @@ fn property_kdf_device_separation() {
     let seed = [42u8; 32];
     let epoch = 0; // Use default epoch
 
-    let devices = vec![
+    let devices = [
         b"device_a".as_slice(),
         b"device_b",
         b"device_c",
@@ -105,9 +105,9 @@ fn property_pubkey_derivation_consistent() {
 /// Property: Different secret keys should produce different public keys
 #[test]
 fn property_pubkey_uniqueness() {
-    let secret_keys = vec![[1u8; 32], [2u8; 32], [3u8; 32], [42u8; 32]];
+    let secret_keys = [[1u8; 32], [2u8; 32], [3u8; 32], [42u8; 32]];
 
-    let public_keys: Vec<[u8; 32]> = secret_keys.iter().map(|sk| x25519_pk_from_sk(sk)).collect();
+    let public_keys: Vec<[u8; 32]> = secret_keys.iter().map(x25519_pk_from_sk).collect();
 
     // All public keys should be unique
     for i in 0..public_keys.len() {

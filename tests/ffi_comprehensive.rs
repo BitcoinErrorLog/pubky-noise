@@ -10,8 +10,7 @@ mod ffi_tests {
         public_key_from_secret,
     };
     use pubky_noise::ffi::manager::FfiNoiseManager;
-    use pubky_noise::ffi::types::{FfiConnectionStatus, FfiMobileConfig};
-    use pubky_noise::DummyRing;
+    use pubky_noise::ffi::types::FfiMobileConfig;
     use std::sync::Arc;
 
     #[test]

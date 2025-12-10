@@ -30,7 +30,7 @@ fn test_connection_status_round_trip() {
     ];
 
     for original in statuses {
-        let ffi: FfiConnectionStatus = original.clone().into();
+        let ffi: FfiConnectionStatus = original.into();
         let back: ConnectionStatus = ffi.into();
 
         // Compare by converting both to discriminants
@@ -207,7 +207,7 @@ fn test_ffi_error_message_preservation() {
 #[test]
 fn test_ffi_error_different_variants() {
     // Test that different error variants are distinct
-    let errors = vec![
+    let errors = [
         FfiNoiseError::Ring {
             message: "a".to_string(),
         },
@@ -437,7 +437,6 @@ fn test_ffi_session_state_fields() {
     let state = FfiSessionState {
         session_id: "abcd1234".to_string(),
         peer_static_pk: vec![1u8; 32],
-        epoch: 42,
         write_counter: 10,
         read_counter: 5,
         status: FfiConnectionStatus::Connected,
@@ -445,7 +444,6 @@ fn test_ffi_session_state_fields() {
 
     assert_eq!(state.session_id, "abcd1234");
     assert_eq!(state.peer_static_pk.len(), 32);
-    assert_eq!(state.epoch, 42);
     assert_eq!(state.write_counter, 10);
     assert_eq!(state.read_counter, 5);
 }
@@ -464,14 +462,14 @@ fn test_ffi_session_state_with_different_statuses() {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; 32],
-            epoch: 1,
             write_counter: 0,
             read_counter: 0,
             status,
         };
 
         // Just verify it can be created with each status
-        assert_eq!(state.epoch, 1);
+        assert_eq!(state.write_counter, 0);
+        assert_eq!(state.read_counter, 0);
     }
 }
 
@@ -484,7 +482,6 @@ fn test_ffi_session_state_counter_ranges() {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; 32],
-            epoch: 1,
             write_counter: write,
             read_counter: read,
             status: FfiConnectionStatus::Connected,
@@ -621,7 +618,6 @@ fn test_public_key_size_validation() {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; size],
-            epoch: 1,
             write_counter: 0,
             read_counter: 0,
             status: FfiConnectionStatus::Connected,
@@ -645,7 +641,6 @@ fn test_session_id_format_preservation() {
         let state = FfiSessionState {
             session_id: sid.to_string(),
             peer_static_pk: vec![0u8; 32],
-            epoch: 1,
             write_counter: 0,
             read_counter: 0,
             status: FfiConnectionStatus::Connected,
@@ -656,20 +651,19 @@ fn test_session_id_format_preservation() {
 }
 
 #[test]
-fn test_epoch_value_ranges() {
-    // Test various epoch values
-    let epochs = vec![0u32, 1, 100, 1000, u32::MAX];
+fn test_write_counter_value_ranges() {
+    // Test various write counter values
+    let counters = vec![0u64, 1, 100, 1000, u64::MAX];
 
-    for epoch in epochs {
+    for counter in counters {
         let state = FfiSessionState {
             session_id: "test".to_string(),
             peer_static_pk: vec![0u8; 32],
-            epoch,
-            write_counter: 0,
+            write_counter: counter,
             read_counter: 0,
             status: FfiConnectionStatus::Connected,
         };
 
-        assert_eq!(state.epoch, epoch);
+        assert_eq!(state.write_counter, counter);
     }
 }

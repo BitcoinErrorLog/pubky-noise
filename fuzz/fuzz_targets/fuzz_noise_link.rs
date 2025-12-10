@@ -4,7 +4,7 @@ use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use pubky_noise::{NoiseClient, NoiseServer, RingKeyProvider, NoiseError};
 use pubky_noise::datalink_adapter::{
-    client_start_ik_direct, client_complete_ik, server_accept_ik, server_complete_ik,
+    client_start_ik_direct, client_complete_ik, server_complete_ik,
 };
 use std::sync::Arc;
 
@@ -74,10 +74,18 @@ fuzz_target!(|input: NoiseLinkInput| {
         Err(_) => return,
     };
 
-    let (s_hs, _identity, response) = match server_accept_ik(&server, &first_msg) {
+    let (mut s_hs, _identity) = match server.build_responder_read_ik(&first_msg) {
         Ok(result) => result,
         Err(_) => return,
     };
+    
+    // Generate response message
+    let mut response = vec![0u8; 128];
+    let n = match s_hs.write_message(&[], &mut response) {
+        Ok(n) => n,
+        Err(_) => return,
+    };
+    response.truncate(n);
 
     let mut client_link = match client_complete_ik(c_hs, &response) {
         Ok(link) => link,

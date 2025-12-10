@@ -2,7 +2,7 @@
 
 use crate::datalink_adapter::NoiseLink;
 use crate::errors::NoiseError;
-use pubky::{Pubky, PubkySession};
+use pubky::{PubkySession, PublicStorage};
 use std::time::Duration;
 
 /// Configuration for retry behavior
@@ -40,7 +40,7 @@ impl Default for RetryConfig {
 pub struct StorageBackedMessaging {
     noise_link: NoiseLink,
     session: PubkySession,
-    public_client: Pubky,
+    public_client: PublicStorage,
     write_path: String,
     read_path: String,
     write_counter: u64,
@@ -59,7 +59,7 @@ impl StorageBackedMessaging {
     pub fn new(
         link: NoiseLink,
         session: PubkySession,
-        public_client: Pubky,
+        public_client: PublicStorage,
         write_path: String,
         read_path: String,
     ) -> Self {
@@ -198,7 +198,7 @@ impl StorageBackedMessaging {
                             )));
                         }
                     }
-                    Err(e) if retry_attempt < self.retry_config.max_retries => {
+                    Err(_e) if retry_attempt < self.retry_config.max_retries => {
                         // Network error - retry
                         retry_attempt += 1;
 

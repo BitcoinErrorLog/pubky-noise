@@ -15,7 +15,7 @@ pub struct PkarrNoiseRecord {
 }
 
 mod serde_big_array {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserializer, Serializer};
 
     pub fn serialize<S>(arr: &[u8; 64], serializer: S) -> Result<S::Ok, S::Error>
     where

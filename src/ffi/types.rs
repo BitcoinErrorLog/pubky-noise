@@ -33,7 +33,7 @@ impl From<FfiConnectionStatus> for ConnectionStatus {
 }
 
 /// FFI-safe mobile configuration wrapper
-#[derive(uniffi::Record)]
+#[derive(uniffi::Record, Clone)]
 pub struct FfiMobileConfig {
     pub auto_reconnect: bool,
     pub max_reconnect_attempts: u32,
