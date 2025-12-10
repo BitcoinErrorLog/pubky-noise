@@ -93,17 +93,24 @@ fuzz_target!(|input: HandshakeInput| {
     );
 
     // Should succeed with valid inputs
-    if let Ok((hs_state, first_msg)) = handshake_result {
-        // Test server processing valid message
-        let server_result = pubky_noise::datalink_adapter::server_accept_ik(&server, &first_msg);
+    if let Ok((_hs_state, first_msg)) = handshake_result {
+        // Test server processing valid message using 3-step handshake
+        let server_result = server.build_responder_read_ik(&first_msg);
         // Server should be able to process a properly formed message
         // (though verification may fail due to dummy signatures)
-        let _ = server_result;
+        if let Ok((mut hs, _identity)) = server_result {
+            // Generate response
+            let mut response = vec![0u8; 128];
+            if let Ok(n) = hs.write_message(&[], &mut response) {
+                response.truncate(n);
+                let _ = pubky_noise::datalink_adapter::server_complete_ik(hs);
+            }
+        }
     }
 
     // Test 2: Server handling malformed/arbitrary message
     // This should NOT panic, just return an error
-    let malformed_result = pubky_noise::datalink_adapter::server_accept_ik(&server, &input.malformed_message);
+    let malformed_result = server.build_responder_read_ik(&input.malformed_message);
     
     // We expect an error for malformed messages, but no panic
     match malformed_result {

@@ -327,6 +327,82 @@ Signature = Ed25519.Sign(ed25519_secret, H)
 
 ---
 
+### 5. FFI Boundary (Mobile Applications)
+**Entry Points**:
+- UniFFI-generated bindings for iOS (Swift) and Android (Kotlin/Java)
+- Cross-language function calls
+- Memory ownership transfers
+
+**Threats**:
+- **Memory Safety**: Incorrect memory management across language boundaries
+- **Type Confusion**: Mismatched types between Rust and target language
+- **Resource Leaks**: Unclosed handles or sessions
+- **Panic Propagation**: Rust panics crossing FFI boundary
+
+**Mitigations**:
+- ✅ UniFFI handles memory management automatically (Arc refcounting)
+- ✅ Structured error codes (`NoiseErrorCode` as `i32`) prevent type confusion
+- ✅ No raw pointers exposed to generated bindings
+- ✅ Thread-safe wrappers (`ThreadSafeSessionManager`) for concurrent access
+- ✅ Error codes mapped to platform-specific error types
+
+**Risk**: LOW (UniFFI provides safe abstractions)
+
+**Mobile-Specific Considerations**:
+- **App Suspension**: Sessions must be persisted before app backgrounding
+- **Memory Dumps**: Keys in memory vulnerable if device is compromised
+- **Jailbreak/Root**: Elevated privileges can access process memory
+- **Debugging**: Debuggers can inspect memory (mitigated by release builds)
+
+**Recommendation**: Applications SHOULD:
+- Persist session state before app suspension (use `NoiseManager::save_state()`)
+- Use secure storage for master seeds (iOS Keychain, Android Keystore)
+- Enable `secure-mem` feature on servers (page locking)
+- Clear sensitive data on app termination
+
+---
+
+### 6. Mobile-Specific Threats
+
+#### 6.1 App Lifecycle Attacks
+**Threat**: App suspension/resume can cause session state loss or corruption
+
+**Mitigations**:
+- ✅ `NoiseManager` provides `save_state()` and `restore_state()` methods
+- ✅ Session state is serializable for persistence
+- ✅ Connection status tracking for reconnection logic
+
+**Risk**: LOW (if state is properly persisted)
+
+#### 6.2 Memory Dump Attacks
+**Threat**: Compromised device can dump process memory containing keys
+
+**Mitigations**:
+- ✅ `Zeroizing` reduces key lifetime in memory
+- ✅ Closure-based key access (keys don't escape function scope)
+- ✅ Optional `secure-mem` feature (page locking on supported OSes)
+- ❌ Cannot fully protect against root/admin access
+
+**Risk**: MEDIUM (requires device compromise)
+
+**Recommendation**: Use secure hardware storage (HSM, TEE) for master seeds in high-security deployments
+
+#### 6.3 Platform-Specific Threats
+
+**iOS**:
+- **Jailbreak Detection**: Jailbroken devices have elevated attack surface
+- **Keychain Access**: Secure storage via iOS Keychain (recommended)
+- **App Sandbox**: Provides isolation but keys still in process memory
+
+**Android**:
+- **Root Detection**: Rooted devices can access all app memory
+- **Keystore**: Hardware-backed key storage available on modern devices
+- **Debugging**: Release builds obfuscate but don't fully protect
+
+**Risk**: MEDIUM (platform-dependent)
+
+---
+
 ## Cryptographic Assumptions
 
 ### Standard Assumptions (Accepted)
@@ -344,6 +420,39 @@ Signature = Ed25519.Sign(ed25519_secret, H)
 ✅ No custom crypto
 ✅ No non-standard parameter choices
 ✅ No unproven constructions
+
+---
+
+## FFI Boundary Security
+
+### Trust Model
+The FFI layer (UniFFI) is considered **TRUSTED** for memory safety but **UNTRUSTED** for application logic:
+- ✅ UniFFI-generated code is safe (no manual memory management)
+- ⚠️ Application code calling FFI must handle errors correctly
+- ⚠️ Platform-specific code (Swift/Kotlin) must validate inputs
+
+### Error Handling
+FFI errors are mapped to structured error codes:
+- `NoiseErrorCode` enum provides platform-agnostic error types
+- Errors are serialized as `i32` for cross-language compatibility
+- Platform bindings should map these to native error types
+
+### Memory Safety
+- **Ownership**: UniFFI uses `Arc` for shared ownership (automatic refcounting)
+- **Lifetimes**: No manual lifetime management required
+- **Leaks**: Automatic cleanup when objects are dropped
+
+### Thread Safety
+- `ThreadSafeSessionManager` uses `Arc<Mutex<>>` for concurrent access
+- FFI layer is thread-safe if internal types are thread-safe
+- Mobile apps should use thread-safe wrappers for background workers
+
+### Security Best Practices for FFI
+1. **Input Validation**: Validate all inputs from platform code
+2. **Error Handling**: Never ignore FFI errors
+3. **Resource Management**: Ensure sessions are properly closed
+4. **State Persistence**: Save state before app suspension
+5. **Secure Storage**: Use platform secure storage for master seeds
 
 ---
 

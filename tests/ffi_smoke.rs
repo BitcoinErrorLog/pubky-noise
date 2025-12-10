@@ -30,22 +30,33 @@ fn test_ffi_smoke() {
 
     // Initiate connection (step 1 of 3-step handshake)
     // Note: This only initiates the handshake; we need a server to complete it
-    let (session_id, first_msg) = manager
+    let result = manager
         .initiate_connection(server_pk.to_vec(), None)
         .expect("Failed to initiate connection");
+
+    let session_id = result.session_id;
+    let first_msg = result.first_message;
 
     println!("Initiated connection with session ID: {}", session_id);
     println!("First message length: {} bytes", first_msg.len());
 
     // Verify first message was generated
     assert!(!first_msg.is_empty(), "First message should not be empty");
+    assert!(
+        first_msg.len() > 32,
+        "First message should contain handshake data (at least 32 bytes)"
+    );
 
-    // List sessions (should have the pending session)
+    // Note: The handshake is not completed in this test, so sessions will be empty
+    // until the handshake is completed. This is expected behavior.
     let sessions = manager.list_sessions();
-    // Note: Pending handshakes are tracked separately, so sessions may be empty
-    // until the handshake is completed
+    assert_eq!(
+        sessions.len(),
+        0,
+        "Sessions should be empty until handshake is completed"
+    );
 
-    // Remove session (cleanup)
+    // Cleanup: remove the pending session
     manager.remove_session(session_id.clone());
 
     println!("FFI smoke test passed!");
@@ -85,16 +96,22 @@ fn test_ffi_server_client_handshake() {
     .expect("Failed to create server manager");
 
     // Step 1: Client initiates connection
-    let (temp_session_id, first_msg) = client_manager
+    let initiate_result = client_manager
         .initiate_connection(server_pk.to_vec(), None)
         .expect("Failed to initiate connection");
+
+    let temp_session_id = initiate_result.session_id.clone();
+    let first_msg = initiate_result.first_message;
 
     println!("Client initiated: session_id={}", temp_session_id);
 
     // Step 2: Server accepts connection
-    let (server_session_id, response_msg) = server_manager
+    let accept_result = server_manager
         .accept_connection(first_msg)
         .expect("Failed to accept connection");
+
+    let server_session_id = accept_result.session_id.clone();
+    let response_msg = accept_result.response_message;
 
     println!("Server accepted: session_id={}", server_session_id);
 

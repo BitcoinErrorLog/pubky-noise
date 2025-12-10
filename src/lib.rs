@@ -19,6 +19,8 @@
 //! let server = NoiseServer::<_, ()>::new_direct("server_kid", b"server_device", server_ring);
 //! ```
 
+#![allow(unpredictable_function_pointer_comparisons)]
+
 pub mod client;
 pub mod datalink_adapter;
 pub mod errors;
@@ -60,5 +62,4 @@ pub use transport::NoiseTransport;
 
 // UniFFI setup - must be at crate root for proc macros to work
 #[cfg(feature = "uniffi_macros")]
-#[allow(clippy::fn_address_comparisons)]
 uniffi::setup_scaffolding!();

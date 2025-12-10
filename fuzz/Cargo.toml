@@ -10,6 +10,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+zeroize = "1"
 
 [dependencies.pubky-noise]
 path = ".."

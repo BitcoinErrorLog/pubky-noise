@@ -101,7 +101,7 @@ pub fn make_binding_message(params: &BindingMessageParams<'_>) -> [u8; 32] {
     if let Some(r) = params.remote_noise_pub {
         h.update(r);
     }
-    h.update(&INTERNAL_EPOCH.to_le_bytes());
+    h.update(INTERNAL_EPOCH.to_le_bytes());
     h.update(match params.role {
         Role::Client => b"client",
         Role::Server => b"server",

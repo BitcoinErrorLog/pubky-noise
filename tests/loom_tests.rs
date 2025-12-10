@@ -229,3 +229,58 @@ fn test_list_during_modifications() {
         assert_eq!(manager.session_count(), 2);
     });
 }
+
+/// Test stress with many concurrent operations
+#[test]
+fn test_stress_concurrent_operations() {
+    loom::model(|| {
+        let manager = LoomSessionManager::new();
+        let mut handles = vec![];
+
+        // Spawn many threads doing different operations
+        for i in 0..5 {
+            let m = manager.clone();
+            let id = SessionId(format!("s{}", i));
+            handles.push(thread::spawn(move || {
+                m.add_session(id.clone(), MockNoiseLink::new());
+                m.has_session(&id)
+            }));
+        }
+
+        // Wait for all
+        for handle in handles {
+            assert!(handle.join().unwrap());
+        }
+
+        // All should be present
+        assert_eq!(manager.session_count(), 5);
+    });
+}
+
+/// Test race condition: concurrent add of same session ID
+#[test]
+fn test_race_concurrent_add_same_id() {
+    loom::model(|| {
+        let manager = LoomSessionManager::new();
+        let id = SessionId("s1".to_string());
+        let m1 = manager.clone();
+        let m2 = manager.clone();
+
+        let t1 = thread::spawn(move || {
+            m1.add_session(id.clone(), MockNoiseLink::new())
+        });
+
+        let t2 = thread::spawn(move || {
+            m2.add_session(id.clone(), MockNoiseLink::new())
+        });
+
+        let r1 = t1.join().unwrap();
+        let r2 = t2.join().unwrap();
+
+        // Exactly one should return None (first insert), one should return Some (replaced)
+        assert!((r1.is_none() && r2.is_some()) || (r1.is_some() && r2.is_none()));
+
+        // Session should exist
+        assert!(manager.has_session(&id));
+    });
+}
