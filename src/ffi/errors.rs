@@ -38,6 +38,18 @@ pub enum FfiNoiseError {
     #[error("Decryption error: {message}")]
     Decryption { message: String },
 
+    #[error("Rate limited: {message}")]
+    RateLimited { message: String },
+
+    #[error("Maximum sessions exceeded")]
+    MaxSessionsExceeded,
+
+    #[error("Session expired: {message}")]
+    SessionExpired { message: String },
+
+    #[error("Connection reset: {message}")]
+    ConnectionReset { message: String },
+
     #[error("Other error: {message}")]
     Other { message: String },
 }
@@ -57,6 +69,10 @@ impl From<NoiseError> for FfiNoiseError {
             NoiseError::Timeout(msg) => FfiNoiseError::Timeout { message: msg },
             NoiseError::Storage(msg) => FfiNoiseError::Storage { message: msg },
             NoiseError::Decryption(msg) => FfiNoiseError::Decryption { message: msg },
+            NoiseError::RateLimited(msg) => FfiNoiseError::RateLimited { message: msg },
+            NoiseError::MaxSessionsExceeded => FfiNoiseError::MaxSessionsExceeded,
+            NoiseError::SessionExpired(msg) => FfiNoiseError::SessionExpired { message: msg },
+            NoiseError::ConnectionReset(msg) => FfiNoiseError::ConnectionReset { message: msg },
             NoiseError::Other(msg) => FfiNoiseError::Other { message: msg },
         }
     }
