@@ -181,6 +181,30 @@ fn main() {
                 // In production: back off, respect limits
             }
 
+            NoiseError::RateLimited(msg) => {
+                // Rate limited - retry after delay
+                eprintln!("[RATE_LIMITED] {}: {} - will retry later", context, msg);
+                // In production: parse retry-after and wait
+            }
+
+            NoiseError::MaxSessionsExceeded => {
+                // Too many sessions for this identity
+                eprintln!("[SESSIONS] {}: Maximum sessions exceeded", context);
+                // In production: close old sessions first
+            }
+
+            NoiseError::SessionExpired(msg) => {
+                // Session expired or not found
+                eprintln!("[SESSION] {}: {} - re-authenticate", context, msg);
+                // In production: create new session
+            }
+
+            NoiseError::ConnectionReset(msg) => {
+                // Connection was reset
+                eprintln!("[RESET] {}: {} - will reconnect", context, msg);
+                // In production: reconnect with backoff
+            }
+
             NoiseError::RemoteStaticMissing => {
                 // Server key not available
                 eprintln!("[CONFIG] {}: Server key not configured", context);

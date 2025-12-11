@@ -116,7 +116,10 @@ fn main() {
     // Managing Client Sessions
     // =========================================================================
 
-    println!("\n3. Managing {} active sessions...", server_manager.list_sessions().len());
+    println!(
+        "\n3. Managing {} active sessions...",
+        server_manager.list_sessions().len()
+    );
 
     // List all sessions
     for (i, session_id) in server_manager.list_sessions().iter().enumerate() {
@@ -126,10 +129,15 @@ fn main() {
     // Process messages from clients
     println!("\n4. Processing messages from clients...");
 
+    // Save first session ID for later use in error handling demos
+    let first_session_id = client_sessions.first().map(|(_, id)| id.clone());
+
     for (i, (mut client_link, session_id)) in client_sessions.into_iter().enumerate() {
         // Client sends a message
         let message = format!("Hello from client {}!", i + 1);
-        let ciphertext = client_link.encrypt(message.as_bytes()).expect("Encrypt failed");
+        let ciphertext = client_link
+            .encrypt(message.as_bytes())
+            .expect("Encrypt failed");
 
         // Server receives and decrypts
         if let Some(server_link) = server_manager.get_session_mut(&session_id) {
@@ -142,7 +150,9 @@ fn main() {
 
             // Server sends response
             let response = format!("Welcome, client {}!", i + 1);
-            let response_ct = server_link.encrypt(response.as_bytes()).expect("Encrypt failed");
+            let response_ct = server_link
+                .encrypt(response.as_bytes())
+                .expect("Encrypt failed");
 
             // Client receives
             let response_pt = client_link.decrypt(&response_ct).expect("Decrypt failed");
@@ -217,10 +227,7 @@ fn main() {
         .decrypt(&server_session_id, &ct)
         .expect("Decrypt failed");
 
-    println!(
-        "   Message received: {:?}",
-        String::from_utf8_lossy(&pt)
-    );
+    println!("   Message received: {:?}", String::from_utf8_lossy(&pt));
 
     // =========================================================================
     // Error Handling Examples
@@ -243,13 +250,15 @@ fn main() {
     }
 
     // Example: Handle decryption failure (corrupted data)
-    if let Some(server_link) = server_manager.get_session_mut(&client_sessions[0].1) {
-        let corrupted_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
-        match server_link.decrypt(&corrupted_data) {
-            Ok(_) => println!("   Unexpected success with corrupted data"),
-            Err(e) => {
-                println!("   Correctly rejected corrupted data: {:?}", e);
-                println!("   Error code: {:?}", e.code());
+    if let Some(first_id) = &first_session_id {
+        if let Some(server_link) = server_manager.get_session_mut(first_id) {
+            let corrupted_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+            match server_link.decrypt(&corrupted_data) {
+                Ok(_) => println!("   Unexpected success with corrupted data"),
+                Err(e) => {
+                    println!("   Correctly rejected corrupted data: {:?}", e);
+                    println!("   Error code: {:?}", e.code());
+                }
             }
         }
     }
@@ -300,7 +309,10 @@ fn main() {
 
     // Simulate client disconnection
     let disconnected_session = server_manager.list_sessions()[0].clone();
-    println!("   Simulating disconnection for session: {}", disconnected_session);
+    println!(
+        "   Simulating disconnection for session: {}",
+        disconnected_session
+    );
 
     // Remove disconnected session
     server_manager.remove_session(&disconnected_session);
@@ -326,7 +338,10 @@ fn main() {
     println!("\n9. Graceful shutdown example...");
 
     println!("   Before shutdown:");
-    println!("     Active sessions: {}", server_manager.list_sessions().len());
+    println!(
+        "     Active sessions: {}",
+        server_manager.list_sessions().len()
+    );
 
     // In production, you would:
     // 1. Stop accepting new connections
@@ -349,7 +364,10 @@ fn main() {
     }
 
     println!("   After shutdown:");
-    println!("     Active sessions: {}", server_manager.list_sessions().len());
+    println!(
+        "     Active sessions: {}",
+        server_manager.list_sessions().len()
+    );
 
     // =========================================================================
     // Connection Timeout Handling

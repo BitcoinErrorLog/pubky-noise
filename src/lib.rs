@@ -31,6 +31,7 @@ pub mod kdf;
 pub mod mobile_manager;
 #[cfg(feature = "pkarr")]
 pub mod pkarr;
+pub mod prelude;
 #[cfg(feature = "pubky-sdk")]
 pub mod pubky_ring;
 pub mod rate_limiter;
@@ -45,7 +46,7 @@ pub mod transport;
 
 pub use client::NoiseClient;
 pub use datalink_adapter::NoiseLink;
-pub use errors::{NoiseError, NoiseErrorCode};
+pub use errors::{NoiseError, NoiseErrorCode, NoiseResult};
 pub use identity_payload::BindingMessageParams;
 pub use mobile_manager::{ConnectionStatus, MobileConfig, NoiseManager, SessionState};
 #[cfg(feature = "pkarr")]

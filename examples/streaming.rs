@@ -83,7 +83,10 @@ fn main() {
 
     assert_eq!(message.to_vec(), decrypted);
     println!("   Decrypted and reassembled: {} bytes", decrypted.len());
-    println!("   Content: {:?}", String::from_utf8_lossy(&decrypted[..50]));
+    println!(
+        "   Content: {:?}",
+        String::from_utf8_lossy(&decrypted[..50])
+    );
 
     // =========================================================================
     // Default Chunk Size (Mobile-Friendly)
@@ -123,9 +126,7 @@ fn main() {
 
     println!("   Split into {} chunks", chunks.len());
 
-    let decrypted = s_stream
-        .decrypt_streaming(&chunks)
-        .expect("Decrypt failed");
+    let decrypted = s_stream.decrypt_streaming(&chunks).expect("Decrypt failed");
 
     assert_eq!(large_message, decrypted);
     println!("   Decrypted successfully: {} bytes", decrypted.len());
@@ -157,15 +158,20 @@ fn main() {
 
     // Encrypt individual chunks (useful for progress tracking)
     let data = b"Short message";
-    let encrypted_chunk = c_stream
-        .encrypt_chunk(data)
-        .expect("Chunk encrypt failed");
-    println!("   Single chunk: {} -> {} bytes", data.len(), encrypted_chunk.len());
+    let encrypted_chunk = c_stream.encrypt_chunk(data).expect("Chunk encrypt failed");
+    println!(
+        "   Single chunk: {} -> {} bytes",
+        data.len(),
+        encrypted_chunk.len()
+    );
 
     let decrypted_chunk = s_stream
         .decrypt_chunk(&encrypted_chunk)
         .expect("Chunk decrypt failed");
-    println!("   Decrypted: {:?}", String::from_utf8_lossy(&decrypted_chunk));
+    println!(
+        "   Decrypted: {:?}",
+        String::from_utf8_lossy(&decrypted_chunk)
+    );
 
     // Accessing the underlying NoiseLink
     let _session_id = c_stream.inner().session_id();
@@ -189,7 +195,12 @@ fn main() {
     ];
 
     for (size, mode) in mobile_chunk_sizes {
-        println!("   {} ({} bytes): Good for {}", mode, size, mode.to_lowercase());
+        println!(
+            "   {} ({} bytes): Good for {}",
+            mode,
+            size,
+            mode.to_lowercase()
+        );
     }
 
     // =========================================================================
