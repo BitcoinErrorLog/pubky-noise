@@ -129,6 +129,9 @@ fn main() {
     // Process messages from clients
     println!("\n4. Processing messages from clients...");
 
+    // Save first session ID for later use in error handling demos
+    let first_session_id = client_sessions.first().map(|(_, id)| id.clone());
+
     for (i, (mut client_link, session_id)) in client_sessions.into_iter().enumerate() {
         // Client sends a message
         let message = format!("Hello from client {}!", i + 1);
@@ -247,13 +250,15 @@ fn main() {
     }
 
     // Example: Handle decryption failure (corrupted data)
-    if let Some(server_link) = server_manager.get_session_mut(&client_sessions[0].1) {
-        let corrupted_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
-        match server_link.decrypt(&corrupted_data) {
-            Ok(_) => println!("   Unexpected success with corrupted data"),
-            Err(e) => {
-                println!("   Correctly rejected corrupted data: {:?}", e);
-                println!("   Error code: {:?}", e.code());
+    if let Some(first_id) = &first_session_id {
+        if let Some(server_link) = server_manager.get_session_mut(first_id) {
+            let corrupted_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+            match server_link.decrypt(&corrupted_data) {
+                Ok(_) => println!("   Unexpected success with corrupted data"),
+                Err(e) => {
+                    println!("   Correctly rejected corrupted data: {:?}", e);
+                    println!("   Error code: {:?}", e.code());
+                }
             }
         }
     }
