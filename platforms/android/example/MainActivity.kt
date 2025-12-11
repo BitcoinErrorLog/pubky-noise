@@ -1176,6 +1176,30 @@ class MainActivity : AppCompatActivity() {
                 // Consider: Back off, check if blocked
             }
 
+            is FfiNoiseError.RateLimited -> {
+                // Rate limited - wait and retry (v1.0.0)
+                Log.e(TAG, "$context: Rate limited - ${error.message}")
+                // Consider: Parse retry-after from message, wait before retrying
+            }
+
+            is FfiNoiseError.MaxSessionsExceeded -> {
+                // Too many sessions for this identity (v1.0.0)
+                Log.e(TAG, "$context: Maximum sessions exceeded")
+                // Consider: Close old sessions before creating new ones
+            }
+
+            is FfiNoiseError.SessionExpired -> {
+                // Session expired or not found (v1.0.0)
+                Log.e(TAG, "$context: Session expired - ${error.message}")
+                // Consider: Re-authenticate, create new session
+            }
+
+            is FfiNoiseError.ConnectionReset -> {
+                // Connection was reset (v1.0.0)
+                Log.e(TAG, "$context: Connection reset - ${error.message}")
+                // Consider: Reconnect with exponential backoff
+            }
+
             is FfiNoiseError.RemoteStaticMissing -> {
                 // Server static key not available
                 Log.e(TAG, "$context: Remote static key missing")

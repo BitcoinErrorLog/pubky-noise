@@ -1015,6 +1015,26 @@ class NoiseManager {
             print("[PubkyNoise] \(context): Policy violation - \(message)")
             delegate?.noiseManager(self, didEncounterError: .policyError(message))
             
+        case .rateLimited(let message):
+            // Rate limited - wait and retry (v1.0.0)
+            print("[PubkyNoise] \(context): Rate limited - \(message)")
+            delegate?.noiseManager(self, didEncounterError: .policyError("Rate limited: \(message)"))
+            
+        case .maxSessionsExceeded:
+            // Too many sessions for this identity (v1.0.0)
+            print("[PubkyNoise] \(context): Maximum sessions exceeded")
+            delegate?.noiseManager(self, didEncounterError: .policyError("Maximum sessions exceeded"))
+            
+        case .sessionExpired(let message):
+            // Session expired or not found (v1.0.0)
+            print("[PubkyNoise] \(context): Session expired - \(message)")
+            delegate?.noiseManager(self, didEncounterError: .securityError("Session expired: \(message)"))
+            
+        case .connectionReset(let message):
+            // Connection was reset (v1.0.0)
+            print("[PubkyNoise] \(context): Connection reset - \(message)")
+            delegate?.noiseManager(self, didEncounterError: .networkError("Connection reset: \(message)"))
+            
         case .remoteStaticMissing:
             // Server static key not available
             print("[PubkyNoise] \(context): Remote static key missing")
