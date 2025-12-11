@@ -70,8 +70,8 @@ fn main() {
 
     // Step 1: Client initiates
     println!("   Step 1: Client creates first message");
-    let (client_hs, first_msg) = client_start_ik_direct(&client, &server_static_pk, None)
-        .expect("Client initiation failed");
+    let (client_hs, first_msg) =
+        client_start_ik_direct(&client, &server_static_pk, None).expect("Client initiation failed");
     println!("   First message: {} bytes", first_msg.len());
 
     // Step 2: Server processes and responds
@@ -92,10 +92,7 @@ fn main() {
 
     // Verify session IDs match
     assert_eq!(client_link.session_id(), server_link.session_id());
-    println!(
-        "   Session established: {}",
-        client_link.session_id()
-    );
+    println!("   Session established: {}", client_link.session_id());
 
     // =========================================================================
     // Encrypted Communication
@@ -117,7 +114,10 @@ fn main() {
     // Server decrypts
     let decrypted = server_link.decrypt(&ciphertext).expect("Decryption failed");
     assert_eq!(client_message.to_vec(), decrypted);
-    println!("   Server decrypted: {:?}", String::from_utf8_lossy(&decrypted));
+    println!(
+        "   Server decrypted: {:?}",
+        String::from_utf8_lossy(&decrypted)
+    );
 
     // Server sends response
     let server_response = b"Hello, client! Message received.";
@@ -128,7 +128,10 @@ fn main() {
         .decrypt(&response_ct)
         .expect("Decryption failed");
     assert_eq!(server_response.to_vec(), response_pt);
-    println!("   Client received: {:?}", String::from_utf8_lossy(&response_pt));
+    println!(
+        "   Client received: {:?}",
+        String::from_utf8_lossy(&response_pt)
+    );
 
     // =========================================================================
     // Summary

@@ -41,7 +41,10 @@ fn main() {
         "     max_reconnect_attempts: {}",
         default_config.max_reconnect_attempts
     );
-    println!("     reconnect_delay_ms: {}", default_config.reconnect_delay_ms);
+    println!(
+        "     reconnect_delay_ms: {}",
+        default_config.reconnect_delay_ms
+    );
     println!("     battery_saver: {}", default_config.battery_saver);
     println!("     chunk_size: {} bytes", default_config.chunk_size);
 
@@ -153,15 +156,24 @@ fn main() {
     // Simulate status changes (e.g., from network events)
     println!("   Simulating network disconnect...");
     client_manager.set_status(&client_session_id, ConnectionStatus::Disconnected);
-    println!("   Status: {:?}", client_manager.get_status(&client_session_id));
+    println!(
+        "   Status: {:?}",
+        client_manager.get_status(&client_session_id)
+    );
 
     println!("   Simulating reconnection attempt...");
     client_manager.set_status(&client_session_id, ConnectionStatus::Reconnecting);
-    println!("   Status: {:?}", client_manager.get_status(&client_session_id));
+    println!(
+        "   Status: {:?}",
+        client_manager.get_status(&client_session_id)
+    );
 
     println!("   Simulating reconnection success...");
     client_manager.set_status(&client_session_id, ConnectionStatus::Connected);
-    println!("   Status: {:?}", client_manager.get_status(&client_session_id));
+    println!(
+        "   Status: {:?}",
+        client_manager.get_status(&client_session_id)
+    );
 
     // =========================================================================
     // Encryption and Decryption
@@ -184,10 +196,7 @@ fn main() {
         .decrypt(&server_session_id, &ciphertext)
         .expect("Decryption failed");
 
-    println!(
-        "   Decrypted: {:?}",
-        String::from_utf8_lossy(&plaintext)
-    );
+    println!("   Decrypted: {:?}", String::from_utf8_lossy(&plaintext));
 
     // =========================================================================
     // State Persistence

@@ -68,7 +68,10 @@ fn main() {
         .build_initiator_xx_tofu(None)
         .expect("Client XX initiation failed");
 
-    println!("   First message (client ephemeral): {} bytes", first_msg.len());
+    println!(
+        "   First message (client ephemeral): {} bytes",
+        first_msg.len()
+    );
     println!("   This message contains only the client's ephemeral key");
 
     // =========================================================================
@@ -124,10 +127,7 @@ fn main() {
     println!("   3. Client should pin the key for future connections");
     println!("   4. Future connections should use IK pattern (faster, more secure)");
 
-    println!(
-        "\n   Pinned server key: {}",
-        hex::encode(&server_static_pk)
-    );
+    println!("\n   Pinned server key: {}", hex::encode(&server_static_pk));
 
     // =========================================================================
     // Transition to IK Pattern
@@ -145,8 +145,8 @@ fn main() {
     };
 
     // Use IK pattern with the learned server key
-    let (c_hs, ik_first_msg) = client_start_ik_direct(&client, &server_static_pk, None)
-        .expect("IK initiation failed");
+    let (c_hs, ik_first_msg) =
+        client_start_ik_direct(&client, &server_static_pk, None).expect("IK initiation failed");
 
     let (s_hs, client_identity, ik_response) =
         server_accept_ik(&server, &ik_first_msg).expect("Server accept failed");

@@ -1,5 +1,8 @@
 use thiserror::Error;
 
+/// Common result type for Noise operations.
+pub type NoiseResult<T> = Result<T, NoiseError>;
+
 /// Error codes for FFI/mobile integration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]

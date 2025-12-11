@@ -103,10 +103,14 @@ fn test_ik_handshake_complete() {
 
     // Client sends encrypted message to server
     let plaintext = b"Hello from client!";
-    let ciphertext = c_link.encrypt(plaintext).expect("Encryption should succeed");
+    let ciphertext = c_link
+        .encrypt(plaintext)
+        .expect("Encryption should succeed");
 
     // Server decrypts
-    let decrypted = s_link.decrypt(&ciphertext).expect("Decryption should succeed");
+    let decrypted = s_link
+        .decrypt(&ciphertext)
+        .expect("Decryption should succeed");
     assert_eq!(plaintext.to_vec(), decrypted);
 
     // Server sends encrypted response to client
@@ -380,7 +384,10 @@ fn test_thread_safe_session_manager() {
 
     // Wait for background thread
     let result = handle.join().unwrap();
-    assert!(result.is_ok(), "Encryption from background thread should succeed");
+    assert!(
+        result.is_ok(),
+        "Encryption from background thread should succeed"
+    );
 }
 
 // =============================================================================
@@ -461,18 +468,12 @@ fn test_error_handling_patterns() {
 #[test]
 fn test_error_codes() {
     // Test all error variants have correct codes
-    assert_eq!(
-        NoiseError::Ring("test".into()).code(),
-        NoiseErrorCode::Ring
-    );
+    assert_eq!(NoiseError::Ring("test".into()).code(), NoiseErrorCode::Ring);
     assert_eq!(
         NoiseError::Pkarr("test".into()).code(),
         NoiseErrorCode::Pkarr
     );
-    assert_eq!(
-        NoiseError::Snow("test".into()).code(),
-        NoiseErrorCode::Snow
-    );
+    assert_eq!(NoiseError::Snow("test".into()).code(), NoiseErrorCode::Snow);
     assert_eq!(
         NoiseError::Serde("test".into()).code(),
         NoiseErrorCode::Serde
@@ -489,7 +490,10 @@ fn test_error_codes() {
         NoiseError::Policy("test".into()).code(),
         NoiseErrorCode::Policy
     );
-    assert_eq!(NoiseError::InvalidPeerKey.code(), NoiseErrorCode::InvalidPeerKey);
+    assert_eq!(
+        NoiseError::InvalidPeerKey.code(),
+        NoiseErrorCode::InvalidPeerKey
+    );
     assert_eq!(
         NoiseError::Network("test".into()).code(),
         NoiseErrorCode::Network
@@ -616,7 +620,9 @@ fn test_mobile_manager_state_persistence() {
         .initiate_connection(&server_static_pk, None)
         .unwrap();
     let (_, response) = server_manager.accept_connection(&first_msg).unwrap();
-    let session_id = client_manager.complete_connection(&temp_id, &response).unwrap();
+    let session_id = client_manager
+        .complete_connection(&temp_id, &response)
+        .unwrap();
 
     // === Save State (before app suspension) ===
     let saved_state = client_manager
@@ -681,7 +687,9 @@ fn test_connection_status_tracking() {
         .initiate_connection(&server_static_pk, None)
         .unwrap();
     let (_, response) = server_manager.accept_connection(&first_msg).unwrap();
-    let session_id = client_manager.complete_connection(&temp_id, &response).unwrap();
+    let session_id = client_manager
+        .complete_connection(&temp_id, &response)
+        .unwrap();
 
     // Initial status should be Connected
     assert_eq!(
@@ -755,12 +763,16 @@ fn test_multiple_sessions() {
     let server2_pk = pubky_noise::kdf::x25519_pk_from_sk(&server2_sk);
 
     // Establish session with server1
-    let (temp1, msg1) = client_manager.initiate_connection(&server1_pk, None).unwrap();
+    let (temp1, msg1) = client_manager
+        .initiate_connection(&server1_pk, None)
+        .unwrap();
     let (_, resp1) = server1_manager.accept_connection(&msg1).unwrap();
     let sid1 = client_manager.complete_connection(&temp1, &resp1).unwrap();
 
     // Establish session with server2
-    let (temp2, msg2) = client_manager.initiate_connection(&server2_pk, None).unwrap();
+    let (temp2, msg2) = client_manager
+        .initiate_connection(&server2_pk, None)
+        .unwrap();
     let (_, resp2) = server2_manager.accept_connection(&msg2).unwrap();
     let sid2 = client_manager.complete_connection(&temp2, &resp2).unwrap();
 
@@ -774,7 +786,10 @@ fn test_multiple_sessions() {
     let data = b"test message";
     let ct1 = client_manager.encrypt(&sid1, data).unwrap();
     let ct2 = client_manager.encrypt(&sid2, data).unwrap();
-    assert_ne!(ct1, ct2, "Different sessions should produce different ciphertexts");
+    assert_ne!(
+        ct1, ct2,
+        "Different sessions should produce different ciphertexts"
+    );
 
     // Remove one session
     client_manager.remove_session(&sid1);
