@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-12-11
+
+### Production Readiness Release
+
+This release marks the first stable production-ready version of pubky-noise.
+
+### Added
+
+#### Security
+- **Rate Limiter**: Token bucket algorithm for DoS protection
+  - Configurable limits (strict/lenient/disabled presets)
+  - Per-IP tracking with automatic cleanup
+  - Detailed rate limit results with retry timing
+- **Enhanced Error Handling**: Structured error codes for FFI compatibility
+  - `NoiseErrorCode` enum with numeric codes
+  - `is_retryable()` and `retry_after_ms()` helpers
+  - New error variants: `RateLimited`, `MaxSessionsExceeded`, `SessionExpired`, `ConnectionReset`
+
+#### API Improvements
+- **Prelude Module**: Convenient imports via `use pubky_noise::prelude::*`
+- **NoiseResult Type Alias**: Standard result type for Noise operations
+
+#### Documentation
+- **Integration Guide**: Complete usage documentation
+- **Production Deployment Guide**: Configuration, security, monitoring
+- **Performance Benchmarks**: Expected latencies and tuning tips
+
+### Changed
+- Updated examples for new error variants
+- Fixed borrow-after-move in server_example.rs
+
 ## [0.7.1] - 2025-12-10
 
 ### Added
