@@ -1,6 +1,14 @@
-# Bitkit Integration Checklist for pubky-noise v0.7.0
+# Bitkit Integration Checklist for pubky-noise v1.0.0
 
 This checklist guides you through testing and integrating `pubky-noise` into your mobile applications.
+
+## What's New in v1.0.0
+
+- **Prelude Module**: Use `use pubky_noise::prelude::*` for convenient imports
+- **Enhanced Error Handling**: New error variants (`RateLimited`, `SessionExpired`, `MaxSessionsExceeded`, `ConnectionReset`)
+- **Rate Limiting**: Built-in DoS protection with `RateLimiter`
+- **NoiseResult Type**: Standard `NoiseResult<T>` type alias
+- **Production Documentation**: See `docs/INTEGRATION_GUIDE.md` and `docs/PRODUCTION_DEPLOYMENT.md`
 
 ---
 
@@ -16,7 +24,7 @@ This checklist guides you through testing and integrating `pubky-noise` into you
 cd pubky-noise-main
 cargo test --features uniffi_macros --lib
 ```
-**Expected**: All 19 tests pass  
+**Expected**: All tests pass (6+ rate_limiter tests + FFI tests)  
 **If fails**: Review error messages, check dependencies
 
 ### 1.3 Check Code Quality
@@ -335,7 +343,7 @@ fun testThreadSafety() {
 ### 4.3 Error Handling Test
 
 ```swift
-// iOS
+// iOS - v1.0.0 Error Handling
 func testErrorHandling() {
     let config = defaultConfig()
     
@@ -351,11 +359,37 @@ func testErrorHandling() {
     // Encrypt without session
     XCTAssertThrowsError(try manager.encrypt(sessionId: "0000...", plaintext: data))
 }
+
+// v1.0.0: Handle new error types
+func handleNoiseError(_ error: NoiseError) {
+    switch error {
+    case .rateLimited(let msg):
+        // New in v1.0.0: Rate limiting
+        if let retryAfter = error.retryAfterMs() {
+            // Wait and retry
+        }
+    case .sessionExpired(let msg):
+        // New in v1.0.0: Session expired
+        // Re-authenticate
+    case .maxSessionsExceeded:
+        // New in v1.0.0: Too many sessions
+        // Close old sessions first
+    case .connectionReset(let msg):
+        // New in v1.0.0: Connection reset
+        // Reconnect with backoff
+    default:
+        // Handle other errors
+        if error.isRetryable() {
+            // Can retry this error
+        }
+    }
+}
 ```
 
 - [ ] Test all error paths
 - [ ] Verify error messages are helpful
 - [ ] Ensure no crashes on invalid input
+- [ ] Test new v1.0.0 error variants (RateLimited, SessionExpired, etc.)
 
 ---
 
@@ -530,7 +564,7 @@ Before considering integration complete:
 
 ---
 
-*Checklist Version: 1.0*  
-*Last Updated: 2025-01-19*  
-*pubky-noise Version: 0.7.0*
+*Checklist Version: 1.1*  
+*Last Updated: 2025-12-11*  
+*pubky-noise Version: 1.0.0*
 
