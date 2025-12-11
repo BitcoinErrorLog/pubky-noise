@@ -75,9 +75,15 @@ fn main() {
     let default_config = RetryConfig::default();
     println!("   Default config:");
     println!("     max_retries: {}", default_config.max_retries);
-    println!("     initial_backoff_ms: {}", default_config.initial_backoff_ms);
+    println!(
+        "     initial_backoff_ms: {}",
+        default_config.initial_backoff_ms
+    );
     println!("     max_backoff_ms: {}", default_config.max_backoff_ms);
-    println!("     operation_timeout_ms: {}", default_config.operation_timeout_ms);
+    println!(
+        "     operation_timeout_ms: {}",
+        default_config.operation_timeout_ms
+    );
 
     // Custom retry configuration for different scenarios
     let aggressive_config = RetryConfig {
@@ -96,11 +102,17 @@ fn main() {
 
     println!("\n   Aggressive config (quick retries):");
     println!("     max_retries: {}", aggressive_config.max_retries);
-    println!("     initial_backoff_ms: {}", aggressive_config.initial_backoff_ms);
+    println!(
+        "     initial_backoff_ms: {}",
+        aggressive_config.initial_backoff_ms
+    );
 
     println!("\n   Conservative config (patient retries):");
     println!("     max_retries: {}", conservative_config.max_retries);
-    println!("     initial_backoff_ms: {}", conservative_config.initial_backoff_ms);
+    println!(
+        "     initial_backoff_ms: {}",
+        conservative_config.initial_backoff_ms
+    );
 
     // =========================================================================
     // Storage-Backed Messaging Setup
@@ -197,9 +209,9 @@ fn main() {
     println!("   // Receive messages (polls peer's repository)");
     println!("   let messages = messaging.receive_messages(Some(10)).await?;");
     println!("\n   // Process each message");
-    println!("   for message in messages {");
-    println!("       println!(\"Received: {:?}\", message);");
-    println!("   }");
+    println!("   for message in messages {{");
+    println!("       println!(\"Received: {{:?}}\", message);");
+    println!("   }}");
     println!("\n   // Get updated counter for persistence");
     println!("   let counter = messaging.read_counter();");
     println!("   persist_counter(counter);");
@@ -222,9 +234,9 @@ fn main() {
     println!("   // Enqueue a message");
     println!("   messaging.enqueue(b\"Hello\").await?;");
     println!("\n   // Dequeue messages");
-    println!("   while let Some(message) = messaging.dequeue().await? {");
+    println!("   while let Some(message) = messaging.dequeue().await? {{");
     println!("       process_message(message);");
-    println!("   }");
+    println!("   }}");
     println!("   ```");
 
     // =========================================================================
@@ -240,13 +252,13 @@ fn main() {
 
     println!("\n   Error handling pattern:");
     println!("   ```rust");
-    println!("   match messaging.send_message(data).await {");
+    println!("   match messaging.send_message(data).await {{");
     println!("       Ok(_) => println!(\"Message sent\"),");
-    println!("       Err(NoiseError::Storage(msg)) => {");
+    println!("       Err(NoiseError::Storage(msg)) => {{");
     println!("           // Retry or handle storage error");
-    println!("       }");
+    println!("       }}");
     println!("       Err(e) => handle_error(e),");
-    println!("   }");
+    println!("   }}");
     println!("   ```");
 
     // =========================================================================

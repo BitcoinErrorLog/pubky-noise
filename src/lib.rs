@@ -33,6 +33,7 @@ pub mod mobile_manager;
 pub mod pkarr;
 #[cfg(feature = "pubky-sdk")]
 pub mod pubky_ring;
+pub mod rate_limiter;
 pub mod ring;
 pub mod server;
 pub mod session_id;
@@ -51,8 +52,9 @@ pub use mobile_manager::{ConnectionStatus, MobileConfig, NoiseManager, SessionSt
 pub use pkarr::{DummyPkarr, PkarrNoiseRecord, PkarrResolver};
 #[cfg(feature = "pubky-sdk")]
 pub use pubky_ring::PubkyRingProvider;
+pub use rate_limiter::{RateLimitReason, RateLimitResult, RateLimiter, RateLimiterConfig};
 pub use ring::{DummyRing, RingKeyFiller, RingKeyProvider};
-pub use server::NoiseServer;
+pub use server::{NoiseServer, ServerPolicy};
 pub use session_id::SessionId;
 pub use session_manager::{NoiseRole, NoiseSessionManager, ThreadSafeSessionManager};
 #[cfg(feature = "storage-queue")]
