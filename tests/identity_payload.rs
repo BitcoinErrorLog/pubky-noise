@@ -24,6 +24,7 @@ fn test_binding_message_consistency() {
         remote_noise_pub: Some(&remote_x25519),
         role: Role::Client,
         server_hint: Some("test-server"),
+        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
@@ -34,6 +35,7 @@ fn test_binding_message_consistency() {
         remote_noise_pub: Some(&remote_x25519),
         role: Role::Client,
         server_hint: Some("test-server"),
+        expires_at: None,
     });
 
     assert_eq!(msg1, msg2, "Binding message should be deterministic");
@@ -53,6 +55,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_x25519),
         role: Role::Client,
         server_hint: Some("hint"),
+        expires_at: None,
     });
 
     // Change pattern
@@ -64,6 +67,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_x25519),
         role: Role::Client,
         server_hint: Some("hint"),
+        expires_at: None,
     });
     assert_ne!(
         base_msg, msg_diff_pattern,
@@ -79,6 +83,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_x25519),
         role: Role::Server,
         server_hint: Some("hint"),
+        expires_at: None,
     });
     assert_ne!(
         base_msg, msg_diff_role,
@@ -96,6 +101,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_x25519),
         role: Role::Client,
         server_hint: Some("hint"),
+        expires_at: None,
     });
     assert_ne!(
         base_msg, msg_diff_ed25519,
@@ -120,6 +126,7 @@ fn test_signature_roundtrip() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let signature = sign_identity_payload(&signing_key, &binding_msg);
@@ -146,6 +153,7 @@ fn test_signature_wrong_key() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let signature = sign_identity_payload(&signing_key, &binding_msg);
@@ -171,6 +179,7 @@ fn test_signature_tampered_message() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let signature = sign_identity_payload(&signing_key, &binding_msg);
@@ -184,6 +193,7 @@ fn test_signature_tampered_message() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let is_valid = verify_identity_payload(&verifying_key, &different_msg, &signature);
@@ -207,6 +217,7 @@ fn test_signature_invalid_format() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     // Invalid signature (all zeros)
@@ -228,6 +239,7 @@ fn test_role_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let server_msg = make_binding_message(&BindingMessageParams {
@@ -238,6 +250,7 @@ fn test_role_differentiation() {
         remote_noise_pub: None,
         role: Role::Server,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_ne!(
@@ -259,6 +272,7 @@ fn test_pattern_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let msg_ik = make_binding_message(&BindingMessageParams {
@@ -269,6 +283,7 @@ fn test_pattern_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_ne!(
@@ -294,6 +309,7 @@ fn test_multiple_signatures_same_message() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     // Create two signatures for the same message
@@ -324,6 +340,7 @@ fn test_binding_message_32_bytes() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
@@ -334,6 +351,7 @@ fn test_binding_message_32_bytes() {
         remote_noise_pub: Some(&[99u8; 32]),
         role: Role::Server,
         server_hint: Some("long-server-hint.example.com"),
+        expires_at: None,
     });
 
     assert_eq!(msg1.len(), 32, "Binding message should always be 32 bytes");

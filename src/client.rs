@@ -78,6 +78,10 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         )??;
         let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
 
+        // No expiration by default for backward compatibility
+        // Clients can set now_unix to enable expiration if desired
+        let expires_at: Option<u64> = None;
+
         let msg32 = make_binding_message(&BindingMessageParams {
             pattern_tag: "IK",
             prologue: &self.prologue,
@@ -86,6 +90,7 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
             remote_noise_pub: Some(server_static_pub),
             role: Role::Client,
             server_hint,
+            expires_at,
         });
         let sig64 = self.ring.sign_ed25519(&self.kid, &msg32)?;
 
@@ -95,6 +100,7 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
             epoch: INTERNAL_EPOCH, // Always 0 for wire format compatibility
             role: Role::Client,
             server_hint: server_hint.map(|s| s.to_string()),
+            expires_at,
             sig: sig64,
         };
 

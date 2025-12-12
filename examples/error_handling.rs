@@ -103,8 +103,8 @@ fn main() {
         NoiseError::Decryption("AEAD tag mismatch".into()),
     ];
 
-    println!("   {:20} {:10} {}", "Error Type", "Code", "Message");
-    println!("   {:20} {:10} {}", "----------", "----", "-------");
+    println!("   {:20} {:10} Message", "Error Type", "Code");
+    println!("   {:20} {:10} -------", "----------", "----");
 
     for err in errors {
         let code = err.code() as i32;

@@ -16,6 +16,8 @@ struct BindingMessageInput {
     is_client: bool,
     has_server_hint: bool,
     server_hint: String,
+    has_expires_at: bool,
+    expires_at: u64,
 }
 
 fuzz_target!(|input: BindingMessageInput| {
@@ -37,6 +39,11 @@ fuzz_target!(|input: BindingMessageInput| {
         },
         server_hint: if input.has_server_hint {
             Some(input.server_hint.as_str())
+        } else {
+            None
+        },
+        expires_at: if input.has_expires_at {
+            Some(input.expires_at)
         } else {
             None
         },

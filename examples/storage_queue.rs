@@ -23,22 +23,37 @@
 //! **Critical**: You must persist `write_counter` and `read_counter` values
 //! across application restarts to avoid data loss or message replay.
 
-#![cfg(feature = "storage-queue")]
-
+// Conditional imports for when storage-queue feature is enabled
+#[cfg(feature = "storage-queue")]
 use pubky_noise::datalink_adapter::{
     client_complete_ik, client_start_ik_direct, server_accept_ik, server_complete_ik,
 };
-// These imports are used in the code comments/examples - keep for documentation
+#[cfg(feature = "storage-queue")]
 #[allow(unused_imports)]
 use pubky_noise::storage_queue::{MessageQueue, RetryConfig, StorageBackedMessaging};
+#[cfg(feature = "storage-queue")]
 use pubky_noise::{DummyRing, NoiseClient, NoiseServer, RingKeyProvider};
+#[cfg(feature = "storage-queue")]
 use std::sync::Arc;
+
+fn main() {
+    #[cfg(not(feature = "storage-queue"))]
+    {
+        println!("This example requires the 'storage-queue' feature.");
+        println!("Run with: cargo run --example storage_queue --features storage-queue");
+        return;
+    }
+
+    #[cfg(feature = "storage-queue")]
+    storage_queue_example();
+}
 
 // Note: This example demonstrates the API structure but requires actual
 // PubkySession and PublicStorage instances to run. In production, you would
 // obtain these from your Pubky setup.
 
-fn main() {
+#[cfg(feature = "storage-queue")]
+fn storage_queue_example() {
     println!("=== PubkyNoise Storage-Backed Messaging Example ===\n");
 
     // =========================================================================

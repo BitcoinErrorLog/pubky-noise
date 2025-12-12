@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-12-12
+
+### Security Improvements
+
+#### Lock Poisoning Resilience
+- **Rate Limiter**: All Mutex locks now use `unwrap_or_else(|e| e.into_inner())` instead of `.unwrap()`, preventing panics if a thread panics while holding a lock
+  - Affected methods: `check_handshake`, `record_handshake`, `check_and_record`, `tracked_ip_count`, `remaining_attempts`, `clear`, `cleanup`, `check_handshake_detailed`
+- **Session Manager**: `ThreadSafeSessionManager` now handles lock poisoning gracefully
+  - Affected methods: `add_session`, `has_session`, `remove_session`, `list_sessions`, `with_session`, `with_session_mut`, `encrypt`, `decrypt`
+
+#### Optional Timestamp Validation
+- **IdentityPayload**: Added optional `expires_at: Option<u64>` field for defense-in-depth timestamp validation
+  - When set, server validates that current time is before expiration before processing
+  - Validation occurs BEFORE signature verification (fail-fast)
+  - Backward compatible: `None` means no expiration check (existing behavior)
+  - Timestamp is included in binding message hash when present
+- **BindingMessageParams**: Added `expires_at: Option<u64>` field
+
+### Fixed
+- **Test Suite**: Fixed `examples/storage_queue.rs` to compile without `storage-queue` feature
+  - The example now prints a helpful message when the feature is not enabled
+  - Resolves `cargo test --all` failure
+
+### Changed
+- **Example Cleanup**: Fixed clippy warnings in example files
+  - `examples/xx_pattern.rs`: Fixed unused variables and needless borrows
+  - `examples/server_example.rs`: Fixed needless borrows and inefficient `.iter().cloned().collect()`
+  - `examples/error_handling.rs`: Fixed literal format strings
+
+### Documentation
+- Added notes about lock poisoning recovery in rate limiter and session manager docs
+- Added documentation for `expires_at` field in IdentityPayload
+
 ## [1.0.0] - 2025-12-11
 
 ### Production Readiness Release
