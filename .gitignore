@@ -1,1 +1,4 @@
 target/
+
+# Archive folder for review/audit documents
+/archive/
