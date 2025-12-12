@@ -28,6 +28,8 @@
 use pubky_noise::datalink_adapter::{
     client_complete_ik, client_start_ik_direct, server_accept_ik, server_complete_ik,
 };
+// These imports are used in the code comments/examples - keep for documentation
+#[allow(unused_imports)]
 use pubky_noise::storage_queue::{MessageQueue, RetryConfig, StorageBackedMessaging};
 use pubky_noise::{DummyRing, NoiseClient, NoiseServer, RingKeyProvider};
 use std::sync::Arc;
