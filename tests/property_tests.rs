@@ -135,6 +135,7 @@ fn property_binding_message_deterministic() {
         remote_noise_pub: Some(&remote),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
@@ -145,6 +146,7 @@ fn property_binding_message_deterministic() {
         remote_noise_pub: Some(&remote),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_eq!(
@@ -168,6 +170,7 @@ fn property_binding_message_sensitivity() {
         remote_noise_pub: Some(&base_remote),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     // Change pattern
@@ -179,6 +182,7 @@ fn property_binding_message_sensitivity() {
         remote_noise_pub: Some(&base_remote),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         base_msg, msg,
@@ -194,6 +198,7 @@ fn property_binding_message_sensitivity() {
         remote_noise_pub: Some(&base_remote),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         base_msg, msg,
@@ -211,6 +216,7 @@ fn property_binding_message_sensitivity() {
         remote_noise_pub: Some(&base_remote),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         base_msg, msg,
@@ -226,6 +232,7 @@ fn property_binding_message_sensitivity() {
         remote_noise_pub: Some(&base_remote),
         role: Role::Server,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(base_msg, msg, "Changing role should change binding message");
 }

@@ -139,41 +139,50 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     }
 
     /// Add a session to the manager
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn add_session(&self, session_id: SessionId, link: NoiseLink) -> Option<NoiseLink> {
         self.inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock")
+            .unwrap_or_else(|e| e.into_inner())
             .add_session(session_id, link)
     }
 
     /// Get a session by ID (returns a copy of the session for thread safety)
     ///
-    /// Note: For encryption/decryption, use `with_session` or `with_session_mut` instead
+    /// Note: For encryption/decryption, use `with_session` or `with_session_mut` instead.
+    /// Recovers gracefully from lock poisoning rather than panicking.
     pub fn has_session(&self, session_id: &SessionId) -> bool {
         self.inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock")
+            .unwrap_or_else(|e| e.into_inner())
             .get_session(session_id)
             .is_some()
     }
 
     /// Remove a session
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn remove_session(&self, session_id: &SessionId) -> Option<NoiseLink> {
         self.inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock")
+            .unwrap_or_else(|e| e.into_inner())
             .remove_session(session_id)
     }
 
     /// List all sessions
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn list_sessions(&self) -> Vec<SessionId> {
         self.inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock")
+            .unwrap_or_else(|e| e.into_inner())
             .list_sessions()
     }
 
     /// Execute a closure with read access to a session
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn with_session<F, T>(&self, session_id: &SessionId, f: F) -> Option<T>
     where
         F: FnOnce(&NoiseLink) -> T,
@@ -181,11 +190,13 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
         let manager = self
             .inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock");
+            .unwrap_or_else(|e| e.into_inner());
         manager.get_session(session_id).map(f)
     }
 
     /// Execute a closure with mutable access to a session
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn with_session_mut<F, T>(&self, session_id: &SessionId, f: F) -> Option<T>
     where
         F: FnOnce(&mut NoiseLink) -> T,
@@ -193,11 +204,13 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
         let mut manager = self
             .inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock");
+            .unwrap_or_else(|e| e.into_inner());
         manager.get_session_mut(session_id).map(f)
     }
 
     /// Encrypt data using a specific session
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn encrypt(
         &self,
         session_id: &SessionId,
@@ -206,7 +219,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
         let mut manager = self
             .inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock");
+            .unwrap_or_else(|e| e.into_inner());
         manager
             .get_session_mut(session_id)
             .ok_or_else(|| crate::errors::NoiseError::Other("Session not found".to_string()))?
@@ -214,6 +227,8 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     }
 
     /// Decrypt data using a specific session
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn decrypt(
         &self,
         session_id: &SessionId,
@@ -222,7 +237,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
         let mut manager = self
             .inner
             .lock()
-            .expect("Mutex poisoned - thread panicked while holding lock");
+            .unwrap_or_else(|e| e.into_inner());
         manager
             .get_session_mut(session_id)
             .ok_or_else(|| crate::errors::NoiseError::Other("Session not found".to_string()))?

@@ -51,6 +51,16 @@ pub struct IdentityPayload {
     pub epoch: u32,
     pub role: Role,
     pub server_hint: Option<String>,
+    /// Optional expiration timestamp (Unix seconds since epoch).
+    ///
+    /// When set, the receiver should validate that the current time is before
+    /// this timestamp before accepting the payload. This provides defense-in-depth
+    /// against replay attacks with compromised keys.
+    ///
+    /// If `None`, no expiration check is performed (backward compatible with
+    /// payloads that don't include this field).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
     #[serde(with = "signature_serde")]
     pub sig: [u8; 64],
 }
@@ -74,6 +84,9 @@ pub struct BindingMessageParams<'a> {
     pub role: Role,
     /// Optional server hint for routing.
     pub server_hint: Option<&'a str>,
+    /// Optional expiration timestamp (Unix seconds since epoch).
+    /// When set, included in the binding message for signature verification.
+    pub expires_at: Option<u64>,
 }
 
 /// Create a binding message hash for identity payload signing.
@@ -108,6 +121,12 @@ pub fn make_binding_message(params: &BindingMessageParams<'_>) -> [u8; 32] {
     });
     if let Some(hint) = params.server_hint {
         h.update(hint.as_bytes());
+    }
+    // Include expires_at in the binding message when present
+    // This ensures the timestamp is covered by the signature
+    if let Some(expires_at) = params.expires_at {
+        h.update(b"expires_at:");
+        h.update(expires_at.to_le_bytes());
     }
     let out = h.finalize();
     let mut digest = [0u8; 32];

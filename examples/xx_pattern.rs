@@ -64,7 +64,7 @@ fn main() {
 
     // Client initiates without knowing server's static key
     // This is the key difference from IK pattern
-    let (mut client_hs, first_msg) = client
+    let (_client_hs, first_msg) = client
         .build_initiator_xx_tofu(None)
         .expect("Client XX initiation failed");
 
@@ -127,7 +127,7 @@ fn main() {
     println!("   3. Client should pin the key for future connections");
     println!("   4. Future connections should use IK pattern (faster, more secure)");
 
-    println!("\n   Pinned server key: {}", hex::encode(&server_static_pk));
+    println!("\n   Pinned server key: {}", hex::encode(server_static_pk));
 
     // =========================================================================
     // Transition to IK Pattern
@@ -148,7 +148,7 @@ fn main() {
     let (c_hs, ik_first_msg) =
         client_start_ik_direct(&client, &server_static_pk, None).expect("IK initiation failed");
 
-    let (s_hs, client_identity, ik_response) =
+    let (s_hs, _client_identity, ik_response) =
         server_accept_ik(&server, &ik_first_msg).expect("Server accept failed");
 
     let mut c_link = client_complete_ik(c_hs, &ik_response).expect("Client completion failed");

@@ -22,6 +22,7 @@ fn test_binding_message_deterministic() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: Some("example.com"),
+        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
@@ -32,6 +33,7 @@ fn test_binding_message_deterministic() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: Some("example.com"),
+        expires_at: None,
     });
 
     assert_eq!(msg1, msg2, "Binding message should be deterministic");
@@ -52,6 +54,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     // Change pattern
@@ -63,6 +66,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         msg_baseline, msg_diff_pattern,
@@ -78,6 +82,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         msg_baseline, msg_diff_prologue,
@@ -95,6 +100,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         msg_baseline, msg_diff_ed,
@@ -112,6 +118,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         msg_baseline, msg_diff_local,
@@ -127,6 +134,7 @@ fn test_binding_message_uniqueness() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Server,
         server_hint: None,
+        expires_at: None,
     });
     assert_ne!(
         msg_baseline, msg_diff_role,
@@ -154,6 +162,7 @@ fn test_signature_roundtrip() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     // Sign and verify
@@ -185,6 +194,7 @@ fn test_signature_wrong_key() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     // Sign with one key, verify with another
@@ -213,6 +223,7 @@ fn test_signature_tampered_message() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let sig = sign_identity_payload(&signing_key, &msg);
@@ -241,6 +252,7 @@ fn test_role_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let server_msg = make_binding_message(&BindingMessageParams {
@@ -251,6 +263,7 @@ fn test_role_differentiation() {
         remote_noise_pub: None,
         role: Role::Server,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_ne!(
@@ -274,6 +287,7 @@ fn test_remote_noise_key_differentiation() {
         remote_noise_pub: Some(&remote_noise),
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let msg_without_remote = make_binding_message(&BindingMessageParams {
@@ -284,6 +298,7 @@ fn test_remote_noise_key_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_ne!(
@@ -306,6 +321,7 @@ fn test_server_hint_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: Some("example.com"),
+        expires_at: None,
     });
 
     let msg_without_hint = make_binding_message(&BindingMessageParams {
@@ -316,6 +332,7 @@ fn test_server_hint_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let msg_different_hint = make_binding_message(&BindingMessageParams {
@@ -326,6 +343,7 @@ fn test_server_hint_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: Some("other.com"),
+        expires_at: None,
     });
 
     assert_ne!(
@@ -352,6 +370,7 @@ fn test_pattern_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     let msg_xx = make_binding_message(&BindingMessageParams {
@@ -362,6 +381,7 @@ fn test_pattern_differentiation() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_ne!(
@@ -384,6 +404,7 @@ fn test_binding_message_length() {
         remote_noise_pub: None,
         role: Role::Client,
         server_hint: None,
+        expires_at: None,
     });
 
     assert_eq!(msg.len(), 32, "Binding message should be 32 bytes");

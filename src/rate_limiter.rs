@@ -168,6 +168,10 @@ impl RateLimiter {
     /// Check if a handshake from the given IP is allowed.
     ///
     /// Returns `true` if the handshake should be processed, `false` if rate limited.
+    ///
+    /// Note: If the internal lock is poisoned (extremely rare, only if another thread
+    /// panicked while holding the lock), this method recovers gracefully rather than
+    /// panicking, using the poisoned data to continue rate limiting.
     pub fn check_handshake(&self, ip: &IpAddr) -> bool {
         if !self.config.enabled {
             return true;
@@ -175,7 +179,7 @@ impl RateLimiter {
 
         self.maybe_cleanup();
 
-        let mut trackers = self.trackers.lock().unwrap();
+        let mut trackers = self.trackers.lock().unwrap_or_else(|e| e.into_inner());
         let window = Duration::from_secs(self.config.window_secs);
         let cooldown = Duration::from_millis(self.config.handshake_cooldown_ms);
 
@@ -191,12 +195,14 @@ impl RateLimiter {
     /// Record a handshake attempt from the given IP.
     ///
     /// Call this after processing a handshake (whether successful or not).
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn record_handshake(&self, ip: &IpAddr) {
         if !self.config.enabled {
             return;
         }
 
-        let mut trackers = self.trackers.lock().unwrap();
+        let mut trackers = self.trackers.lock().unwrap_or_else(|e| e.into_inner());
 
         // Enforce max tracked IPs
         if trackers.len() >= self.config.max_tracked_ips && !trackers.contains_key(ip) {
@@ -218,6 +224,8 @@ impl RateLimiter {
     ///
     /// Returns `true` if the handshake is allowed (and records it).
     /// Returns `false` if rate limited (does not record).
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn check_and_record(&self, ip: &IpAddr) -> bool {
         if !self.config.enabled {
             return true;
@@ -225,7 +233,7 @@ impl RateLimiter {
 
         self.maybe_cleanup();
 
-        let mut trackers = self.trackers.lock().unwrap();
+        let mut trackers = self.trackers.lock().unwrap_or_else(|e| e.into_inner());
         let window = Duration::from_secs(self.config.window_secs);
         let cooldown = Duration::from_millis(self.config.handshake_cooldown_ms);
 
@@ -252,17 +260,21 @@ impl RateLimiter {
     }
 
     /// Get the current number of tracked IPs.
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn tracked_ip_count(&self) -> usize {
-        self.trackers.lock().unwrap().len()
+        self.trackers.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 
     /// Get remaining attempts for an IP within the current window.
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn remaining_attempts(&self, ip: &IpAddr) -> u32 {
         if !self.config.enabled {
             return u32::MAX;
         }
 
-        let mut trackers = self.trackers.lock().unwrap();
+        let mut trackers = self.trackers.lock().unwrap_or_else(|e| e.into_inner());
         let window = Duration::from_secs(self.config.window_secs);
 
         if let Some(tracker) = trackers.get_mut(ip) {
@@ -276,14 +288,16 @@ impl RateLimiter {
     }
 
     /// Clear all rate limiting data.
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn clear(&self) {
-        self.trackers.lock().unwrap().clear();
+        self.trackers.lock().unwrap_or_else(|e| e.into_inner()).clear();
     }
 
     /// Run cleanup of expired entries.
     fn maybe_cleanup(&self) {
         let should_cleanup = {
-            let last = self.last_cleanup.lock().unwrap();
+            let last = self.last_cleanup.lock().unwrap_or_else(|e| e.into_inner());
             last.elapsed() >= Duration::from_secs(self.config.cleanup_interval_secs)
         };
 
@@ -293,16 +307,18 @@ impl RateLimiter {
     }
 
     /// Force cleanup of expired entries.
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn cleanup(&self) {
         let window = Duration::from_secs(self.config.window_secs);
-        let mut trackers = self.trackers.lock().unwrap();
+        let mut trackers = self.trackers.lock().unwrap_or_else(|e| e.into_inner());
 
         trackers.retain(|_, tracker| {
             tracker.prune(window);
             !tracker.attempts.is_empty()
         });
 
-        *self.last_cleanup.lock().unwrap() = Instant::now();
+        *self.last_cleanup.lock().unwrap_or_else(|e| e.into_inner()) = Instant::now();
     }
 
     /// Get the configuration.
@@ -339,6 +355,8 @@ pub enum RateLimitReason {
 
 impl RateLimiter {
     /// Check handshake with detailed result.
+    ///
+    /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn check_handshake_detailed(&self, ip: &IpAddr) -> RateLimitResult {
         if !self.config.enabled {
             return RateLimitResult {
@@ -351,7 +369,7 @@ impl RateLimiter {
 
         self.maybe_cleanup();
 
-        let mut trackers = self.trackers.lock().unwrap();
+        let mut trackers = self.trackers.lock().unwrap_or_else(|e| e.into_inner());
         let window = Duration::from_secs(self.config.window_secs);
         let cooldown = Duration::from_millis(self.config.handshake_cooldown_ms);
 

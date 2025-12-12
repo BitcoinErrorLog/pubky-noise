@@ -112,6 +112,21 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             return Err(NoiseError::InvalidPeerKey);
         }
 
+        // Validate expiration timestamp BEFORE signature verification (fail-fast)
+        // This is defense-in-depth: if a payload has an expiration, enforce it
+        if let Some(expires_at) = payload.expires_at {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            if now > expires_at {
+                return Err(NoiseError::SessionExpired(format!(
+                    "Identity payload expired at {} (current time: {})",
+                    expires_at, now
+                )));
+            }
+        }
+
         let msg32 = make_binding_message(&BindingMessageParams {
             pattern_tag: "IK",
             prologue: &self.prologue,
@@ -120,6 +135,7 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             remote_noise_pub: Some(&x_pk_arr),
             role: Role::Client,
             server_hint: payload.server_hint.as_deref(),
+            expires_at: payload.expires_at,
         });
         let vk = ed25519_dalek::VerifyingKey::from_bytes(&payload.ed25519_pub)
             .map_err(|e| NoiseError::Other(e.to_string()))?;

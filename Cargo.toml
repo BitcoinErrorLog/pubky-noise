@@ -15,7 +15,7 @@ pkarr = []
 trace = ["tracing"]
 secure-mem = ["region"]
 pubky-sdk = ["dep:pubky"]
-storage-queue = ["dep:pubky", "dep:async-trait"]
+storage-queue = ["dep:pubky", "dep:async-trait", "dep:tokio"]
 uniffi_macros = ["dep:uniffi", "dep:tokio"]
 
 [dependencies]

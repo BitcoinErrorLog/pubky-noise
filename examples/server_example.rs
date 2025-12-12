@@ -57,7 +57,7 @@ fn main() {
     println!("   Server initialized");
     println!(
         "   Public key (share with clients): {}",
-        hex::encode(&server_public_key)
+        hex::encode(server_public_key)
     );
 
     // =========================================================================
@@ -77,9 +77,9 @@ fn main() {
 
         // Create a client
         let client_seed = [(i + 1) as u8; 32];
-        let ring_client = Arc::new(DummyRing::new(client_seed, &format!("client-{}", i)));
+        let ring_client = Arc::new(DummyRing::new(client_seed, format!("client-{}", i)));
         let client = NoiseClient::<_, ()>::new_direct(
-            &format!("client-{}", i),
+            format!("client-{}", i),
             format!("device-{}", i).as_bytes(),
             ring_client,
         );
@@ -357,7 +357,7 @@ fn main() {
     println!("   5. Clean up resources");
 
     // Clean up all sessions
-    let sessions_to_close: Vec<_> = server_manager.list_sessions().iter().cloned().collect();
+    let sessions_to_close: Vec<_> = server_manager.list_sessions().to_vec();
     for session_id in sessions_to_close {
         server_manager.remove_session(&session_id);
         println!("     Closed session: {}", session_id);
