@@ -187,10 +187,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     where
         F: FnOnce(&NoiseLink) -> T,
     {
-        let manager = self
-            .inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let manager = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         manager.get_session(session_id).map(f)
     }
 
@@ -201,10 +198,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
     where
         F: FnOnce(&mut NoiseLink) -> T,
     {
-        let mut manager = self
-            .inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut manager = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         manager.get_session_mut(session_id).map(f)
     }
 
@@ -216,10 +210,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
         session_id: &SessionId,
         plaintext: &[u8],
     ) -> Result<Vec<u8>, crate::errors::NoiseError> {
-        let mut manager = self
-            .inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut manager = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         manager
             .get_session_mut(session_id)
             .ok_or_else(|| crate::errors::NoiseError::Other("Session not found".to_string()))?
@@ -234,10 +225,7 @@ impl<R: RingKeyProvider> ThreadSafeSessionManager<R> {
         session_id: &SessionId,
         ciphertext: &[u8],
     ) -> Result<Vec<u8>, crate::errors::NoiseError> {
-        let mut manager = self
-            .inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut manager = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         manager
             .get_session_mut(session_id)
             .ok_or_else(|| crate::errors::NoiseError::Other("Session not found".to_string()))?

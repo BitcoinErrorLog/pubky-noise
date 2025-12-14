@@ -39,15 +39,15 @@ region = { version = "3", optional = true }
 pubky = { version = "0.6.0-rc.6", optional = true }
 async-trait = { version = "0.1", optional = true }
 tokio = { version = "1", features = ["rt"], optional = true }
-uniffi = { version = "0.25", optional = true }
+uniffi = { version = "0.26", optional = true }
 
 [build-dependencies]
-uniffi_build = "0.25"
+uniffi_build = "0.26"
 
 [dev-dependencies]
 rand_core = "0.6"
 tokio = { version = "1", features = ["full"] }
-uniffi_bindgen = "0.25"
+uniffi_bindgen = "0.26"
 loom = "0.7"
 sha2 = "0.10"
 rand = "0.8"
