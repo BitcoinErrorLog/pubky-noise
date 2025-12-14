@@ -263,7 +263,10 @@ impl RateLimiter {
     ///
     /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn tracked_ip_count(&self) -> usize {
-        self.trackers.lock().unwrap_or_else(|e| e.into_inner()).len()
+        self.trackers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
     }
 
     /// Get remaining attempts for an IP within the current window.
@@ -291,7 +294,10 @@ impl RateLimiter {
     ///
     /// Note: Recovers gracefully from lock poisoning rather than panicking.
     pub fn clear(&self) {
-        self.trackers.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.trackers
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
     }
 
     /// Run cleanup of expired entries.
