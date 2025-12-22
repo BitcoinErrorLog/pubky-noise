@@ -1658,8 +1658,7 @@ checksum = "33cb294fe86a74cbcf50d4445b37da762029549ebeea341421c7c70370f86cac"
 [[package]]
 name = "pubky"
 version = "0.6.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1db16263a3ebeb88de3bfa26c264ac947f943967bc08c8032fe0bdd6f7b6d5db"
+source = "git+https://github.com/BitcoinErrorLog/pubky-core?rev=290d801#290d8016678c58d77fe9c0fab293bdac22e76933"
 dependencies = [
  "base64",
  "cookie",
@@ -1676,13 +1675,13 @@ dependencies = [
  "tracing",
  "url",
  "wasm-bindgen-futures",
+ "web-time",
 ]
 
 [[package]]
 name = "pubky-common"
 version = "0.6.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "966b2d70da88a7a98e369276ae784e9187a0ddddc42d528e15aed12d24e6ccf5"
+source = "git+https://github.com/BitcoinErrorLog/pubky-core?rev=290d801#290d8016678c58d77fe9c0fab293bdac22e76933"
 dependencies = [
  "argon2",
  "base32",
