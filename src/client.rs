@@ -7,6 +7,13 @@ use zeroize::Zeroizing;
 /// Internal epoch value - always 0 (epoch is not a user-facing concept).
 const INTERNAL_EPOCH: u32 = 0;
 
+/// Default handshake expiry duration in seconds (5 minutes).
+///
+/// When `now_unix` is set on the client, this value is added to compute `expires_at`.
+/// Servers MUST reject payloads with timestamps in the past, which provides
+/// replay protection for handshake initiation.
+const DEFAULT_HANDSHAKE_EXPIRY_SECS: u64 = 300;
+
 pub struct NoiseClient<R: RingKeyProvider, P = ()> {
     pub kid: String,
     pub device_id: Vec<u8>,
@@ -14,7 +21,13 @@ pub struct NoiseClient<R: RingKeyProvider, P = ()> {
     _phantom: PhantomData<P>,
     pub prologue: Vec<u8>,
     pub suite: String,
+    /// Current Unix timestamp in seconds. When set, enables handshake expiry.
+    ///
+    /// Setting this causes the client to include `expires_at = now_unix + 300` in the
+    /// identity payload, providing replay protection for handshake messages.
     pub now_unix: Option<u64>,
+    /// Custom expiry duration in seconds. Defaults to 300 (5 minutes).
+    pub expiry_secs: u64,
 }
 
 impl<R: RingKeyProvider, P> NoiseClient<R, P> {
@@ -31,7 +44,23 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
             prologue: b"pubky-noise-v1".to_vec(),
             suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
             now_unix: None,
+            expiry_secs: DEFAULT_HANDSHAKE_EXPIRY_SECS,
         }
+    }
+
+    /// Set the current Unix timestamp to enable handshake expiry.
+    ///
+    /// When set, the handshake payload will include `expires_at = now_unix + expiry_secs`,
+    /// which servers can use to reject replayed handshake messages.
+    pub fn with_now_unix(mut self, now_unix: u64) -> Self {
+        self.now_unix = Some(now_unix);
+        self
+    }
+
+    /// Set a custom expiry duration (default is 300 seconds / 5 minutes).
+    pub fn with_expiry_secs(mut self, secs: u64) -> Self {
+        self.expiry_secs = secs;
+        self
     }
 
     /// Build an IK pattern initiator handshake.
@@ -78,9 +107,9 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         )??;
         let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
 
-        // No expiration by default for backward compatibility
-        // Clients can set now_unix to enable expiration if desired
-        let expires_at: Option<u64> = None;
+        // Compute expiration if now_unix is set (enables replay protection)
+        // When now_unix is None, expires_at is None for backward compatibility
+        let expires_at: Option<u64> = self.now_unix.map(|now| now + self.expiry_secs);
 
         let msg32 = make_binding_message(&BindingMessageParams {
             pattern_tag: "IK",

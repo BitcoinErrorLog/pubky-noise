@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-22
+
+### Breaking Changes
+
+- **HKDF Key Derivation**: `derive_x25519_for_device_epoch()` now returns `Result<[u8; 32], NoiseError>` instead of panicking
+  - All call sites must handle the `Result` type
+  - Affected: `RingKeyProvider::derive_device_x25519()` implementations
+  - FFI: `derive_device_key()` now returns `Result<Vec<u8>, FfiNoiseError>`
+
+- **Rate Limit Error**: `NoiseError::RateLimited` changed from tuple variant to struct variant
+  - Old: `RateLimited(String)`
+  - New: `RateLimited { message: String, retry_after_ms: Option<u64> }`
+  - FFI: `FfiNoiseError::RateLimited` also updated with same structure
+
+- **Storage Path Validation**: `StorageBackedMessaging::new()` now returns `Result<Self, NoiseError>`
+  - Validates paths for safety (no traversal, valid characters, length limits)
+  - Invalid paths return `NoiseError::Storage` error
+
+### Added
+
+- **Client-Side Expiry**: `NoiseClient` now supports handshake expiry
+  - Set `now_unix` to enable `expires_at` computation in identity payloads
+  - Default expiry: 300 seconds (5 minutes)
+  - Builder methods: `with_now_unix(u64)` and `with_expiry_secs(u64)`
+
+- **Timeout Enforcement**: Storage operations now enforce timeouts (non-WASM only)
+  - Uses `operation_timeout_ms` from `RetryConfig` (default: 30 seconds)
+  - Returns `NoiseError::Timeout` on timeout with exhausted retries
+  - Documented WASM limitation (no timeout enforcement)
+
+- **Path Validation**: Strict validation for `StorageBackedMessaging` paths
+  - Must start with `/`
+  - Maximum 1024 characters
+  - Allowed: alphanumeric, `/`, `-`, `_`, `.`
+  - Rejects `..` (path traversal) and `//` (double slashes)
+
+- **CLI Improvements**: `uniffi-bindgen` CLI now has proper error handling
+  - Usage help with `--help` flag
+  - Descriptive error messages instead of panics
+  - Examples for Swift and Kotlin binding generation
+
+- **Test Coverage**: New `timeout_and_validation.rs` test file
+  - Path validation tests
+  - HKDF error handling tests
+  - Rate limit error structure tests
+  - Client expiry computation tests
+
+### Fixed
+
+- **Error Propagation**: HKDF errors now propagate properly instead of panicking
+- **Panic Removal**: Removed all panics from `uniffi-bindgen` CLI
+
+### Documentation
+
+- Updated `storage_queue` module docs with timeout and path validation info
+- Added doc comments for new `NoiseClient` expiry fields and methods
+
 ## [1.0.1] - 2025-12-12
 
 ### Security Improvements
