@@ -13,6 +13,16 @@
 //! - `/pub/my-app/messages/outbox`
 //! - `/pub/paykit.app/v0/noise/inbox`
 //!
+//! ## Timeout Enforcement
+//!
+//! All storage operations are wrapped with `tokio::time::timeout()` using the
+//! `operation_timeout_ms` value from [`RetryConfig`] (default: 30 seconds).
+//! This prevents indefinite blocking on slow or unresponsive networks.
+//!
+//! When a timeout occurs, the operation is retried (up to `max_retries`) with
+//! exponential backoff. If all retries are exhausted, a [`NoiseError::Timeout`]
+//! is returned.
+//!
 //! ## WASM Limitations
 //!
 //! On WASM targets, operation timeouts are not enforced because `tokio::time::timeout`
@@ -190,7 +200,14 @@ impl StorageBackedMessaging {
         self.read_counter
     }
 
-    /// Send a message with retry logic and exponential backoff
+    /// Send a message with retry logic, exponential backoff, and timeout enforcement.
+    ///
+    /// Each storage operation is subject to the `operation_timeout_ms` configured in `RetryConfig`.
+    ///
+    /// # WASM Limitations
+    ///
+    /// On WASM targets, timeouts are not enforced because `tokio::time::timeout` is not available.
+    /// Operations may block indefinitely on slow networks.
     pub async fn send_message(&mut self, plaintext: &[u8]) -> Result<(), NoiseError> {
         let ciphertext = self.noise_link.encrypt(plaintext)?;
         let path = format!("{}/msg_{}", self.write_path, self.write_counter);
@@ -199,13 +216,39 @@ impl StorageBackedMessaging {
         let mut attempt = 0;
         let mut backoff_ms = self.retry_config.initial_backoff_ms;
 
+        #[cfg(not(target_arch = "wasm32"))]
+        let timeout_duration = Duration::from_millis(self.retry_config.operation_timeout_ms);
+
         loop {
-            match self.session.storage().put(&path, ciphertext.clone()).await {
-                Ok(_) => {
+            // Apply timeout to the put operation (non-WASM only)
+            #[cfg(not(target_arch = "wasm32"))]
+            let result = tokio::time::timeout(
+                timeout_duration,
+                self.session.storage().put(&path, ciphertext.clone()),
+            )
+            .await;
+
+            #[cfg(target_arch = "wasm32")]
+            let result = Ok(self.session.storage().put(&path, ciphertext.clone()).await);
+
+            match result {
+                #[cfg(not(target_arch = "wasm32"))]
+                Err(_elapsed) => {
+                    // Timeout occurred
+                    attempt += 1;
+                    if attempt >= self.retry_config.max_retries {
+                        return Err(NoiseError::Timeout(format!(
+                            "Put operation timed out after {}ms ({} attempts)",
+                            self.retry_config.operation_timeout_ms, attempt
+                        )));
+                    }
+                    // Continue to backoff and retry
+                }
+                Ok(Ok(_)) => {
                     self.write_counter += 1;
                     return Ok(());
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     attempt += 1;
                     if attempt >= self.retry_config.max_retries {
                         return Err(NoiseError::Storage(format!(
@@ -213,19 +256,25 @@ impl StorageBackedMessaging {
                             attempt, e
                         )));
                     }
-
-                    // Exponential backoff with cap
-                    // Note: For WASM targets, consider using gloo-timers or similar
-                    #[cfg(not(target_arch = "wasm32"))]
-                    tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
-
-                    backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
                 }
             }
+
+            // Exponential backoff with cap
+            #[cfg(not(target_arch = "wasm32"))]
+            tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+
+            backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
         }
     }
 
-    /// Receive messages with retry logic for transient errors
+    /// Receive messages with retry logic, transient error handling, and timeout enforcement.
+    ///
+    /// Each network operation is subject to the `operation_timeout_ms` configured in `RetryConfig`.
+    ///
+    /// # WASM Limitations
+    ///
+    /// On WASM targets, timeouts are not enforced because `tokio::time::timeout` is not available.
+    /// Operations may block indefinitely on slow networks.
     pub async fn receive_messages(
         &mut self,
         max_messages: Option<usize>,
@@ -233,6 +282,9 @@ impl StorageBackedMessaging {
         let mut messages = Vec::new();
         let limit = max_messages.unwrap_or(10); // Default limit to avoid infinite loops
         let mut attempts = 0;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let timeout_duration = Duration::from_millis(self.retry_config.operation_timeout_ms);
 
         while attempts < limit {
             let path = format!("{}/msg_{}", self.read_path, self.read_counter);
@@ -242,12 +294,56 @@ impl StorageBackedMessaging {
             let mut backoff_ms = self.retry_config.initial_backoff_ms;
 
             loop {
-                match self.public_client.get(&path).await {
-                    Ok(response) => {
+                // Apply timeout to the get operation (non-WASM only)
+                #[cfg(not(target_arch = "wasm32"))]
+                let get_result =
+                    tokio::time::timeout(timeout_duration, self.public_client.get(&path)).await;
+
+                #[cfg(target_arch = "wasm32")]
+                let get_result = Ok(self.public_client.get(&path).await);
+
+                match get_result {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    Err(_elapsed) => {
+                        // Timeout on get operation
+                        retry_attempt += 1;
+                        if retry_attempt >= self.retry_config.max_retries {
+                            return Err(NoiseError::Timeout(format!(
+                                "Get operation timed out after {}ms ({} attempts)",
+                                self.retry_config.operation_timeout_ms, retry_attempt
+                            )));
+                        }
+                        // Backoff and retry
+                        tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                        backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
+                        continue;
+                    }
+                    Ok(Ok(response)) => {
                         if response.status().is_success() {
-                            let ciphertext = response.bytes().await.map_err(|e| {
-                                NoiseError::Network(format!("Failed to read bytes: {:?}", e))
-                            })?;
+                            // Apply timeout to reading bytes (non-WASM only)
+                            #[cfg(not(target_arch = "wasm32"))]
+                            let bytes_result =
+                                tokio::time::timeout(timeout_duration, response.bytes()).await;
+
+                            #[cfg(target_arch = "wasm32")]
+                            let bytes_result = Ok(response.bytes().await);
+
+                            let ciphertext = match bytes_result {
+                                #[cfg(not(target_arch = "wasm32"))]
+                                Err(_elapsed) => {
+                                    return Err(NoiseError::Timeout(format!(
+                                        "Reading response bytes timed out after {}ms",
+                                        self.retry_config.operation_timeout_ms
+                                    )));
+                                }
+                                Ok(Ok(bytes)) => bytes.to_vec(),
+                                Ok(Err(e)) => {
+                                    return Err(NoiseError::Network(format!(
+                                        "Failed to read bytes: {:?}",
+                                        e
+                                    )));
+                                }
+                            };
 
                             let plaintext = self.noise_link.decrypt(&ciphertext).map_err(|e| {
                                 NoiseError::Decryption(format!("Failed to decrypt: {:?}", e))
@@ -279,7 +375,7 @@ impl StorageBackedMessaging {
                             )));
                         }
                     }
-                    Err(_e) if retry_attempt < self.retry_config.max_retries => {
+                    Ok(Err(_e)) if retry_attempt < self.retry_config.max_retries => {
                         // Network error - retry
                         retry_attempt += 1;
 
@@ -289,7 +385,7 @@ impl StorageBackedMessaging {
                         backoff_ms = (backoff_ms * 2).min(self.retry_config.max_backoff_ms);
                         continue;
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         // Exhausted retries
                         return Err(NoiseError::Network(format!(
                             "Network error after {} retries: {:?}",
@@ -303,13 +399,34 @@ impl StorageBackedMessaging {
         Ok(messages)
     }
 
+    /// Peek to estimate if there are pending messages.
+    ///
+    /// Returns 1 if at least one message exists, 0 otherwise.
+    /// This does not guarantee an accurate count without full scanning.
+    ///
+    /// # WASM Limitations
+    ///
+    /// On WASM targets, timeouts are not enforced.
     pub async fn peek_message_count(&self) -> Result<usize, NoiseError> {
-        // Estimate by checking if next message exists
-        // This is just a peek, doesn't guarantee total count without scanning
         let path = format!("{}/msg_{}", self.read_path, self.read_counter);
-        match self.public_client.get(&path).await {
-            Ok(r) if r.status().is_success() => Ok(1), // At least 1
-            _ => Ok(0),
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let timeout_duration = Duration::from_millis(self.retry_config.operation_timeout_ms);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let result = tokio::time::timeout(timeout_duration, self.public_client.get(&path)).await;
+
+        #[cfg(target_arch = "wasm32")]
+        let result = Ok(self.public_client.get(&path).await);
+
+        match result {
+            #[cfg(not(target_arch = "wasm32"))]
+            Err(_elapsed) => Err(NoiseError::Timeout(format!(
+                "Peek operation timed out after {}ms",
+                self.retry_config.operation_timeout_ms
+            ))),
+            Ok(Ok(r)) if r.status().is_success() => Ok(1), // At least 1
+            Ok(_) => Ok(0),
         }
     }
 }
