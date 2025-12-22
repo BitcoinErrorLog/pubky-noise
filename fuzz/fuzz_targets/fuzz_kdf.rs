@@ -16,7 +16,8 @@ struct KdfInput {
 
 fuzz_target!(|input: KdfInput| {
     // Test derive_x25519_for_device_epoch
-    let sk = derive_x25519_for_device_epoch(&input.seed, &input.device_id, input.epoch);
+    let sk = derive_x25519_for_device_epoch(&input.seed, &input.device_id, input.epoch)
+        .expect("HKDF should never fail with valid inputs");
 
     // Verify the key is clamped correctly (X25519 requirements)
     assert_eq!(sk[0] & 7, 0, "Low 3 bits should be cleared");
@@ -24,7 +25,8 @@ fuzz_target!(|input: KdfInput| {
     assert_eq!(sk[31] & 64, 64, "Bit 6 should be set");
 
     // Verify determinism
-    let sk2 = derive_x25519_for_device_epoch(&input.seed, &input.device_id, input.epoch);
+    let sk2 = derive_x25519_for_device_epoch(&input.seed, &input.device_id, input.epoch)
+        .expect("HKDF should never fail with valid inputs");
     assert_eq!(sk, sk2);
 
     // Test x25519_pk_from_sk doesn't panic

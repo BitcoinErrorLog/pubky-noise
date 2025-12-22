@@ -1,19 +1,34 @@
+use crate::errors::NoiseError;
 use hkdf::Hkdf;
 use sha2::Sha512;
 use zeroize::Zeroizing;
 
-pub fn derive_x25519_for_device_epoch(seed: &[u8; 32], device_id: &[u8], epoch: u32) -> [u8; 32] {
+/// Derive an X25519 secret key from a seed, device ID, and epoch.
+///
+/// Uses HKDF-SHA512 with a fixed salt to derive keys deterministically.
+/// The resulting key is clamped for X25519 compatibility.
+///
+/// # Errors
+///
+/// Returns `NoiseError::Other` if HKDF expansion fails (should never happen
+/// with valid 32-byte output, but we handle it explicitly for robustness).
+pub fn derive_x25519_for_device_epoch(
+    seed: &[u8; 32],
+    device_id: &[u8],
+    epoch: u32,
+) -> Result<[u8; 32], NoiseError> {
     let salt = b"pubky-noise-x25519:v1";
     let hk = Hkdf::<Sha512>::new(Some(salt), seed);
     let mut info = Vec::with_capacity(device_id.len() + 4);
     info.extend_from_slice(device_id);
     info.extend_from_slice(&epoch.to_le_bytes());
     let mut sk = [0u8; 32];
-    hk.expand(&info, &mut sk).expect("hkdf expand");
+    hk.expand(&info, &mut sk)
+        .map_err(|e| NoiseError::Other(format!("HKDF expand failed: {:?}", e)))?;
     sk[0] &= 248;
     sk[31] &= 127;
     sk[31] |= 64;
-    sk
+    Ok(sk)
 }
 
 pub fn x25519_pk_from_sk(sk: &[u8; 32]) -> [u8; 32] {

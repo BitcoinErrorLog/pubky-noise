@@ -1,9 +1,30 @@
 //! Storage-backed messaging queue using Pubky storage (optional feature).
+//!
+//! ## Path Requirements
+//!
+//! Storage paths must meet the following criteria:
+//! - Must start with `/` (absolute Pubky path)
+//! - Maximum length: 1024 characters
+//! - Allowed characters: alphanumeric, `/`, `-`, `_`, `.`
+//! - Cannot contain `..` (path traversal)
+//! - Cannot contain `//` (double slashes)
+//!
+//! Example valid paths:
+//! - `/pub/my-app/messages/outbox`
+//! - `/pub/paykit.app/v0/noise/inbox`
+//!
+//! ## WASM Limitations
+//!
+//! On WASM targets, operation timeouts are not enforced because `tokio::time::timeout`
+//! is not available. Operations may block indefinitely on slow networks.
 
 use crate::datalink_adapter::NoiseLink;
 use crate::errors::NoiseError;
 use pubky::{PubkySession, PublicStorage};
 use std::time::Duration;
+
+/// Maximum allowed path length in characters.
+const MAX_PATH_LENGTH: usize = 1024;
 
 /// Configuration for retry behavior
 #[derive(Debug, Clone)]
@@ -55,15 +76,75 @@ pub trait MessageQueue {
 }
 
 impl StorageBackedMessaging {
-    /// Create a new StorageBackedMessaging instance with default retry configuration
+    /// Validate that a storage path is safe for use with Pubky.
+    ///
+    /// # Path Requirements
+    ///
+    /// - Must start with `/` (absolute Pubky path)
+    /// - Maximum length: 1024 characters
+    /// - Allowed characters: alphanumeric, `/`, `-`, `_`, `.`
+    /// - Cannot contain `..` (path traversal prevention)
+    /// - Cannot contain `//` (no double slashes)
+    ///
+    /// # Errors
+    ///
+    /// Returns `NoiseError::Storage` if the path is invalid.
+    fn validate_path(path: &str) -> Result<(), NoiseError> {
+        if path.is_empty() {
+            return Err(NoiseError::Storage("Path cannot be empty".to_string()));
+        }
+        if !path.starts_with('/') {
+            return Err(NoiseError::Storage(
+                "Path must start with /".to_string(),
+            ));
+        }
+        if path.len() > MAX_PATH_LENGTH {
+            return Err(NoiseError::Storage(format!(
+                "Path exceeds maximum length of {} characters",
+                MAX_PATH_LENGTH
+            )));
+        }
+        if path.contains("..") {
+            return Err(NoiseError::Storage(
+                "Path cannot contain .. sequences (path traversal)".to_string(),
+            ));
+        }
+        if path.contains("//") {
+            return Err(NoiseError::Storage(
+                "Path cannot contain // sequences".to_string(),
+            ));
+        }
+
+        // Check for invalid characters
+        for c in path.chars() {
+            if !c.is_alphanumeric() && !matches!(c, '/' | '-' | '_' | '.') {
+                return Err(NoiseError::Storage(format!(
+                    "Path contains invalid character: '{}'",
+                    c
+                )));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Create a new StorageBackedMessaging instance with default retry configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns `NoiseError::Storage` if either `write_path` or `read_path` is invalid.
+    /// See module documentation for path requirements.
     pub fn new(
         link: NoiseLink,
         session: PubkySession,
         public_client: PublicStorage,
         write_path: String,
         read_path: String,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, NoiseError> {
+        Self::validate_path(&write_path)?;
+        Self::validate_path(&read_path)?;
+
+        Ok(Self {
             noise_link: link,
             session,
             public_client,
@@ -72,7 +153,7 @@ impl StorageBackedMessaging {
             write_counter: 0,
             read_counter: 0,
             retry_config: RetryConfig::default(),
-        }
+        })
     }
 
     /// Set the initial counters (useful for resuming sessions from persisted state)
@@ -242,5 +323,84 @@ impl MessageQueue for StorageBackedMessaging {
     async fn dequeue(&mut self) -> Result<Option<Vec<u8>>, NoiseError> {
         let mut msgs = self.receive_messages(Some(1)).await?;
         Ok(msgs.pop())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_path_valid_paths() {
+        // Valid paths should pass
+        assert!(StorageBackedMessaging::validate_path("/pub/app/messages").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/pub/paykit.app/v0/noise").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/pub/my-app/outbox").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/pub/user_123/inbox").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/a").is_ok());
+    }
+
+    #[test]
+    fn test_validate_path_empty() {
+        let result = StorageBackedMessaging::validate_path("");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty"));
+    }
+
+    #[test]
+    fn test_validate_path_must_start_with_slash() {
+        let result = StorageBackedMessaging::validate_path("pub/app/messages");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("start with /"));
+    }
+
+    #[test]
+    fn test_validate_path_no_path_traversal() {
+        let result = StorageBackedMessaging::validate_path("/pub/../etc/passwd");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(".."));
+
+        let result = StorageBackedMessaging::validate_path("/pub/app/../../secret");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_path_no_double_slashes() {
+        let result = StorageBackedMessaging::validate_path("/pub//app/messages");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("//"));
+    }
+
+    #[test]
+    fn test_validate_path_max_length() {
+        // Create a path that exceeds MAX_PATH_LENGTH
+        let long_path = format!("/{}", "a".repeat(MAX_PATH_LENGTH));
+        let result = StorageBackedMessaging::validate_path(&long_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("maximum length"));
+    }
+
+    #[test]
+    fn test_validate_path_invalid_characters() {
+        // Space is invalid
+        let result = StorageBackedMessaging::validate_path("/pub/my app/messages");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("invalid character"));
+
+        // Special characters are invalid
+        assert!(StorageBackedMessaging::validate_path("/pub/app@domain").is_err());
+        assert!(StorageBackedMessaging::validate_path("/pub/app#tag").is_err());
+        assert!(StorageBackedMessaging::validate_path("/pub/app?query").is_err());
+        assert!(StorageBackedMessaging::validate_path("/pub/app&more").is_err());
+        assert!(StorageBackedMessaging::validate_path("/pub/app=value").is_err());
+    }
+
+    #[test]
+    fn test_validate_path_allowed_special_characters() {
+        // Dash, underscore, and dot are allowed
+        assert!(StorageBackedMessaging::validate_path("/pub/my-app").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/pub/my_app").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/pub/my.app").is_ok());
+        assert!(StorageBackedMessaging::validate_path("/pub/my-app_v2.0").is_ok());
     }
 }

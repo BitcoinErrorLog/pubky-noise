@@ -20,7 +20,7 @@ fn test_ffi_smoke() {
     let server_device_id = b"server_device".to_vec();
 
     // Server setup (manual for now as FFI doesn't expose server)
-    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0);
+    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0).unwrap();
     let server_pk = x25519_pk_from_sk(&server_sk);
 
     // Create manager
@@ -72,7 +72,7 @@ fn test_ffi_server_client_handshake() {
     let server_device_id = b"server_device".to_vec();
 
     // Get server's public key (derived the same way the server will derive it)
-    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0);
+    let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0).unwrap();
     let server_pk = x25519_pk_from_sk(&server_sk);
 
     // Create client manager

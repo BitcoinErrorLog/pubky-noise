@@ -1,3 +1,4 @@
+use crate::ffi::errors::FfiNoiseError;
 use crate::ffi::types::FfiMobileConfig;
 use crate::mobile_manager::MobileConfig;
 
@@ -30,13 +31,23 @@ pub fn performance_config() -> FfiMobileConfig {
     .into()
 }
 
+/// Derive an X25519 device key from seed, device ID, and epoch.
+///
+/// # Errors
+///
+/// Returns `FfiNoiseError::Other` if key derivation fails (extremely rare).
 #[uniffi::export]
-pub fn derive_device_key(seed: Vec<u8>, device_id: Vec<u8>, epoch: u32) -> Vec<u8> {
+pub fn derive_device_key(
+    seed: Vec<u8>,
+    device_id: Vec<u8>,
+    epoch: u32,
+) -> Result<Vec<u8>, FfiNoiseError> {
     let mut seed_arr = [0u8; 32];
     if seed.len() >= 32 {
         seed_arr.copy_from_slice(&seed[0..32]);
     }
-    crate::kdf::derive_x25519_for_device_epoch(&seed_arr, &device_id, epoch).to_vec()
+    let sk = crate::kdf::derive_x25519_for_device_epoch(&seed_arr, &device_id, epoch)?;
+    Ok(sk.to_vec())
 }
 
 #[uniffi::export]

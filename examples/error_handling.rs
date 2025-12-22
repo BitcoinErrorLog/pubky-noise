@@ -181,10 +181,19 @@ fn main() {
                 // In production: back off, respect limits
             }
 
-            NoiseError::RateLimited(msg) => {
+            NoiseError::RateLimited {
+                message,
+                retry_after_ms,
+            } => {
                 // Rate limited - retry after delay
-                eprintln!("[RATE_LIMITED] {}: {} - will retry later", context, msg);
-                // In production: parse retry-after and wait
+                if let Some(delay_ms) = retry_after_ms {
+                    eprintln!(
+                        "[RATE_LIMITED] {}: {} - retry after {}ms",
+                        context, message, delay_ms
+                    );
+                } else {
+                    eprintln!("[RATE_LIMITED] {}: {} - will retry later", context, message);
+                }
             }
 
             NoiseError::MaxSessionsExceeded => {

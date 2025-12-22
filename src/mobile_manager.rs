@@ -453,8 +453,8 @@ impl<R: RingKeyProvider> NoiseManager<R> {
             .get(session_id)
             .ok_or_else(|| NoiseError::Other("Session state not found".to_string()))?;
 
-        let mut messaging =
-            StorageBackedMessaging::new(link, session, public_client, write_path, read_path);
+        let messaging =
+            StorageBackedMessaging::new(link, session, public_client, write_path, read_path)?;
 
         // Configure with retry settings appropriate for mobile
         let retry_config = RetryConfig {
@@ -468,7 +468,7 @@ impl<R: RingKeyProvider> NoiseManager<R> {
             operation_timeout_ms: 30000,
         };
 
-        messaging = messaging
+        let messaging = messaging
             .with_counters(state.write_counter, state.read_counter)
             .with_retry_config(retry_config);
 

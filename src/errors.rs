@@ -66,8 +66,13 @@ pub enum NoiseError {
     #[error("policy violation: {0}")]
     Policy(String),
 
-    #[error("rate limited: {0}")]
-    RateLimited(String),
+    #[error("rate limited: {message}")]
+    RateLimited {
+        message: String,
+        /// Optional retry delay in milliseconds.
+        /// When present, the client should wait at least this long before retrying.
+        retry_after_ms: Option<u64>,
+    },
 
     #[error("maximum sessions exceeded for this identity")]
     MaxSessionsExceeded,
@@ -108,7 +113,7 @@ impl NoiseError {
             Self::IdentityVerify => NoiseErrorCode::IdentityVerify,
             Self::RemoteStaticMissing => NoiseErrorCode::RemoteStaticMissing,
             Self::Policy(_) => NoiseErrorCode::Policy,
-            Self::RateLimited(_) => NoiseErrorCode::RateLimited,
+            Self::RateLimited { .. } => NoiseErrorCode::RateLimited,
             Self::MaxSessionsExceeded => NoiseErrorCode::MaxSessionsExceeded,
             Self::SessionExpired(_) => NoiseErrorCode::SessionExpired,
             Self::InvalidPeerKey => NoiseErrorCode::InvalidPeerKey,
@@ -133,7 +138,7 @@ impl NoiseError {
             Self::Network(_)
                 | Self::Timeout(_)
                 | Self::ConnectionReset(_)
-                | Self::RateLimited(_)
+                | Self::RateLimited { .. }
                 | Self::Storage(_)
         )
     }
@@ -141,10 +146,7 @@ impl NoiseError {
     /// Returns a suggested retry delay in milliseconds, if applicable.
     pub fn retry_after_ms(&self) -> Option<u64> {
         match self {
-            Self::RateLimited(msg) => {
-                // Try to parse retry-after from message if encoded
-                msg.parse().ok()
-            }
+            Self::RateLimited { retry_after_ms, .. } => *retry_after_ms,
             Self::Network(_) | Self::Timeout(_) | Self::ConnectionReset(_) => Some(1000),
             Self::Storage(_) => Some(500),
             _ => None,

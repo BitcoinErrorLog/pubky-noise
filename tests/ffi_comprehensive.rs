@@ -41,15 +41,18 @@ mod ffi_tests {
         let device_id = b"test-device".to_vec();
         let epoch = 5;
 
-        let key = derive_device_key(seed.clone(), device_id.clone(), epoch);
+        let key = derive_device_key(seed.clone(), device_id.clone(), epoch)
+            .expect("Key derivation should succeed");
         assert_eq!(key.len(), 32);
 
         // Same inputs should produce same output
-        let key2 = derive_device_key(seed.clone(), device_id.clone(), epoch);
+        let key2 = derive_device_key(seed.clone(), device_id.clone(), epoch)
+            .expect("Key derivation should succeed");
         assert_eq!(key, key2);
 
         // Different epoch should produce different output
-        let key3 = derive_device_key(seed, device_id, epoch + 1);
+        let key3 = derive_device_key(seed, device_id, epoch + 1)
+            .expect("Key derivation should succeed");
         assert_ne!(key, key3);
     }
 

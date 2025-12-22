@@ -19,8 +19,8 @@ fn property_kdf_deterministic() {
     ];
 
     for (seed, device_id, epoch) in test_cases {
-        let key1 = derive_x25519_for_device_epoch(&seed, device_id, epoch);
-        let key2 = derive_x25519_for_device_epoch(&seed, device_id, epoch);
+        let key1 = derive_x25519_for_device_epoch(&seed, device_id, epoch).unwrap();
+        let key2 = derive_x25519_for_device_epoch(&seed, device_id, epoch).unwrap();
 
         assert_eq!(
             key1, key2,
@@ -45,7 +45,7 @@ fn property_kdf_device_separation() {
 
     let keys: Vec<[u8; 32]> = devices
         .iter()
-        .map(|device_id| derive_x25519_for_device_epoch(&seed, device_id, epoch))
+        .map(|device_id| derive_x25519_for_device_epoch(&seed, device_id, epoch).unwrap())
         .collect();
 
     // All keys should be unique
@@ -66,7 +66,7 @@ fn property_x25519_clamping() {
     let test_seeds = vec![[0u8; 32], [1u8; 32], [42u8; 32], [0xFFu8; 32], [0x77u8; 32]];
 
     for seed in test_seeds {
-        let sk = derive_x25519_for_device_epoch(&seed, b"device", 0);
+        let sk = derive_x25519_for_device_epoch(&seed, b"device", 0).unwrap();
 
         // Check clamping: sk[0] should have bottom 3 bits clear
         assert_eq!(
