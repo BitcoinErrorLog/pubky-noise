@@ -1,4 +1,8 @@
 target/
 
+# Gradle
+.gradle/
+**/android/.gradle/
+
 # Archive folder for review/audit documents
 /archive/
