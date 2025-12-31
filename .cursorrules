@@ -9,3 +9,22 @@
 - If unsure about a Git operation, verify the remote URL points to BitcoinErrorLog before pushing
 - Always check `git remote -v` before pushing to ensure you're pushing to the correct organization
 - Before any git push, verify the remote URL: `git remote get-url <remote-name>` must contain `BitcoinErrorLog`
+
+# Plan Management Rules (CRITICAL)
+
+## NEVER overwrite incomplete plans.
+
+- Before calling `create_plan`, ALWAYS check if an existing plan for the same topic/codebase exists
+- If an existing plan has pending todos (not all completed/cancelled), read and EDIT that plan file directly instead of creating a new one
+- Only call `create_plan` when: (1) no existing plan for that topic exists, OR (2) the user EXPLICITLY instructs to create a new/replacement plan
+- When reviewing or auditing a codebase, first check the plans folder for existing related plans and incorporate their findings
+
+# Self-Sufficiency Rules
+
+## DO NOT ask the user to perform tasks you can do yourself.
+
+- Run builds, tests, lints, and other verification commands directly using terminal tools
+- Install dependencies, set up environments, and run setup scripts without asking permission
+- Execute file operations, searches, and code modifications directly
+- Only ask the user for input when you genuinely need a decision, clarification, or information you cannot obtain programmatically
+- When in doubt, attempt the action first; if it fails due to permissions or other issues, then explain what happened
