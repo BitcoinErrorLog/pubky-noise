@@ -24,6 +24,21 @@
 //! // Record successful handshake
 //! limiter.record_handshake(&client_ip);
 //! ```
+//!
+//! ## Lock Poisoning Strategy
+//!
+//! This module uses `unwrap_or_else(|e| e.into_inner())` for all Mutex operations
+//! instead of `.unwrap()` or `.expect()`. This design choice prioritizes
+//! **availability over crash-looping**:
+//!
+//! - If a thread panics while holding the lock, the Mutex becomes "poisoned"
+//! - Rather than propagating the panic, we recover the inner data and continue
+//! - This is safe because our rate limiting data remains consistent: all mutations
+//!   are simple HashMap operations that complete atomically
+//!
+//! The tradeoff is that we may continue operating after an unexpected panic,
+//! but rate limiting state remains valid. In the worst case, some IPs might
+//! be rate-limited slightly incorrectly, which is preferable to crashing.
 
 use std::collections::HashMap;
 use std::net::IpAddr;
