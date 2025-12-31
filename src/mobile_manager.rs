@@ -121,34 +121,35 @@ impl Default for MobileConfig {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust
 /// use pubky_noise::{NoiseClient, DummyRing, mobile_manager::{NoiseManager, MobileConfig}};
 /// use std::sync::Arc;
 ///
-/// # fn example() -> Result<(), pubky_noise::NoiseError> {
 /// let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
 /// let client = Arc::new(NoiseClient::<_, ()>::new_direct("kid", b"device-id", ring));
 ///
-/// let mut manager = NoiseManager::new_client(client, MobileConfig::default());
+/// let manager = NoiseManager::new_client(client, MobileConfig::default());
+/// // Manager is ready for use
+/// ```
 ///
+/// ## Full Handshake Flow
+///
+/// ```rust,ignore
 /// // Step 1: Initiate connection
 /// let server_pk = [0u8; 32]; // Get from server
 /// let (temp_id, first_msg) = manager.initiate_connection(&server_pk, None)?;
 ///
 /// // Step 2: Send first_msg to server, receive response (app's responsibility)
-/// // let response = send_to_server(&first_msg)?;
+/// let response = send_to_server(&first_msg)?;
 ///
 /// // Step 3: Complete handshake
-/// // let session_id = manager.complete_connection(&temp_id, &response)?;
+/// let session_id = manager.complete_connection(&temp_id, &response)?;
 ///
 /// // Save state for persistence
-/// // let state = manager.save_state(&session_id)?;
-/// // ... save state to disk ...
+/// let state = manager.save_state(&session_id)?;
 ///
 /// // Later, restore state
-/// // manager.restore_state(state)?;
-/// # Ok(())
-/// # }
+/// manager.restore_state(state)?;
 /// ```
 pub struct NoiseManager<R: RingKeyProvider> {
     client: Option<Arc<NoiseClient<R, ()>>>,
