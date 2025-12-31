@@ -1,6 +1,25 @@
+//! Session identifier type for Noise protocol sessions.
+
 use crate::errors::NoiseError;
 use std::fmt;
+use std::str::FromStr;
 
+/// A unique identifier for a Noise session, derived from the handshake hash.
+///
+/// The SessionId is a 32-byte value that uniquely identifies a completed
+/// handshake. It can be serialized to/from hex strings for storage and
+/// transmission.
+///
+/// ## Parsing from hex strings
+///
+/// ```rust
+/// use pubky_noise::SessionId;
+/// use std::str::FromStr;
+///
+/// let hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+/// let session_id = SessionId::from_str(hex).unwrap();
+/// assert_eq!(session_id.to_string(), hex);
+/// ```
 #[cfg_attr(
     feature = "storage-queue",
     derive(serde::Serialize, serde::Deserialize)
@@ -46,5 +65,27 @@ impl fmt::Display for SessionId {
 impl fmt::Debug for SessionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "SessionId({})", self)
+    }
+}
+
+impl FromStr for SessionId {
+    type Err = NoiseError;
+
+    /// Parse a SessionId from a 64-character hex string.
+    ///
+    /// # Errors
+    ///
+    /// Returns `NoiseError::Other` if the string is not valid hex or not 64 characters.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = hex::decode(s).map_err(|e| NoiseError::Other(format!("Invalid hex: {}", e)))?;
+        if bytes.len() != 32 {
+            return Err(NoiseError::Other(format!(
+                "SessionId must be 32 bytes (64 hex chars), got {} bytes",
+                bytes.len()
+            )));
+        }
+        let mut arr = [0u8; 32];
+        arr.copy_from_slice(&bytes);
+        Ok(Self(arr))
     }
 }

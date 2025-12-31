@@ -1717,7 +1717,6 @@ dependencies = [
  "rand 0.8.5",
  "rand_core 0.6.4",
  "region",
- "secrecy",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -2104,15 +2103,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "secrecy"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bd1c54ea06cfd2f6b63219704de0b9b4f72dcc2b8fdef820be6cd799780e91e"
-dependencies = [
- "zeroize",
 ]
 
 [[package]]

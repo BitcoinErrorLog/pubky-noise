@@ -6,9 +6,8 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust,no_run
+//! ```rust
 //! use pubky_noise::{NoiseClient, NoiseServer, DummyRing};
-//! use pubky_noise::datalink_adapter::{client_start_ik_direct, server_accept_ik, client_complete_ik, server_complete_ik};
 //! use std::sync::Arc;
 //!
 //! // Setup client and server with key providers

@@ -41,12 +41,16 @@ impl<T: RingKeyProvider + ?Sized> RingKeyFiller for T {
     }
 }
 
-#[allow(dead_code)]
+/// Test-only key provider for demos and testing.
+///
+/// **Warning**: This stores the seed in plaintext memory. For production,
+/// implement `RingKeyProvider` using your platform's secure key storage
+/// (e.g., iOS Keychain, Android Keystore).
 pub struct DummyRing {
     seed32: [u8; 32],
-    kid: String,        // Stored for reference but not directly accessed
-    device_id: Vec<u8>, // Stored for reference but not directly accessed
-    epoch: u32,         // Stored for reference but not directly accessed
+    kid: String,
+    device_id: Vec<u8>,
+    epoch: u32,
 }
 impl DummyRing {
     pub fn new_with_device(
@@ -69,6 +73,21 @@ impl DummyRing {
             device_id: b"default".to_vec(),
             epoch: 0,
         }
+    }
+
+    /// Get the key identifier.
+    pub fn kid(&self) -> &str {
+        &self.kid
+    }
+
+    /// Get the device identifier.
+    pub fn device_id(&self) -> &[u8] {
+        &self.device_id
+    }
+
+    /// Get the epoch.
+    pub fn epoch(&self) -> u32 {
+        self.epoch
     }
 }
 impl RingKeyProvider for DummyRing {
