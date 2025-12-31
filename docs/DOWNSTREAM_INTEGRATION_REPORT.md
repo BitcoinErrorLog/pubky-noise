@@ -112,10 +112,10 @@ This is the authoritative “truth” for downstream after updating native libs.
   - `platforms/ios/Sources/pubky_noise.swift` and `platforms/android/src/main/java/**/pubky_noise.kt` currently expose **non-throwing** `publicKeyFromSecret`, but regenerated bindings show it must be **throwing**.
   - Any repo copying these stale files will break at runtime after updating native libs.
 
-- **Kotlin package mismatch in the workspace**:
-  - `pubky-ring` uses `uniffi.pubky_noise.*`
-  - `bitkit-android` uses `com.pubky.noise.*`
-  - Decide on one canonical package name for shipping, or explicitly generate two variants.
+- **Kotlin package mismatch in the workspace** (RESOLVED):
+  - `pubky-ring` uses `uniffi.pubky_noise.*` (matches UniFFI default output)
+  - `bitkit-android` uses `com.pubky.noise.*` (requires manual package rename after copying)
+  - **Decision**: Keep `uniffi.pubky_noise` as the canonical package. Bitkit copies the bindings and does `sed 's/package uniffi.pubky_noise/package com.pubky.noise/'` when updating.
 
 - **Potential build breaks if warnings are treated as errors**:
   - `pubky-noise` currently emits Rust warnings under `--features uniffi_macros` (unused variables in `src/ffi/manager.rs`).

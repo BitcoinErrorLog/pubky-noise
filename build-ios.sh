@@ -52,13 +52,17 @@ cargo build --release --features uniffi_macros --target aarch64-apple-ios-sim
 # Generate bindings
 echo ""
 echo "Generating Swift bindings..."
-cargo run --features=uniffi_macros --bin uniffi-bindgen generate \
+cargo run --features "bindgen-cli,uniffi_macros" --bin uniffi-bindgen generate \
     --library "$TARGET_DIR/aarch64-apple-ios/release/libpubky_noise.a" \
     --language swift \
-    --out-dir "$IOS_DIR/Sources" || {
-    echo "⚠️  uniffi-bindgen not found as binary, using as library..."
-    # If uniffi-bindgen binary isn't available, the scaffolding should be generated during build
-}
+    --out-dir "$IOS_DIR/Sources"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Error: Failed to generate Swift bindings"
+    echo "   Make sure the 'bindgen-cli' feature is available in Cargo.toml"
+    exit 1
+fi
+echo "✅ Swift bindings generated"
 
 # Create XCFramework
 echo ""

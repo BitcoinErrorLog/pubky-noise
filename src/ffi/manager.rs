@@ -86,9 +86,9 @@ impl FfiNoiseManager {
         }
         pk_arr.copy_from_slice(&server_pk);
 
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in connect_client: {}", e);
+            tracing::error!("Mutex poisoned in connect_client: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -120,9 +120,9 @@ impl FfiNoiseManager {
         }
         pk_arr.copy_from_slice(&server_pk);
 
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in initiate_connection: {}", e);
+            tracing::error!("Mutex poisoned in initiate_connection: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -149,9 +149,9 @@ impl FfiNoiseManager {
     ) -> Result<String, FfiNoiseError> {
         let sid = self.parse_session_id(&session_id)?;
 
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in complete_connection: {}", e);
+            tracing::error!("Mutex poisoned in complete_connection: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -225,9 +225,9 @@ impl FfiNoiseManager {
         #[cfg(feature = "trace")]
         tracing::debug!("accept_connection called: msg_len={}", first_msg.len());
 
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in accept_connection: {}", e);
+            tracing::error!("Mutex poisoned in accept_connection: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -257,9 +257,9 @@ impl FfiNoiseManager {
             plaintext.len()
         );
         let sid = self.parse_session_id(&session_id)?;
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in encrypt: {}", e);
+            tracing::error!("Mutex poisoned in encrypt: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -282,9 +282,9 @@ impl FfiNoiseManager {
         );
 
         let sid = self.parse_session_id(&session_id)?;
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in decrypt: {}", e);
+            tracing::error!("Mutex poisoned in decrypt: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -299,9 +299,9 @@ impl FfiNoiseManager {
         tracing::debug!("save_state called: session_id={}", session_id);
 
         let sid = self.parse_session_id(&session_id)?;
-        let manager = self.inner.lock().map_err(|e| {
+        let manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in save_state: {}", e);
+            tracing::error!("Mutex poisoned in save_state: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }
@@ -317,9 +317,9 @@ impl FfiNoiseManager {
         let session_state: crate::mobile_manager::SessionState =
             state.try_into().map_err(FfiNoiseError::from)?;
 
-        let mut manager = self.inner.lock().map_err(|e| {
+        let mut manager = self.inner.lock().map_err(|_e| {
             #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in restore_state: {}", e);
+            tracing::error!("Mutex poisoned in restore_state: {}", _e);
             FfiNoiseError::Other {
                 msg: "Mutex poisoned".to_string(),
             }

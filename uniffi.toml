@@ -2,8 +2,10 @@
 # Configuration for UniFFI binding generation
 
 [bindings.kotlin]
-package_name = "com.pubky.noise"
+# Note: UniFFI generates package "uniffi.pubky_noise" by default.
+# Bitkit-android uses "com.pubky.noise" - this requires manually 
+# changing the package declaration after copying the bindings.
+# See docs/DOWNSTREAM_INTEGRATION_REPORT.md for details.
 
 [bindings.swift]
 module_name = "PubkyNoise"
-

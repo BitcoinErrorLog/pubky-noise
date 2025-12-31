@@ -52,13 +52,17 @@ cargo build --release --features uniffi_macros --target x86_64-linux-android
 # Generate bindings
 echo ""
 echo "Generating Kotlin bindings..."
-cargo run --features=uniffi_macros --bin uniffi-bindgen generate \
+cargo run --features "bindgen-cli,uniffi_macros" --bin uniffi-bindgen generate \
     --library "$TARGET_DIR/aarch64-linux-android/release/libpubky_noise.so" \
     --language kotlin \
-    --out-dir "$ANDROID_DIR/src/main/java/com/pubky/noise" || {
-    echo "⚠️  uniffi-bindgen not found as binary, using as library..."
-    # If uniffi-bindgen binary isn't available, the scaffolding should be generated during build
-}
+    --out-dir "$ANDROID_DIR/src/main/java"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Error: Failed to generate Kotlin bindings"
+    echo "   Make sure the 'bindgen-cli' feature is available in Cargo.toml"
+    exit 1
+fi
+echo "✅ Kotlin bindings generated"
 
 # Copy libraries to jniLibs
 echo ""
@@ -74,7 +78,10 @@ cp "$TARGET_DIR/x86_64-linux-android/release/libpubky_noise.so" "$ANDROID_DIR/sr
 echo ""
 echo "✅ Android build complete!"
 echo "📦 Native libraries: platforms/android/src/main/jniLibs/"
-echo "📄 Kotlin bindings: platforms/android/src/main/java/com/pubky/noise/"
+echo "📄 Kotlin bindings: platforms/android/src/main/java/uniffi/pubky_noise/"
+echo ""
+echo "Note: Kotlin bindings use package 'uniffi.pubky_noise' by default."
+echo "      For Bitkit (com.pubky.noise), manually change the package declaration."
 echo ""
 echo "Next steps:"
 echo "  1. Import the platforms/android directory as a Gradle module"

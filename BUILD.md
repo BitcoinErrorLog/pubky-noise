@@ -21,6 +21,17 @@
 - **Xcode** (for iOS)
 - **Kotlin/Gradle** (for Android integration)
 - **Swift** (for iOS integration)
+- **Java 17+** (for Gradle/Android builds)
+
+### Environment Variables (Android)
+
+```bash
+# Required for Android builds
+export ANDROID_NDK_HOME="$HOME/Library/Android/sdk/ndk/<version>"
+
+# Required for Gradle - use Android Studio's bundled JDK
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+```
 
 ### Installation
 

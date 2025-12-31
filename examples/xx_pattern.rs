@@ -64,7 +64,7 @@ fn main() {
 
     // Client initiates without knowing server's static key
     // This is the key difference from IK pattern
-    let (_client_hs, first_msg) = client
+    let (_client_hs, first_msg, _hint) = client
         .build_initiator_xx_tofu(None)
         .expect("Client XX initiation failed");
 

@@ -135,7 +135,12 @@ func testKeychainStorage() {
 ./build-android.sh
 ```
 **Expected**: Native libs in `platforms/android/src/main/jniLibs/`  
-**Troubleshooting**: Ensure `ANDROID_NDK_HOME` is set
+**Troubleshooting**: 
+- Ensure `ANDROID_NDK_HOME` is set
+- Ensure `JAVA_HOME` is set (required for Gradle). If using Android Studio's bundled JDK:
+  ```bash
+  export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+  ```
 
 ### 3.2 Add to Gradle Project
 `settings.gradle.kts`:
