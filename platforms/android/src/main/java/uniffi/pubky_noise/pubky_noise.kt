@@ -1028,13 +1028,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_pubky_noise_checksum_func_default_config() != 63887.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_pubky_noise_checksum_func_derive_device_key() != 2834.toShort()) {
+    if (lib.uniffi_pubky_noise_checksum_func_derive_device_key() != 53176.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_performance_config() != 613.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_pubky_noise_checksum_func_public_key_from_secret() != 7711.toShort()) {
+    if (lib.uniffi_pubky_noise_checksum_func_public_key_from_secret() != 12954.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_method_ffinoisemanager_accept_connection() != 45180.toShort()) {
@@ -2557,6 +2557,7 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
          *
          * # Errors
          *
+         * Returns `FfiNoiseError::Ring` if seed is less than 32 bytes.
          * Returns `FfiNoiseError::Other` if key derivation fails (extremely rare).
          */
     @Throws(FfiNoiseException::class) fun `deriveDeviceKey`(`seed`: kotlin.ByteArray, `deviceId`: kotlin.ByteArray, `epoch`: kotlin.UInt): kotlin.ByteArray {
@@ -2577,9 +2578,17 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     )
     }
     
- fun `publicKeyFromSecret`(`secret`: kotlin.ByteArray): kotlin.ByteArray {
+
+        /**
+         * Derive a public key from a 32-byte secret.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if secret is less than 32 bytes.
+         */
+    @Throws(FfiNoiseException::class) fun `publicKeyFromSecret`(`secret`: kotlin.ByteArray): kotlin.ByteArray {
             return FfiConverterByteArray.lift(
-    uniffiRustCall() { _status ->
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
     UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_public_key_from_secret(
         FfiConverterByteArray.lower(`secret`),_status)
 }

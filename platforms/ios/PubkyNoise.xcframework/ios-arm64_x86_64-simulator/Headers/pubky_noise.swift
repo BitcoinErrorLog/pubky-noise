@@ -1582,6 +1582,7 @@ public func defaultConfig() -> FfiMobileConfig  {
  *
  * # Errors
  *
+ * Returns `FfiNoiseError::Ring` if seed is less than 32 bytes.
  * Returns `FfiNoiseError::Other` if key derivation fails (extremely rare).
  */
 public func deriveDeviceKey(seed: Data, deviceId: Data, epoch: UInt32)throws  -> Data  {
@@ -1599,8 +1600,15 @@ public func performanceConfig() -> FfiMobileConfig  {
     )
 })
 }
-public func publicKeyFromSecret(secret: Data) -> Data  {
-    return try!  FfiConverterData.lift(try! rustCall() {
+/**
+ * Derive a public key from a 32-byte secret.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if secret is less than 32 bytes.
+ */
+public func publicKeyFromSecret(secret: Data)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
     uniffi_pubky_noise_fn_func_public_key_from_secret(
         FfiConverterData.lower(secret),$0
     )
@@ -1628,13 +1636,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_pubky_noise_checksum_func_default_config() != 63887) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_pubky_noise_checksum_func_derive_device_key() != 2834) {
+    if (uniffi_pubky_noise_checksum_func_derive_device_key() != 53176) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_performance_config() != 613) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_pubky_noise_checksum_func_public_key_from_secret() != 7711) {
+    if (uniffi_pubky_noise_checksum_func_public_key_from_secret() != 12954) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_method_ffinoisemanager_accept_connection() != 45180) {
