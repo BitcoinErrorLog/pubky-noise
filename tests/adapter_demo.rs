@@ -180,7 +180,7 @@ fn test_xx_pattern_tofu() {
     // Should succeed in creating the initial message
     assert!(result.is_ok(), "XX pattern initiation should succeed");
 
-    let (hs, first_msg) = result.unwrap();
+    let (hs, first_msg, _hint) = result.unwrap();
 
     // First message in XX is just an ephemeral key
     assert!(!first_msg.is_empty(), "First message should not be empty");

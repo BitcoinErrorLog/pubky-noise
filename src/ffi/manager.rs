@@ -86,13 +86,7 @@ impl FfiNoiseManager {
         }
         pk_arr.copy_from_slice(&server_pk);
 
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in connect_client: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
 
         let (session_id, _first_msg) = manager
             .initiate_connection(&pk_arr, hint.as_deref())
@@ -120,13 +114,7 @@ impl FfiNoiseManager {
         }
         pk_arr.copy_from_slice(&server_pk);
 
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in initiate_connection: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
 
         let (session_id, first_msg) = manager
             .initiate_connection(&pk_arr, hint.as_deref())
@@ -149,13 +137,7 @@ impl FfiNoiseManager {
     ) -> Result<String, FfiNoiseError> {
         let sid = self.parse_session_id(&session_id)?;
 
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in complete_connection: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
 
         let final_session_id = manager
             .complete_connection(&sid, &server_response)
@@ -225,13 +207,7 @@ impl FfiNoiseManager {
         #[cfg(feature = "trace")]
         tracing::debug!("accept_connection called: msg_len={}", first_msg.len());
 
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in accept_connection: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
         let (session_id, response) = manager
             .accept_connection(&first_msg)
             .map_err(FfiNoiseError::from)?;
@@ -257,13 +233,7 @@ impl FfiNoiseManager {
             plaintext.len()
         );
         let sid = self.parse_session_id(&session_id)?;
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in encrypt: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
         manager
             .encrypt(&sid, &plaintext)
             .map_err(FfiNoiseError::from)
@@ -282,13 +252,7 @@ impl FfiNoiseManager {
         );
 
         let sid = self.parse_session_id(&session_id)?;
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in decrypt: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
         manager
             .decrypt(&sid, &ciphertext)
             .map_err(FfiNoiseError::from)
@@ -299,13 +263,7 @@ impl FfiNoiseManager {
         tracing::debug!("save_state called: session_id={}", session_id);
 
         let sid = self.parse_session_id(&session_id)?;
-        let manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in save_state: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let manager = self.lock_manager();
         let state = manager.save_state(&sid).map_err(FfiNoiseError::from)?;
         Ok(state.into())
     }
@@ -317,27 +275,14 @@ impl FfiNoiseManager {
         let session_state: crate::mobile_manager::SessionState =
             state.try_into().map_err(FfiNoiseError::from)?;
 
-        let mut manager = self.inner.lock().map_err(|_e| {
-            #[cfg(feature = "trace")]
-            tracing::error!("Mutex poisoned in restore_state: {}", _e);
-            FfiNoiseError::Other {
-                msg: "Mutex poisoned".to_string(),
-            }
-        })?;
+        let mut manager = self.lock_manager();
         manager
             .restore_state(session_state)
             .map_err(FfiNoiseError::from)
     }
 
     pub fn list_sessions(&self) -> Vec<String> {
-        let manager = match self.inner.lock() {
-            Ok(m) => m,
-            Err(e) => {
-                #[cfg(feature = "trace")]
-                tracing::warn!("Mutex poisoned in list_sessions: {}", e);
-                return vec![];
-            }
-        };
+        let manager = self.lock_manager();
 
         manager
             .list_sessions()
@@ -348,53 +293,37 @@ impl FfiNoiseManager {
 
     pub fn remove_session(&self, session_id: String) {
         if let Ok(sid) = self.parse_session_id(&session_id) {
-            match self.inner.lock() {
-                Ok(mut manager) => {
-                    manager.remove_session(&sid);
-                }
-                Err(e) => {
-                    #[cfg(feature = "trace")]
-                    tracing::warn!("Mutex poisoned in remove_session: {}", e);
-                    #[cfg(not(feature = "trace"))]
-                    let _ = e;
-                }
-            }
+            let mut manager = self.lock_manager();
+            manager.remove_session(&sid);
         }
     }
 
     pub fn get_status(&self, session_id: String) -> Option<FfiConnectionStatus> {
         let sid = self.parse_session_id(&session_id).ok()?;
-        let manager = match self.inner.lock() {
-            Ok(m) => m,
-            Err(e) => {
-                #[cfg(feature = "trace")]
-                tracing::warn!("Mutex poisoned in get_status: {}", e);
-                #[cfg(not(feature = "trace"))]
-                let _ = e;
-                return None;
-            }
-        };
+        let manager = self.lock_manager();
         manager.get_status(&sid).map(|s| s.into())
     }
 
     pub fn set_status(&self, session_id: String, status: FfiConnectionStatus) {
         if let Ok(sid) = self.parse_session_id(&session_id) {
-            match self.inner.lock() {
-                Ok(mut manager) => {
-                    manager.set_status(&sid, status.into());
-                }
-                Err(e) => {
-                    #[cfg(feature = "trace")]
-                    tracing::warn!("Mutex poisoned in set_status: {}", e);
-                    #[cfg(not(feature = "trace"))]
-                    let _ = e;
-                }
-            }
+            let mut manager = self.lock_manager();
+            manager.set_status(&sid, status.into());
         }
     }
 }
 
 impl FfiNoiseManager {
+    fn lock_manager(&self) -> std::sync::MutexGuard<'_, NoiseManager<DummyRing>> {
+        match self.inner.lock() {
+            Ok(m) => m,
+            Err(e) => {
+                #[cfg(feature = "trace")]
+                tracing::warn!("Mutex poisoned in FfiNoiseManager: {}", e);
+                e.into_inner()
+            }
+        }
+    }
+
     fn parse_session_id(&self, session_id: &str) -> Result<SessionId, FfiNoiseError> {
         session_id.parse().map_err(FfiNoiseError::from)
     }

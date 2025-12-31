@@ -24,7 +24,7 @@ This guide explains how to integrate `pubky-noise` into mobile applications (iOS
 ├─────────────────────────────────────────────────┤
 │  NoiseManager (High-level lifecycle)            │
 │    ├─ Session State Persistence                 │
-│    ├─ Automatic Reconnection                    │
+│    ├─ Reconnection Hints (app-implemented)      │
 │    └─ Mobile Configuration                      │
 ├─────────────────────────────────────────────────┤
 │  StorageBackedMessaging (Optional)              │

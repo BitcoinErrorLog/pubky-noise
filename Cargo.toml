@@ -13,8 +13,8 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 default = []
 pkarr = []
 trace = ["tracing"]
-# secure-mem: Reserved for future mlock-based memory protection.
-# Currently a no-op; applications should use platform secure storage for keys.
+# secure-mem: Best-effort mlock-based memory protection for key material.
+# Uses region crate for platform-specific memory locking. Falls back silently if unavailable.
 secure-mem = ["region"]
 pubky-sdk = ["dep:pubky"]
 storage-queue = ["dep:pubky", "dep:async-trait", "dep:tokio"]
@@ -42,7 +42,7 @@ tracing = { version = "0.1", optional = true }
 region = { version = "3", optional = true }
 pubky = { git = "https://github.com/BitcoinErrorLog/pubky-core", rev = "290d801", optional = true }
 async-trait = { version = "0.1", optional = true }
-tokio = { version = "1", features = ["rt"], optional = true }
+tokio = { version = "1", features = ["rt", "time"], optional = true }
 uniffi = { version = "0.29.4", optional = true }
 uniffi_bindgen = { version = "0.29.4", optional = true }
 camino = { version = "1.1", optional = true }

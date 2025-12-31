@@ -233,4 +233,188 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             .unwrap_or_else(|e| e.into_inner())
             .len()
     }
+
+    // =========================================================================
+    // XX Pattern (Trust On First Use)
+    // =========================================================================
+
+    /// Build a responder for XX pattern handshake (step 2).
+    pub fn build_responder_xx(
+        &self,
+        first_msg: &[u8],
+    ) -> Result<(snow::HandshakeState, Vec<u8>, [u8; 32]), NoiseError> {
+        if first_msg.len() > MAX_HANDSHAKE_MSG_LEN {
+            return Err(NoiseError::Policy(format!(
+                "Handshake message too large: {} bytes (max {})",
+                first_msg.len(),
+                MAX_HANDSHAKE_MSG_LEN
+            )));
+        }
+
+        let suite = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
+        let params: snow::params::NoiseParams = suite
+            .parse()
+            .map_err(|e: snow::Error| NoiseError::Other(e.to_string()))?;
+        let builder = snow::Builder::new(params);
+
+        let (mut hs, x_pk_arr) = self.ring.with_device_x25519(
+            &self.kid,
+            &self.device_id,
+            INTERNAL_EPOCH,
+            |x_sk: &Zeroizing<[u8; 32]>| -> Result<(snow::HandshakeState, [u8; 32]), NoiseError> {
+                let x_pk_arr = crate::kdf::x25519_pk_from_sk(x_sk);
+                let hs = builder
+                    .local_private_key(&**x_sk)
+                    .prologue(&self.prologue)
+                    .build_responder()
+                    .map_err(NoiseError::from)?;
+                Ok((hs, x_pk_arr))
+            },
+        )??;
+
+        // Read client's first message
+        let mut buf = vec![0u8; first_msg.len() + 256];
+        let _n = hs.read_message(first_msg, &mut buf)?;
+
+        // Build server's identity payload
+        let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
+        let expires_at: Option<u64> = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_secs() + 300);
+
+        let msg32 = make_binding_message(&BindingMessageParams {
+            pattern_tag: "XX",
+            prologue: &self.prologue,
+            ed25519_pub: &ed_pub,
+            local_noise_pub: &x_pk_arr,
+            remote_noise_pub: None,
+            role: Role::Server,
+            server_hint: None,
+            expires_at,
+        });
+        let sig64 = self.ring.sign_ed25519(&self.kid, &msg32)?;
+
+        let payload = IdentityPayload {
+            ed25519_pub: ed_pub,
+            noise_x25519_pub: x_pk_arr,
+            epoch: INTERNAL_EPOCH,
+            role: Role::Server,
+            server_hint: None,
+            expires_at,
+            sig: sig64,
+        };
+
+        let payload_bytes = serde_json::to_vec(&payload)?;
+        let mut response = vec![0u8; payload_bytes.len() + 256];
+        let n = hs.write_message(&payload_bytes, &mut response)?;
+        response.truncate(n);
+
+        Ok((hs, response, x_pk_arr))
+    }
+
+    /// Complete XX pattern handshake after receiving client's final message (step 3).
+    pub fn complete_responder_xx(
+        &self,
+        mut hs: snow::HandshakeState,
+        client_final_msg: &[u8],
+        server_static_pk: &[u8; 32],
+    ) -> Result<(snow::HandshakeState, IdentityPayload), NoiseError> {
+        if client_final_msg.len() > MAX_HANDSHAKE_MSG_LEN {
+            return Err(NoiseError::Policy(format!(
+                "Handshake message too large: {} bytes (max {})",
+                client_final_msg.len(),
+                MAX_HANDSHAKE_MSG_LEN
+            )));
+        }
+
+        let mut buf = vec![0u8; client_final_msg.len() + 256];
+        let n = hs.read_message(client_final_msg, &mut buf)?;
+        let payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
+
+        if let Some(ref hint) = payload.server_hint {
+            if hint.len() > MAX_SERVER_HINT_LEN {
+                return Err(NoiseError::Policy(format!(
+                    "server_hint too long: {} chars (max {})",
+                    hint.len(),
+                    MAX_SERVER_HINT_LEN
+                )));
+            }
+        }
+
+        // Reject all-zero shared secret
+        let ok = self.ring.with_device_x25519(
+            &self.kid,
+            &self.device_id,
+            INTERNAL_EPOCH,
+            |x_sk: &Zeroizing<[u8; 32]>| {
+                crate::kdf::shared_secret_nonzero(x_sk, &payload.noise_x25519_pub)
+            },
+        )?;
+        if !ok {
+            return Err(NoiseError::InvalidPeerKey);
+        }
+
+        // Verify identity binding signature
+        let msg32 = make_binding_message(&BindingMessageParams {
+            pattern_tag: "XX",
+            prologue: &self.prologue,
+            ed25519_pub: &payload.ed25519_pub,
+            local_noise_pub: &payload.noise_x25519_pub,
+            remote_noise_pub: Some(server_static_pk),
+            role: Role::Client,
+            server_hint: payload.server_hint.as_deref(),
+            expires_at: payload.expires_at,
+        });
+        let vk = ed25519_dalek::VerifyingKey::from_bytes(&payload.ed25519_pub)
+            .map_err(|e| NoiseError::Other(e.to_string()))?;
+        let ok = verify_identity_payload(&vk, &msg32, &payload.sig);
+        if !ok {
+            return Err(NoiseError::IdentityVerify);
+        }
+
+        Ok((hs, payload))
+    }
+
+    // =========================================================================
+    // NN Pattern (Ephemeral-only, NO AUTHENTICATION)
+    // =========================================================================
+
+    /// Build a responder for NN pattern handshake (ephemeral-only, NO AUTHENTICATION).
+    ///
+    /// # Security Warning: No Authentication
+    ///
+    /// The NN pattern provides **forward secrecy only** with NO identity binding.
+    /// An active attacker can trivially MITM this connection.
+    pub fn build_responder_nn(
+        &self,
+        first_msg: &[u8],
+    ) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
+        if first_msg.len() > MAX_HANDSHAKE_MSG_LEN {
+            return Err(NoiseError::Policy(format!(
+                "Handshake message too large: {} bytes (max {})",
+                first_msg.len(),
+                MAX_HANDSHAKE_MSG_LEN
+            )));
+        }
+
+        let suite = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
+        let params: snow::params::NoiseParams = suite
+            .parse()
+            .map_err(|e: snow::Error| NoiseError::Other(e.to_string()))?;
+
+        let mut hs = snow::Builder::new(params)
+            .prologue(&self.prologue)
+            .build_responder()
+            .map_err(NoiseError::from)?;
+
+        let mut buf = vec![0u8; first_msg.len() + 256];
+        let _n = hs.read_message(first_msg, &mut buf)?;
+
+        let mut response = vec![0u8; 128];
+        let n = hs.write_message(&[], &mut response)?;
+        response.truncate(n);
+
+        Ok((hs, response))
+    }
 }

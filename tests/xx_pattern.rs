@@ -37,9 +37,6 @@ impl RingKeyProvider for TestRing {
 }
 
 /// Test XX pattern handshake (first contact, no server key known)
-///
-/// Note: XX pattern implementation may need server-side support.
-/// This test documents the expected behavior.
 #[test]
 fn test_xx_pattern_first_contact() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
@@ -49,22 +46,14 @@ fn test_xx_pattern_first_contact() {
     let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
 
     // XX pattern: Client initiates without knowing server's static key
-    let (hs, first_msg) = client.build_initiator_xx_tofu(None).unwrap();
+    let (hs, first_msg, _hint) = client.build_initiator_xx_tofu(None).unwrap();
 
-    // First message should be generated
     assert!(
         !first_msg.is_empty(),
         "XX pattern first message should not be empty"
     );
 
-    // In a complete XX handshake:
-    // 1. Client sends -> e (ephemeral)
-    // 2. Server responds <- e, ee, s, es (server's static key)
-    // 3. Client sends -> s, se (client's static key)
-    // 4. Both derive transport keys
-
-    // After handshake, client learns server's static key and can use IK for future connections
-    drop(hs); // Handshake state would be used to complete handshake
+    drop(hs);
 }
 
 /// Test that XX and IK patterns produce different handshake messages
@@ -77,7 +66,7 @@ fn test_xx_vs_ik_different_messages() {
     let server_ring_clone = server_ring.clone();
 
     // XX pattern: No server key needed
-    let (_, xx_msg) = client.build_initiator_xx_tofu(None).unwrap();
+    let (_, xx_msg, _) = client.build_initiator_xx_tofu(None).unwrap();
 
     // IK pattern: Requires server key
     let server_sk = server_ring_clone
@@ -86,7 +75,6 @@ fn test_xx_vs_ik_different_messages() {
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
     let (_, ik_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
 
-    // XX and IK should produce different first messages
     assert_ne!(
         xx_msg, ik_msg,
         "XX and IK patterns should produce different handshake messages"
@@ -96,27 +84,14 @@ fn test_xx_vs_ik_different_messages() {
 /// Test XX pattern use case: first contact scenario
 #[test]
 fn test_xx_pattern_first_contact_scenario() {
-    // Scenario: Client wants to connect to server but doesn't have server's key
-    // 1. Use XX pattern to learn server's key
-    // 2. Pin the key
-    // 3. Use IK pattern for future connections
-
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
     let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
     let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
 
-    // First contact: XX pattern
-    let (hs, first_msg) = client.build_initiator_xx_tofu(None).unwrap();
-
-    // In real scenario:
-    // 1. Send first_msg to server
-    // 2. Receive server's response (contains server's static key)
-    // 3. Complete handshake
-    // 4. Extract and pin server's static key from handshake
-    // 5. Use IK pattern for all future connections
+    let (hs, first_msg, _hint) = client.build_initiator_xx_tofu(None).unwrap();
 
     assert!(!first_msg.is_empty());
-    drop(hs); // Would be used to complete handshake
+    drop(hs);
 }

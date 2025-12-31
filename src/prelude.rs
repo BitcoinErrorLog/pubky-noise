@@ -53,3 +53,6 @@ pub use crate::pubky_ring::PubkyRingProvider;
 
 #[cfg(feature = "storage-queue")]
 pub use crate::storage_queue::{MessageQueue, RetryConfig, StorageBackedMessaging};
+
+#[cfg(feature = "storage-queue")]
+pub use crate::handshake_queue::HandshakeQueue;

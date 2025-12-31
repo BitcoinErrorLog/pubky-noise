@@ -1245,42 +1245,48 @@ extension FfiConnectionStatus: Equatable, Hashable {}
 
 
 
+/**
+ * FFI-exported error type for noise operations.
+ *
+ * Note: Field names use `msg` instead of `message` to avoid conflicts with
+ * Kotlin's `Exception.message` property in generated bindings.
+ */
 public enum FfiNoiseError: Swift.Error {
 
     
     
-    case Ring(message: String
+    case Ring(msg: String
     )
-    case Pkarr(message: String
+    case Pkarr(msg: String
     )
-    case Snow(message: String
+    case Snow(msg: String
     )
-    case Serde(message: String
+    case Serde(msg: String
     )
     case IdentityVerify
     case RemoteStaticMissing
-    case Policy(message: String
+    case Policy(msg: String
     )
     case InvalidPeerKey
-    case Network(message: String
+    case Network(msg: String
     )
-    case Timeout(message: String
+    case Timeout(msg: String
     )
-    case Storage(message: String
+    case Storage(msg: String
     )
-    case Decryption(message: String
+    case Decryption(msg: String
     )
-    case RateLimited(message: String, 
+    case RateLimited(msg: String, 
         /**
          * Optional retry delay in milliseconds.
          */retryAfterMs: UInt64?
     )
     case MaxSessionsExceeded
-    case SessionExpired(message: String
+    case SessionExpired(msg: String
     )
-    case ConnectionReset(message: String
+    case ConnectionReset(msg: String
     )
-    case Other(message: String
+    case Other(msg: String
     )
 }
 
@@ -1299,48 +1305,48 @@ public struct FfiConverterTypeFfiNoiseError: FfiConverterRustBuffer {
 
         
         case 1: return .Ring(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 2: return .Pkarr(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 3: return .Snow(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 4: return .Serde(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 5: return .IdentityVerify
         case 6: return .RemoteStaticMissing
         case 7: return .Policy(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 8: return .InvalidPeerKey
         case 9: return .Network(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 10: return .Timeout(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 11: return .Storage(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 12: return .Decryption(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 13: return .RateLimited(
-            message: try FfiConverterString.read(from: &buf), 
+            msg: try FfiConverterString.read(from: &buf), 
             retryAfterMs: try FfiConverterOptionUInt64.read(from: &buf)
             )
         case 14: return .MaxSessionsExceeded
         case 15: return .SessionExpired(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 16: return .ConnectionReset(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
         case 17: return .Other(
-            message: try FfiConverterString.read(from: &buf)
+            msg: try FfiConverterString.read(from: &buf)
             )
 
          default: throw UniffiInternalError.unexpectedEnumCase
@@ -1354,24 +1360,24 @@ public struct FfiConverterTypeFfiNoiseError: FfiConverterRustBuffer {
 
         
         
-        case let .Ring(message):
+        case let .Ring(msg):
             writeInt(&buf, Int32(1))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Pkarr(message):
+        case let .Pkarr(msg):
             writeInt(&buf, Int32(2))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Snow(message):
+        case let .Snow(msg):
             writeInt(&buf, Int32(3))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Serde(message):
+        case let .Serde(msg):
             writeInt(&buf, Int32(4))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
         case .IdentityVerify:
@@ -1382,38 +1388,38 @@ public struct FfiConverterTypeFfiNoiseError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(6))
         
         
-        case let .Policy(message):
+        case let .Policy(msg):
             writeInt(&buf, Int32(7))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
         case .InvalidPeerKey:
             writeInt(&buf, Int32(8))
         
         
-        case let .Network(message):
+        case let .Network(msg):
             writeInt(&buf, Int32(9))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Timeout(message):
+        case let .Timeout(msg):
             writeInt(&buf, Int32(10))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Storage(message):
+        case let .Storage(msg):
             writeInt(&buf, Int32(11))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Decryption(message):
+        case let .Decryption(msg):
             writeInt(&buf, Int32(12))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .RateLimited(message,retryAfterMs):
+        case let .RateLimited(msg,retryAfterMs):
             writeInt(&buf, Int32(13))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             FfiConverterOptionUInt64.write(retryAfterMs, into: &buf)
             
         
@@ -1421,19 +1427,19 @@ public struct FfiConverterTypeFfiNoiseError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(14))
         
         
-        case let .SessionExpired(message):
+        case let .SessionExpired(msg):
             writeInt(&buf, Int32(15))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .ConnectionReset(message):
+        case let .ConnectionReset(msg):
             writeInt(&buf, Int32(16))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         
-        case let .Other(message):
+        case let .Other(msg):
             writeInt(&buf, Int32(17))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(msg, into: &buf)
             
         }
     }

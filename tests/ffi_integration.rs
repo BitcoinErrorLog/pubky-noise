@@ -241,15 +241,9 @@ fn test_ffi_error_different_variants() {
 #[test]
 fn test_ffi_error_empty_messages() {
     // Test that errors can have empty messages
-    let _ring = FfiNoiseError::Ring {
-        msg: String::new(),
-    };
-    let _network = FfiNoiseError::Network {
-        msg: String::new(),
-    };
-    let _other = FfiNoiseError::Other {
-        msg: String::new(),
-    };
+    let _ring = FfiNoiseError::Ring { msg: String::new() };
+    let _network = FfiNoiseError::Network { msg: String::new() };
+    let _other = FfiNoiseError::Other { msg: String::new() };
 }
 
 #[test]

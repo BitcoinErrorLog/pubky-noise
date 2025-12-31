@@ -144,7 +144,7 @@ See `docs/FFI_IMPLEMENTATION_SUMMARY.md` for detailed FFI implementation specifi
 ### 4. Mobile Optimization
 - Battery saver mode
 - Mobile-friendly chunk sizes (32KB default)
-- Automatic reconnection
+- Reconnection hints (app-implemented)
 - Memory-efficient operation
 
 ### 5. Error Handling

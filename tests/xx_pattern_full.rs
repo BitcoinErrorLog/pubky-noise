@@ -7,8 +7,8 @@
 //! - Error handling for invalid inputs
 
 use pubky_noise::datalink_adapter::{
-    client_complete_xx, client_start_ik_direct, client_start_xx_tofu, complete_xx_handshake_for_test,
-    server_accept_xx, server_complete_xx,
+    client_complete_xx, client_start_ik_direct, client_start_xx_tofu,
+    complete_xx_handshake_for_test, server_accept_xx, server_complete_xx,
 };
 use pubky_noise::identity_payload::Role;
 use pubky_noise::{NoiseClient, NoiseError, NoiseServer, RingKeyProvider};
@@ -55,13 +55,19 @@ fn test_xx_full_handshake_with_identity() {
     let init = client_start_xx_tofu(&client, Some("test-server.example.com"))
         .expect("XX initiation should succeed");
 
-    assert!(!init.first_msg.is_empty(), "First message should not be empty");
+    assert!(
+        !init.first_msg.is_empty(),
+        "First message should not be empty"
+    );
 
     // Step 2: Server accepts and responds with identity
     let (s_hs, server_response, server_static_pk) =
         server_accept_xx(&server, &init.first_msg).expect("Server accept should succeed");
 
-    assert!(!server_response.is_empty(), "Server response should not be empty");
+    assert!(
+        !server_response.is_empty(),
+        "Server response should not be empty"
+    );
 
     // Step 3a: Client completes and sends final message with identity
     let (client_result, client_final_msg) = client_complete_xx(
@@ -72,7 +78,10 @@ fn test_xx_full_handshake_with_identity() {
     )
     .expect("Client complete should succeed");
 
-    assert!(!client_final_msg.is_empty(), "Client final message should not be empty");
+    assert!(
+        !client_final_msg.is_empty(),
+        "Client final message should not be empty"
+    );
 
     // Verify server identity was received
     assert_eq!(client_result.server_identity.role, Role::Server);
@@ -124,7 +133,10 @@ fn test_xx_then_ik_key_pinning() {
         .derive_device_x25519("server-kid", b"dev-server", 0)
         .unwrap();
     let expected_server_pk = pubky_noise::kdf::x25519_pk_from_sk(&expected_server_sk);
-    assert_eq!(learned_server_pk, expected_server_pk, "Learned key should match server's actual key");
+    assert_eq!(
+        learned_server_pk, expected_server_pk,
+        "Learned key should match server's actual key"
+    );
 
     // Subsequent connection: IK (using pinned key)
     let (c_hs, first_msg) = client_start_ik_direct(&client, &learned_server_pk, None)
@@ -132,7 +144,10 @@ fn test_xx_then_ik_key_pinning() {
 
     // Server should accept the IK handshake
     let result = pubky_noise::datalink_adapter::server_accept_ik(&server, &first_msg);
-    assert!(result.is_ok(), "Server should accept IK from client using learned key");
+    assert!(
+        result.is_ok(),
+        "Server should accept IK from client using learned key"
+    );
 
     let (s_hs, client_id, response) = result.unwrap();
 
@@ -199,7 +214,10 @@ fn test_xx_test_helper() {
     assert_eq!(server_id.role, Role::Server);
 
     // Verify server key is non-zero
-    assert_ne!(server_pk, [0u8; 32], "Server static key should not be all zeros");
+    assert_ne!(
+        server_pk, [0u8; 32],
+        "Server static key should not be all zeros"
+    );
 
     // Verify encryption works
     let msg = b"Test message via helper";
@@ -224,5 +242,8 @@ fn test_xx_ik_incompatible() {
     let ik_result = pubky_noise::datalink_adapter::server_accept_ik(&server, &init.first_msg);
 
     // This should fail because XX first message doesn't have identity payload
-    assert!(ik_result.is_err(), "IK server should reject XX client message");
+    assert!(
+        ik_result.is_err(),
+        "IK server should reject XX client message"
+    );
 }

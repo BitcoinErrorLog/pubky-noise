@@ -25,7 +25,7 @@ Direct client↔server Noise sessions for Pubky using `snow`. Default build is d
 ## Specs and suites
 
 * Noise revision: 34 (as implemented by current `snow`).
-* Suites: `Noise_XX_25519_ChaChaPoly_BLAKE2s` and `Noise_IK_25519_ChaChaPoly_BLAKE2s`.
+* Suites: `Noise_XX_25519_ChaChaPoly_BLAKE2s`, `Noise_IK_25519_ChaChaPoly_BLAKE2s`, and `Noise_NN_25519_ChaChaPoly_BLAKE2s`.
 * Hash: BLAKE2s. AEAD: ChaCha20-Poly1305. DH: X25519.
 
 ## Features
@@ -33,7 +33,7 @@ Direct client↔server Noise sessions for Pubky using `snow`. Default build is d
 * `default = []`: direct-only, no PKARR, no extra dependencies.
 * `pkarr`: optional signed metadata fetch and verification for server static and epoch.
 * `trace`: opt-in `tracing` for non-sensitive logs.
-* `secure-mem`: reserved for future best-effort memory hardening (currently a no-op).
+* `secure-mem`: Best-effort memory hardening using platform mlock. Use `LockedBytes<N>` wrapper for sensitive key material.
 * `pubky-sdk`: Convenience wrapper for `RingKeyProvider` using Pubky SDK `Keypair`.
 * `storage-queue`: Support for storage-backed messaging using Pubky storage as a queue (requires `pubky` and `async-trait`).
 
@@ -149,18 +149,68 @@ queue = queue.with_retry_config(retry_config);
 
 ## Handshake flows
 
-### First contact (TOFU or OOB token)
+### IK Pattern: Pinned server static (recommended)
 
-* Pattern: `XX`.
-* Client: `NoiseClient::build_initiator_xx_tofu(hint) -> (HandshakeState, first_msg)`.
-* Server: `NoiseServer::build_responder_read_xx(first_msg) -> HandshakeState`.
-* Caller pins the server static post-handshake through an out-of-band path, then uses IK for future connections.
-
-### Pinned server static
+When you already know the server's static key (from a previous XX handshake or out-of-band):
 
 * Pattern: `IK`.
 * Client: `NoiseClient::build_initiator_ik_direct(server_static_pub, hint) -> (HandshakeState, first_msg)`.
 * Server: `NoiseServer::build_responder_read_ik(first_msg) -> (HandshakeState, IdentityPayload)`.
+
+### XX Pattern: First contact (TOFU)
+
+For first contact when the server's static key is unknown:
+
+* Pattern: `XX`.
+* Client: `NoiseClient::build_initiator_xx_tofu(hint) -> (HandshakeState, first_msg, hint)`.
+* Server: `NoiseServer::build_responder_xx(first_msg) -> (HandshakeState, response, server_pk)`.
+* Client: `NoiseClient::complete_initiator_xx(hs, response, hint) -> (HandshakeState, final_msg, server_identity, server_pk)`.
+* Server: `NoiseServer::complete_responder_xx(hs, final_msg, server_pk) -> (HandshakeState, client_identity)`.
+* **After handshake**: Pin the learned `server_pk` and use IK for future connections.
+
+```rust
+use pubky_noise::datalink_adapter::{
+    client_start_xx_tofu, server_accept_xx, client_complete_xx, server_complete_xx
+};
+
+// Step 1: Client initiates (no server key needed)
+let init = client_start_xx_tofu(&client, Some("server.example.com"))?;
+
+// Step 2: Server accepts and responds with identity
+let (s_hs, response, server_pk) = server_accept_xx(&server, &init.first_msg)?;
+
+// Step 3a: Client completes and learns server's key
+let (result, final_msg) = client_complete_xx(&client, init.hs, &response, init.server_hint.as_deref())?;
+
+// Step 3b: Server completes
+let (s_link, client_id) = server_complete_xx(&server, s_hs, &final_msg, &server_pk)?;
+
+// Pin server_pk for future IK connections!
+save_pinned_key(result.server_static_pk);
+```
+
+### NN Pattern: Ephemeral-only (NO AUTHENTICATION)
+
+> ⚠️ **Security Warning**: The NN pattern provides **forward secrecy only** with NO identity binding. An active attacker can trivially MITM this connection. Use ONLY when:
+> - The transport layer provides authentication (e.g., TLS with pinned certs)
+> - You are building a higher-level authenticated protocol on top
+> - You explicitly accept the MITM risk for your use case
+
+* Pattern: `NN`.
+* Client: `NoiseClient::build_initiator_nn() -> (HandshakeState, first_msg)`.
+* Server: `NoiseServer::build_responder_nn(first_msg) -> (HandshakeState, response)`.
+* Client: `NoiseClient::complete_initiator_nn(hs, response) -> HandshakeState`.
+
+```rust
+use pubky_noise::datalink_adapter::{client_start_nn, server_accept_nn, client_complete_nn, server_complete_nn};
+
+// WARNING: NO AUTHENTICATION!
+let (c_hs, first_msg) = client_start_nn(&client)?;
+let (s_hs, response) = server_accept_nn(&server, &first_msg)?;
+let c_link = client_complete_nn(&client, c_hs, &response)?;
+let s_link = server_complete_nn(s_hs)?;
+// DANGER: You have NO cryptographic proof of who you're talking to!
+```
 
 ## Quick start
 

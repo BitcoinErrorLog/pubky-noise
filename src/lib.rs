@@ -25,6 +25,8 @@ pub mod datalink_adapter;
 pub mod errors;
 #[cfg(feature = "uniffi_macros")]
 pub mod ffi;
+#[cfg(feature = "storage-queue")]
+pub mod handshake_queue;
 pub mod identity_payload;
 pub mod kdf;
 pub mod mobile_manager;
@@ -35,6 +37,8 @@ pub mod prelude;
 pub mod pubky_ring;
 pub mod rate_limiter;
 pub mod ring;
+#[cfg(feature = "secure-mem")]
+pub mod secure_mem;
 pub mod server;
 pub mod session_id;
 pub mod session_manager;
@@ -46,6 +50,8 @@ pub mod transport;
 pub use client::NoiseClient;
 pub use datalink_adapter::NoiseLink;
 pub use errors::{NoiseError, NoiseErrorCode, NoiseResult};
+#[cfg(feature = "storage-queue")]
+pub use handshake_queue::HandshakeQueue;
 pub use identity_payload::BindingMessageParams;
 pub use mobile_manager::{ConnectionStatus, MobileConfig, NoiseManager, SessionState};
 #[cfg(feature = "pkarr")]

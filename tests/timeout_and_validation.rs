@@ -21,11 +21,7 @@ mod path_validation_tests {
         ];
 
         for path in valid_paths {
-            assert!(
-                is_valid_path(path),
-                "Expected path '{}' to be valid",
-                path
-            );
+            assert!(is_valid_path(path), "Expected path '{}' to be valid", path);
         }
     }
 
@@ -74,7 +70,10 @@ mod path_validation_tests {
     #[test]
     fn test_invalid_path_too_long() {
         let long_path = format!("/{}", "a".repeat(1025));
-        assert!(!is_valid_path(&long_path), "Path over 1024 chars should be invalid");
+        assert!(
+            !is_valid_path(&long_path),
+            "Path over 1024 chars should be invalid"
+        );
     }
 
     /// Mirror of the validation logic in storage_queue.rs for testing
@@ -167,7 +166,10 @@ mod hkdf_error_tests {
         let key_b =
             pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"device-b", 0).unwrap();
 
-        assert_ne!(key_a, key_b, "Different devices should produce different keys");
+        assert_ne!(
+            key_a, key_b,
+            "Different devices should produce different keys"
+        );
     }
 }
 
@@ -279,4 +281,3 @@ mod retry_config_tests {
         assert_eq!(config.operation_timeout_ms, 30000); // 30 seconds
     }
 }
-

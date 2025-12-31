@@ -51,8 +51,8 @@ mod ffi_tests {
         assert_eq!(key, key2);
 
         // Different epoch should produce different output
-        let key3 = derive_device_key(seed, device_id, epoch + 1)
-            .expect("Key derivation should succeed");
+        let key3 =
+            derive_device_key(seed, device_id, epoch + 1).expect("Key derivation should succeed");
         assert_ne!(key, key3);
     }
 

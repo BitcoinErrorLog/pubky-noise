@@ -149,15 +149,15 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
     ///
     /// # Arguments
     ///
-    /// * `_server_hint` - Optional hint for server routing (currently unused).
+    /// * `server_hint` - Optional hint for server routing.
     ///
     /// # Returns
     ///
-    /// A tuple of (HandshakeState, first_message_bytes).
+    /// A tuple of (HandshakeState, first_message_bytes, server_hint).
     pub fn build_initiator_xx_tofu(
         &self,
-        _server_hint: Option<&str>,
-    ) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
+        server_hint: Option<&str>,
+    ) -> Result<(snow::HandshakeState, Vec<u8>, Option<String>), NoiseError> {
         let suite = "Noise_XX_25519_ChaChaPoly_BLAKE2s";
         let builder = snow::Builder::new(
             suite
@@ -167,9 +167,8 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         let hs =
             self.ring
                 .with_device_x25519(&self.kid, &self.device_id, INTERNAL_EPOCH, |x_sk| {
-                    // Chain builder calls since each method consumes and returns self
                     builder
-                        .local_private_key(&**x_sk) // Deref Zeroizing to &[u8; 32] to &[u8]
+                        .local_private_key(&**x_sk)
                         .prologue(&self.prologue)
                         .build_initiator()
                         .map_err(NoiseError::from)
@@ -179,6 +178,146 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         let mut out = vec![0u8; 128];
         let n = hs.write_message(&[], &mut out)?;
         out.truncate(n);
+        Ok((hs, out, server_hint.map(|s| s.to_string())))
+    }
+
+    /// Complete XX pattern handshake after receiving server response.
+    pub fn complete_initiator_xx(
+        &self,
+        mut hs: snow::HandshakeState,
+        server_response: &[u8],
+        server_hint: Option<&str>,
+    ) -> Result<(snow::HandshakeState, Vec<u8>, IdentityPayload, [u8; 32]), NoiseError> {
+        use crate::identity_payload::verify_identity_payload;
+
+        // Read server's response
+        let mut buf = vec![0u8; server_response.len() + 256];
+        let n = hs.read_message(server_response, &mut buf)?;
+        let server_payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
+
+        // Extract server's static public key
+        let server_static_pk: [u8; 32] = hs
+            .get_remote_static()
+            .ok_or(NoiseError::RemoteStaticMissing)?
+            .try_into()
+            .map_err(|_| NoiseError::Other("Server static key wrong length".to_string()))?;
+
+        // Validate server's static key matches identity payload
+        if server_static_pk != server_payload.noise_x25519_pub {
+            return Err(NoiseError::IdentityVerify);
+        }
+
+        // Reject all-zero shared secret
+        let ok = self.ring.with_device_x25519(
+            &self.kid,
+            &self.device_id,
+            INTERNAL_EPOCH,
+            |x_sk: &Zeroizing<[u8; 32]>| crate::kdf::shared_secret_nonzero(x_sk, &server_static_pk),
+        )?;
+        if !ok {
+            return Err(NoiseError::InvalidPeerKey);
+        }
+
+        // Verify server's identity binding signature
+        let msg32 = make_binding_message(&BindingMessageParams {
+            pattern_tag: "XX",
+            prologue: &self.prologue,
+            ed25519_pub: &server_payload.ed25519_pub,
+            local_noise_pub: &server_payload.noise_x25519_pub,
+            remote_noise_pub: None,
+            role: Role::Server,
+            server_hint: server_payload.server_hint.as_deref(),
+            expires_at: server_payload.expires_at,
+        });
+        let vk = ed25519_dalek::VerifyingKey::from_bytes(&server_payload.ed25519_pub)
+            .map_err(|e| NoiseError::Other(e.to_string()))?;
+        let ok = verify_identity_payload(&vk, &msg32, &server_payload.sig);
+        if !ok {
+            return Err(NoiseError::IdentityVerify);
+        }
+
+        // Build client's identity payload
+        let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
+        let x_pk_arr = self.ring.with_device_x25519(
+            &self.kid,
+            &self.device_id,
+            INTERNAL_EPOCH,
+            |x_sk: &Zeroizing<[u8; 32]>| crate::kdf::x25519_pk_from_sk(x_sk),
+        )?;
+
+        let expires_at: Option<u64> = self.now_unix.map(|now| now + self.expiry_secs);
+
+        let client_msg32 = make_binding_message(&BindingMessageParams {
+            pattern_tag: "XX",
+            prologue: &self.prologue,
+            ed25519_pub: &ed_pub,
+            local_noise_pub: &x_pk_arr,
+            remote_noise_pub: Some(&server_static_pk),
+            role: Role::Client,
+            server_hint,
+            expires_at,
+        });
+        let sig64 = self.ring.sign_ed25519(&self.kid, &client_msg32)?;
+
+        let client_payload = IdentityPayload {
+            ed25519_pub: ed_pub,
+            noise_x25519_pub: x_pk_arr,
+            epoch: INTERNAL_EPOCH,
+            role: Role::Client,
+            server_hint: server_hint.map(|s| s.to_string()),
+            expires_at,
+            sig: sig64,
+        };
+
+        let payload_bytes = serde_json::to_vec(&client_payload)?;
+        let mut final_msg = vec![0u8; payload_bytes.len() + 256];
+        let n = hs.write_message(&payload_bytes, &mut final_msg)?;
+        final_msg.truncate(n);
+
+        Ok((hs, final_msg, server_payload, server_static_pk))
+    }
+
+    // =========================================================================
+    // NN Pattern (Ephemeral-only, NO AUTHENTICATION)
+    // =========================================================================
+
+    /// Build an NN pattern initiator handshake (ephemeral-only, NO AUTHENTICATION).
+    ///
+    /// # Security Warning: No Authentication
+    ///
+    /// The NN pattern provides **forward secrecy only** with NO identity binding.
+    /// An active attacker can trivially MITM this connection.
+    pub fn build_initiator_nn(&self) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
+        let suite = "Noise_NN_25519_ChaChaPoly_BLAKE2s";
+        let builder = snow::Builder::new(
+            suite
+                .parse::<snow::params::NoiseParams>()
+                .map_err(|e: snow::Error| NoiseError::Other(e.to_string()))?,
+        );
+
+        let mut hs = builder
+            .prologue(&self.prologue)
+            .build_initiator()
+            .map_err(NoiseError::from)?;
+
+        let mut out = vec![0u8; 128];
+        let n = hs.write_message(&[], &mut out)?;
+        out.truncate(n);
         Ok((hs, out))
+    }
+
+    /// Complete NN pattern handshake after receiving server response.
+    ///
+    /// # Security Warning: No Authentication
+    ///
+    /// The NN pattern provides **forward secrecy only** with NO identity binding.
+    pub fn complete_initiator_nn(
+        &self,
+        mut hs: snow::HandshakeState,
+        server_response: &[u8],
+    ) -> Result<snow::HandshakeState, NoiseError> {
+        let mut buf = vec![0u8; server_response.len() + 256];
+        let _n = hs.read_message(server_response, &mut buf)?;
+        Ok(hs)
     }
 }

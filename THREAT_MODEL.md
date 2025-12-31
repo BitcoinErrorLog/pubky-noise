@@ -34,8 +34,9 @@
 │  └─────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────┐   │
 │  │   Noise Protocol (via snow library)     │   │
-│  │   - XX pattern (first contact)          │   │
 │  │   - IK pattern (known server)           │   │
+│  │   - XX pattern (first contact/TOFU)     │   │
+│  │   - NN pattern (ephemeral-only)*        │   │
 │  └─────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────┐   │
 │  │   Key Management (Ring/Pubky SDK)       │   │
@@ -495,6 +496,41 @@ FFI errors are mapped to structured error codes:
 - Use IK pattern when server key known
 - PIN server keys after first contact
 - Optional PKARR for automated discovery
+
+---
+
+### 5. NN Pattern (Ephemeral-Only) ⚠️ HIGH RISK
+
+**CRITICAL WARNING**: The NN pattern provides **ZERO AUTHENTICATION**.
+
+**Security Properties**:
+- ✅ Forward secrecy (ephemeral keys)
+- ❌ NO identity binding
+- ❌ NO impersonation protection
+- ❌ Trivial MITM attacks possible
+
+**Attack Scenario**:
+```
+Client ←→ [Active Attacker] ←→ Server
+```
+An active attacker can:
+1. Intercept client's ephemeral key
+2. Complete handshake with client using attacker's ephemeral
+3. Complete separate handshake with server using attacker's ephemeral
+4. Decrypt all traffic, re-encrypt for the other party
+
+**Valid Use Cases**:
+- Transport layer already provides authentication (TLS with pinned certs)
+- Building higher-level authenticated protocol on top
+- Testing/development environments
+- Explicit acceptance of MITM risk for specific use case
+
+**NEVER Use For**:
+- Production systems without external authentication
+- Any system requiring identity verification
+- Financial or sensitive data transfer
+
+**Recommendation**: Use IK (known peer) or XX (TOFU) patterns instead. NN is included only for completeness and specific transport-layer integration scenarios.
 
 ---
 

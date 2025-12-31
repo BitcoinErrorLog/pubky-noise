@@ -147,3 +147,175 @@ pub fn complete_ik_handshake_for_test<R: RingKeyProvider>(
 
     Ok((c_link, s_link, first_msg, id))
 }
+
+// =============================================================================
+// XX Pattern (Trust On First Use)
+// =============================================================================
+
+/// Result type for XX handshake initiation.
+pub struct XxInitResult {
+    pub hs: snow::HandshakeState,
+    pub first_msg: Vec<u8>,
+    pub server_hint: Option<String>,
+}
+
+/// Result type for XX handshake completion on client side.
+pub struct XxClientCompleteResult {
+    pub link: NoiseLink,
+    pub server_identity: IdentityPayload,
+    pub server_static_pk: [u8; 32],
+}
+
+/// Start XX handshake as client (step 1 of 3, Trust On First Use).
+pub fn client_start_xx_tofu<R: RingKeyProvider>(
+    client: &NoiseClient<R, ()>,
+    server_hint: Option<&str>,
+) -> Result<XxInitResult, NoiseError> {
+    let (hs, first_msg, hint) = client.build_initiator_xx_tofu(server_hint)?;
+    Ok(XxInitResult {
+        hs,
+        first_msg,
+        server_hint: hint,
+    })
+}
+
+/// Server accepts XX handshake (step 2 of 3).
+pub fn server_accept_xx<R: RingKeyProvider>(
+    server: &NoiseServer<R, ()>,
+    first_msg: &[u8],
+) -> Result<(snow::HandshakeState, Vec<u8>, [u8; 32]), NoiseError> {
+    server.build_responder_xx(first_msg)
+}
+
+/// Server completes XX handshake after receiving client's final message (step 3).
+pub fn server_complete_xx<R: RingKeyProvider>(
+    server: &NoiseServer<R, ()>,
+    hs: snow::HandshakeState,
+    client_final_msg: &[u8],
+    server_static_pk: &[u8; 32],
+) -> Result<(NoiseLink, IdentityPayload), NoiseError> {
+    let (hs, client_identity) =
+        server.complete_responder_xx(hs, client_final_msg, server_static_pk)?;
+    let link = NoiseLink::new_from_hs(hs)?;
+    Ok((link, client_identity))
+}
+
+/// Client completes XX handshake (step 3 of 3).
+pub fn client_complete_xx<R: RingKeyProvider>(
+    client: &NoiseClient<R, ()>,
+    hs: snow::HandshakeState,
+    server_response: &[u8],
+    server_hint: Option<&str>,
+) -> Result<(XxClientCompleteResult, Vec<u8>), NoiseError> {
+    let (hs, final_msg, server_identity, server_static_pk) =
+        client.complete_initiator_xx(hs, server_response, server_hint)?;
+    let link = NoiseLink::new_from_hs(hs)?;
+    Ok((
+        XxClientCompleteResult {
+            link,
+            server_identity,
+            server_static_pk,
+        },
+        final_msg,
+    ))
+}
+
+/// INTERNAL TEST HELPER: Complete full XX handshake in one call.
+#[doc(hidden)]
+pub fn complete_xx_handshake_for_test<R: RingKeyProvider>(
+    client: &NoiseClient<R, ()>,
+    server: &NoiseServer<R, ()>,
+    server_hint: Option<&str>,
+) -> Result<
+    (
+        NoiseLink,
+        NoiseLink,
+        IdentityPayload,
+        IdentityPayload,
+        [u8; 32],
+    ),
+    NoiseError,
+> {
+    let init = client_start_xx_tofu(client, server_hint)?;
+    let (s_hs, server_response, server_static_pk) = server_accept_xx(server, &init.first_msg)?;
+    let (client_result, client_final_msg) = client_complete_xx(
+        client,
+        init.hs,
+        &server_response,
+        init.server_hint.as_deref(),
+    )?;
+    let (s_link, client_identity) =
+        server_complete_xx(server, s_hs, &client_final_msg, &server_static_pk)?;
+
+    Ok((
+        client_result.link,
+        s_link,
+        client_identity,
+        client_result.server_identity,
+        server_static_pk,
+    ))
+}
+
+// =============================================================================
+// NN Pattern (Ephemeral-only, NO AUTHENTICATION)
+// =============================================================================
+
+/// Start NN handshake as client (ephemeral-only, NO AUTHENTICATION).
+///
+/// # Security Warning: No Authentication
+///
+/// The NN pattern provides **forward secrecy only** with NO identity binding.
+/// An active attacker can trivially MITM this connection.
+pub fn client_start_nn<R: RingKeyProvider>(
+    client: &NoiseClient<R, ()>,
+) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
+    client.build_initiator_nn()
+}
+
+/// Server accepts NN handshake (ephemeral-only, NO AUTHENTICATION).
+///
+/// # Security Warning: No Authentication
+///
+/// The NN pattern provides **forward secrecy only** with NO identity binding.
+pub fn server_accept_nn<R: RingKeyProvider>(
+    server: &NoiseServer<R, ()>,
+    first_msg: &[u8],
+) -> Result<(snow::HandshakeState, Vec<u8>), NoiseError> {
+    server.build_responder_nn(first_msg)
+}
+
+/// Client completes NN handshake (ephemeral-only, NO AUTHENTICATION).
+///
+/// # Security Warning: No Authentication
+///
+/// The NN pattern provides **forward secrecy only** with NO identity binding.
+pub fn client_complete_nn<R: RingKeyProvider>(
+    client: &NoiseClient<R, ()>,
+    hs: snow::HandshakeState,
+    server_response: &[u8],
+) -> Result<NoiseLink, NoiseError> {
+    let hs = client.complete_initiator_nn(hs, server_response)?;
+    NoiseLink::new_from_hs(hs)
+}
+
+/// Server completes NN handshake to get NoiseLink (ephemeral-only, NO AUTHENTICATION).
+///
+/// # Security Warning: No Authentication
+///
+/// The NN pattern provides **forward secrecy only** with NO identity binding.
+pub fn server_complete_nn(hs: snow::HandshakeState) -> Result<NoiseLink, NoiseError> {
+    NoiseLink::new_from_hs(hs)
+}
+
+/// INTERNAL TEST HELPER: Complete full NN handshake in one call.
+#[doc(hidden)]
+pub fn complete_nn_handshake_for_test<R: RingKeyProvider>(
+    client: &NoiseClient<R, ()>,
+    server: &NoiseServer<R, ()>,
+) -> Result<(NoiseLink, NoiseLink), NoiseError> {
+    let (c_hs, first_msg) = client_start_nn(client)?;
+    let (s_hs, response) = server_accept_nn(server, &first_msg)?;
+    let c_link = client_complete_nn(client, c_hs, &response)?;
+    let s_link = server_complete_nn(s_hs)?;
+    Ok((c_link, s_link))
+}

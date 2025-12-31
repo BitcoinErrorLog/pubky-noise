@@ -86,6 +86,13 @@ pub trait MessageQueue {
 }
 
 impl StorageBackedMessaging {
+    fn normalize_base_path(mut path: String) -> String {
+        while path.len() > 1 && path.ends_with('/') {
+            path.pop();
+        }
+        path
+    }
+
     /// Validate that a storage path is safe for use with Pubky.
     ///
     /// # Path Requirements
@@ -104,9 +111,7 @@ impl StorageBackedMessaging {
             return Err(NoiseError::Storage("Path cannot be empty".to_string()));
         }
         if !path.starts_with('/') {
-            return Err(NoiseError::Storage(
-                "Path must start with /".to_string(),
-            ));
+            return Err(NoiseError::Storage("Path must start with /".to_string()));
         }
         if path.len() > MAX_PATH_LENGTH {
             return Err(NoiseError::Storage(format!(
@@ -153,6 +158,9 @@ impl StorageBackedMessaging {
     ) -> Result<Self, NoiseError> {
         Self::validate_path(&write_path)?;
         Self::validate_path(&read_path)?;
+
+        let write_path = Self::normalize_base_path(write_path);
+        let read_path = Self::normalize_base_path(read_path);
 
         Ok(Self {
             noise_link: link,
@@ -502,7 +510,10 @@ mod tests {
         // Space is invalid
         let result = StorageBackedMessaging::validate_path("/pub/my app/messages");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid character"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("invalid character"));
 
         // Special characters are invalid
         assert!(StorageBackedMessaging::validate_path("/pub/app@domain").is_err());
@@ -519,5 +530,57 @@ mod tests {
         assert!(StorageBackedMessaging::validate_path("/pub/my_app").is_ok());
         assert!(StorageBackedMessaging::validate_path("/pub/my.app").is_ok());
         assert!(StorageBackedMessaging::validate_path("/pub/my-app_v2.0").is_ok());
+    }
+
+    #[test]
+    fn test_normalize_base_path_trailing_slash() {
+        // Single trailing slash should be removed
+        assert_eq!(
+            StorageBackedMessaging::normalize_base_path("/pub/app/outbox/".to_string()),
+            "/pub/app/outbox"
+        );
+
+        // Multiple trailing slashes should be removed
+        assert_eq!(
+            StorageBackedMessaging::normalize_base_path("/pub/app/outbox///".to_string()),
+            "/pub/app/outbox"
+        );
+
+        // No trailing slash should remain unchanged
+        assert_eq!(
+            StorageBackedMessaging::normalize_base_path("/pub/app/outbox".to_string()),
+            "/pub/app/outbox"
+        );
+
+        // Root path should remain as single slash
+        assert_eq!(
+            StorageBackedMessaging::normalize_base_path("/".to_string()),
+            "/"
+        );
+
+        // Path with only slashes should reduce to single
+        assert_eq!(
+            StorageBackedMessaging::normalize_base_path("///".to_string()),
+            "/"
+        );
+    }
+
+    #[test]
+    fn test_normalize_prevents_double_slash_in_message_path() {
+        // This test verifies the fix for the path construction bug
+        // where trailing slashes could cause "/pub/outbox//msg_0" paths
+
+        // Simulate what happens when constructing a message path
+        let base_with_trailing = "/pub/app/outbox/";
+        let normalized =
+            StorageBackedMessaging::normalize_base_path(base_with_trailing.to_string());
+        let msg_path = format!("{}/msg_0", normalized);
+
+        assert!(
+            !msg_path.contains("//"),
+            "Path should not contain double slashes: {}",
+            msg_path
+        );
+        assert_eq!(msg_path, "/pub/app/outbox/msg_0");
     }
 }

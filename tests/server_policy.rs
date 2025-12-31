@@ -5,7 +5,7 @@
 //! Use the RateLimiter type for current rate limiting needs.
 
 use pubky_noise::server::{
-    ServerPolicy, MAX_HANDSHAKE_MSG_LEN, MAX_SERVER_HINT_LEN, MAX_SEEN_EPOCHS,
+    ServerPolicy, MAX_HANDSHAKE_MSG_LEN, MAX_SEEN_EPOCHS, MAX_SERVER_HINT_LEN,
 };
 use pubky_noise::{NoiseServer, RingKeyProvider};
 use std::sync::Arc;

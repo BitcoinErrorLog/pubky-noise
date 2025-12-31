@@ -115,7 +115,7 @@ impl Default for MobileConfig {
 ///
 /// This manager handles:
 /// - Session lifecycle (creation, persistence, restoration)
-/// - Automatic reconnection with exponential backoff
+/// - Reconnection hints and state persistence for application-managed reconnects
 /// - Multiple concurrent sessions
 /// - Thread-safe access (wrap in Arc<Mutex<>> for multi-threaded use)
 ///
