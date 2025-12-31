@@ -156,37 +156,37 @@ fn test_mobile_config_clone() {
 fn test_ffi_noise_error_types() {
     // Test that all error types can be created
     let _ring = FfiNoiseError::Ring {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _pkarr = FfiNoiseError::Pkarr {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _snow = FfiNoiseError::Snow {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _serde = FfiNoiseError::Serde {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _identity = FfiNoiseError::IdentityVerify;
     let _remote = FfiNoiseError::RemoteStaticMissing;
     let _policy = FfiNoiseError::Policy {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _invalid = FfiNoiseError::InvalidPeerKey;
     let _network = FfiNoiseError::Network {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _timeout = FfiNoiseError::Timeout {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _storage = FfiNoiseError::Storage {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _decryption = FfiNoiseError::Decryption {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
     let _other = FfiNoiseError::Other {
-        message: "test".to_string(),
+        msg: "test".to_string(),
     };
 }
 
@@ -195,11 +195,11 @@ fn test_ffi_error_message_preservation() {
     // Test that error messages are preserved
     let msg = "detailed error information";
     let error = FfiNoiseError::Ring {
-        message: msg.to_string(),
+        msg: msg.to_string(),
     };
 
     match error {
-        FfiNoiseError::Ring { message } => assert_eq!(message, msg),
+        FfiNoiseError::Ring { msg: message } => assert_eq!(message, msg),
         _ => panic!("Wrong error variant"),
     }
 }
@@ -209,18 +209,18 @@ fn test_ffi_error_different_variants() {
     // Test that different error variants are distinct
     let errors = [
         FfiNoiseError::Ring {
-            message: "a".to_string(),
+            msg: "a".to_string(),
         },
         FfiNoiseError::Snow {
-            message: "b".to_string(),
+            msg: "b".to_string(),
         },
         FfiNoiseError::Decryption {
-            message: "c".to_string(),
+            msg: "c".to_string(),
         },
         FfiNoiseError::IdentityVerify,
         FfiNoiseError::RemoteStaticMissing,
         FfiNoiseError::Other {
-            message: "f".to_string(),
+            msg: "f".to_string(),
         },
     ];
 
@@ -242,13 +242,13 @@ fn test_ffi_error_different_variants() {
 fn test_ffi_error_empty_messages() {
     // Test that errors can have empty messages
     let _ring = FfiNoiseError::Ring {
-        message: String::new(),
+        msg: String::new(),
     };
     let _network = FfiNoiseError::Network {
-        message: String::new(),
+        msg: String::new(),
     };
     let _other = FfiNoiseError::Other {
-        message: String::new(),
+        msg: String::new(),
     };
 }
 
@@ -257,11 +257,11 @@ fn test_ffi_error_long_messages() {
     // Test that errors can handle long messages
     let long_msg = "x".repeat(10000);
     let error = FfiNoiseError::Other {
-        message: long_msg.clone(),
+        msg: long_msg.clone(),
     };
 
     match error {
-        FfiNoiseError::Other { message } => assert_eq!(message.len(), 10000),
+        FfiNoiseError::Other { msg: message } => assert_eq!(message.len(), 10000),
         _ => panic!("Wrong error variant"),
     }
 }

@@ -39,7 +39,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Invalid seed length: {} (expected 32)", client_seed.len());
             return Err(FfiNoiseError::Ring {
-                message: "Seed must be 32 bytes".to_string(),
+                msg: "Seed must be 32 bytes".to_string(),
             });
         }
 
@@ -81,7 +81,7 @@ impl FfiNoiseManager {
         let mut pk_arr = [0u8; 32];
         if server_pk.len() != 32 {
             return Err(FfiNoiseError::Ring {
-                message: "Server public key must be 32 bytes".to_string(),
+                msg: "Server public key must be 32 bytes".to_string(),
             });
         }
         pk_arr.copy_from_slice(&server_pk);
@@ -90,7 +90,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in connect_client: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
 
@@ -115,7 +115,7 @@ impl FfiNoiseManager {
         let mut pk_arr = [0u8; 32];
         if server_pk.len() != 32 {
             return Err(FfiNoiseError::Ring {
-                message: "Server public key must be 32 bytes".to_string(),
+                msg: "Server public key must be 32 bytes".to_string(),
             });
         }
         pk_arr.copy_from_slice(&server_pk);
@@ -124,7 +124,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in initiate_connection: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
 
@@ -153,7 +153,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in complete_connection: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
 
@@ -191,7 +191,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Invalid seed length: {} (expected 32)", server_seed.len());
             return Err(FfiNoiseError::Ring {
-                message: "Seed must be 32 bytes".to_string(),
+                msg: "Seed must be 32 bytes".to_string(),
             });
         }
 
@@ -229,7 +229,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in accept_connection: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
         let (session_id, response) = manager
@@ -261,7 +261,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in encrypt: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
         manager
@@ -286,7 +286,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in decrypt: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
         manager
@@ -303,7 +303,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in save_state: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
         let state = manager.save_state(&sid).map_err(FfiNoiseError::from)?;
@@ -321,7 +321,7 @@ impl FfiNoiseManager {
             #[cfg(feature = "trace")]
             tracing::error!("Mutex poisoned in restore_state: {}", e);
             FfiNoiseError::Other {
-                message: "Mutex poisoned".to_string(),
+                msg: "Mutex poisoned".to_string(),
             }
         })?;
         manager

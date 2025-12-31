@@ -45,7 +45,7 @@ pub fn derive_device_key(
 ) -> Result<Vec<u8>, FfiNoiseError> {
     if seed.len() < 32 {
         return Err(FfiNoiseError::Ring {
-            message: "Seed must be at least 32 bytes".to_string(),
+            msg: "Seed must be at least 32 bytes".to_string(),
         });
     }
     let mut seed_arr = [0u8; 32];
@@ -63,7 +63,7 @@ pub fn derive_device_key(
 pub fn public_key_from_secret(secret: Vec<u8>) -> Result<Vec<u8>, FfiNoiseError> {
     if secret.len() < 32 {
         return Err(FfiNoiseError::Ring {
-            message: "Secret must be at least 32 bytes".to_string(),
+            msg: "Secret must be at least 32 bytes".to_string(),
         });
     }
     let mut secret_arr = [0u8; 32];
