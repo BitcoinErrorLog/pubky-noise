@@ -4,6 +4,10 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    plugins {
+        id("com.android.library") version "8.2.0"
+        id("org.jetbrains.kotlin.android") version "1.9.22"
+    }
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -13,5 +17,5 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "pubky-noise-android"
-include(":app") // Example app
+// Note: Example code is in example/ folder (not a Gradle module)
 
