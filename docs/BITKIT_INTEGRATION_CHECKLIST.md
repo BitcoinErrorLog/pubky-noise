@@ -9,6 +9,13 @@ This checklist guides you through testing and integrating `pubky-noise` into you
 - **Timeouts and validation**: Storage-backed operations enforce timeouts (non-WASM) and validate paths
 - **Docs and tooling**: Expanded operational docs and improved binding generation guidance
 
+### Breaking Changes in v1.1.0
+
+- **`publicKeyFromSecret` now throws**: Swift requires `try publicKeyFromSecret(...)`, Kotlin adds `@Throws(FfiNoiseException::class)`
+- **`deriveDeviceKey` rejects non-32-byte seeds**: Previously silently truncated/padded; now throws
+- **Server `hint` max length: 256 characters**: Larger hints are rejected during handshake
+- **Handshake message max size: 64 KiB**: Oversized messages are rejected
+
 ---
 
 ## ✅ Phase 1: Initial Validation (15 minutes)

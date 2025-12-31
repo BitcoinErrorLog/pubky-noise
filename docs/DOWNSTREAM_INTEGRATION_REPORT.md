@@ -204,11 +204,24 @@ Docs:
 
 ---
 
-## Suggested sequencing for “ship ASAP”
+## Suggested sequencing for "ship ASAP"
 
 1. **pubky-noise**: regenerate bindings + rebuild artifacts (golden outputs)
 2. **pubky-ring**: update artifacts + fix Swift `try` sites + add `hint` guard
 3. **bitkit-android** + **bitkit-ios**: update artifacts and compile
 4. **paykit-rs demos/docs**: refresh artifacts + docs
+
+---
+
+## Implementation Status
+
+All items in this plan have been implemented as of 2025-12-31:
+
+- [x] **Phase A**: Regenerated Swift/Kotlin bindings, rebuilt XCFramework and .so files
+- [x] **Phase B**: Updated pubky-ring (iOS + Android), fixed `publicKeyFromSecret` throwing, added hint validation
+- [x] **Phase C**: Updated bitkit-ios and bitkit-android with new artifacts
+- [x] **Phase D**: Updated paykit-rs demos, updated integration docs
+
+**Next step**: Run verification builds (Phase E) to confirm everything compiles correctly.
 
 
