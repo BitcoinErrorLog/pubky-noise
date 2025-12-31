@@ -396,18 +396,6 @@ impl FfiNoiseManager {
 
 impl FfiNoiseManager {
     fn parse_session_id(&self, session_id: &str) -> Result<SessionId, FfiNoiseError> {
-        let bytes = hex::decode(session_id).map_err(|_| FfiNoiseError::Other {
-            message: "Invalid session ID hex".to_string(),
-        })?;
-
-        if bytes.len() != 32 {
-            return Err(FfiNoiseError::Other {
-                message: "Invalid session ID length".to_string(),
-            });
-        }
-
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes);
-        Ok(SessionId(arr))
+        session_id.parse().map_err(FfiNoiseError::from)
     }
 }

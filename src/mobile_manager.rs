@@ -1,8 +1,15 @@
 //! Mobile-optimized Noise session manager with lifecycle management.
 //!
 //! This module provides a high-level API specifically designed for mobile applications
-//! that need to manage Noise sessions with proper lifecycle handling, state persistence,
-//! and automatic reconnection.
+//! that need to manage Noise sessions with proper lifecycle handling and state persistence.
+//!
+//! ## Reconnection
+//!
+//! Reconnection logic must be implemented by the application. The `MobileConfig` provides
+//! configuration hints (`auto_reconnect`, `max_reconnect_attempts`, `reconnect_delay_ms`)
+//! that applications can use to configure their own reconnection behavior. Use
+//! `save_state()` to persist session metadata before app suspension, and `restore_state()`
+//! followed by a new `initiate_connection()` to reconnect after resuming.
 //!
 //! ## 3-Step Handshake Flow
 //!
@@ -63,18 +70,32 @@ pub struct SessionState {
     pub status: ConnectionStatus,
 }
 
-/// Mobile-optimized configuration
+/// Mobile-optimized configuration for Noise sessions.
+///
+/// ## Reconnection Settings
+///
+/// The `auto_reconnect`, `max_reconnect_attempts`, and `reconnect_delay_ms` fields
+/// are **configuration hints** for application-level reconnection logic. The
+/// `NoiseManager` does not implement automatic reconnection internally; applications
+/// must implement their own reconnection handling using `restore_state()` and
+/// `initiate_connection()`.
+///
+/// These fields are exposed in the configuration to provide a standard way for
+/// applications to configure their reconnection behavior.
 #[derive(Debug, Clone)]
 pub struct MobileConfig {
-    /// Enable automatic reconnection
+    /// Hint: Whether the application should attempt reconnection on disconnect.
+    /// Applications must implement their own reconnection logic.
     pub auto_reconnect: bool,
-    /// Maximum reconnection attempts
+    /// Hint: Maximum number of reconnection attempts before giving up.
+    /// Applications must implement their own retry counter.
     pub max_reconnect_attempts: u32,
-    /// Initial reconnection delay in milliseconds
+    /// Hint: Initial delay in milliseconds between reconnection attempts.
+    /// Applications should use exponential backoff (e.g., delay * 2^attempt).
     pub reconnect_delay_ms: u64,
-    /// Enable aggressive battery saving (reduces background activity)
+    /// Enable aggressive battery saving (reduces background activity).
     pub battery_saver: bool,
-    /// Chunk size for streaming (smaller for mobile networks)
+    /// Chunk size for streaming (smaller for mobile networks).
     pub chunk_size: usize,
 }
 

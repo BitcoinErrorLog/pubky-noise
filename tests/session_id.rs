@@ -3,7 +3,8 @@
 use pubky_noise::datalink_adapter::{
     client_complete_ik, client_start_ik_direct, server_accept_ik, server_complete_ik,
 };
-use pubky_noise::{DummyRing, NoiseClient, NoiseServer, RingKeyProvider};
+use pubky_noise::{DummyRing, NoiseClient, NoiseServer, RingKeyProvider, SessionId};
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[test]
@@ -40,4 +41,47 @@ fn test_session_id_derivation() {
         s_link.session_id(),
         "Session IDs must match on both sides"
     );
+}
+
+#[test]
+fn test_session_id_from_str() {
+    let hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let session_id = SessionId::from_str(hex).expect("Should parse valid hex");
+    assert_eq!(session_id.to_string(), hex);
+}
+
+#[test]
+fn test_session_id_from_str_uppercase() {
+    let hex_upper = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
+    let hex_lower = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let session_id = SessionId::from_str(hex_upper).expect("Should parse uppercase hex");
+    assert_eq!(session_id.to_string(), hex_lower);
+}
+
+#[test]
+fn test_session_id_from_str_invalid_hex() {
+    let invalid = "not_valid_hex_string_at_all_here";
+    let result = SessionId::from_str(invalid);
+    assert!(result.is_err(), "Should reject invalid hex");
+}
+
+#[test]
+fn test_session_id_from_str_wrong_length() {
+    // Too short
+    let short = "0123456789abcdef";
+    let result = SessionId::from_str(short);
+    assert!(result.is_err(), "Should reject short hex");
+
+    // Too long
+    let long = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0000";
+    let result = SessionId::from_str(long);
+    assert!(result.is_err(), "Should reject long hex");
+}
+
+#[test]
+fn test_session_id_roundtrip() {
+    let original = SessionId::from_bytes([42u8; 32]);
+    let hex = original.to_string();
+    let parsed = SessionId::from_str(&hex).expect("Should parse back");
+    assert_eq!(original, parsed);
 }

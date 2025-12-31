@@ -6,7 +6,12 @@ use crate::ring::{RingKeyFiller, RingKeyProvider};
 use std::marker::PhantomData;
 use zeroize::Zeroizing;
 
-/// Internal epoch value - always 0 (epoch is not a user-facing concept).
+/// Internal epoch value - always 0.
+///
+/// **Note**: Key epoch rotation is not currently implemented. The epoch field
+/// exists in the wire format for future compatibility, but is always set to 0.
+/// For key rotation needs, applications should use fresh device IDs or manage
+/// key versioning at a higher layer.
 const INTERNAL_EPOCH: u32 = 0;
 
 /// Maximum allowed handshake message length in bytes.
