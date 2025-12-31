@@ -1,27 +1,26 @@
-# Bitkit Integration Checklist for pubky-noise v1.0.0
+# Bitkit Integration Checklist for pubky-noise v1.1.0
 
 This checklist guides you through testing and integrating `pubky-noise` into your mobile applications.
 
-## What's New in v1.0.0
+## What's New in v1.1.0
 
-- **Prelude Module**: Use `use pubky_noise::prelude::*` for convenient imports
-- **Enhanced Error Handling**: New error variants (`RateLimited`, `SessionExpired`, `MaxSessionsExceeded`, `ConnectionReset`)
-- **Rate Limiting**: Built-in DoS protection with `RateLimiter`
-- **NoiseResult Type**: Standard `NoiseResult<T>` type alias
-- **Production Documentation**: See `docs/INTEGRATION_GUIDE.md` and `docs/PRODUCTION_DEPLOYMENT.md`
+- **HKDF API hardening**: Key derivation returns `Result` instead of panicking
+- **Client-side expiry support**: Optional handshake expiry timestamps
+- **Timeouts and validation**: Storage-backed operations enforce timeouts (non-WASM) and validate paths
+- **Docs and tooling**: Expanded operational docs and improved binding generation guidance
 
 ---
 
 ## ✅ Phase 1: Initial Validation (15 minutes)
 
 ### 1.1 Environment Setup
-- [ ] Clone/pull latest `pubky-noise-main` repository
+- [ ] Clone/pull latest `pubky-noise` repository
 - [ ] Ensure Rust toolchain is installed (`rustup --version`)
 - [ ] Ensure Xcode is installed (iOS) or Android NDK (Android)
 
 ### 1.2 Run Unit Tests
 ```bash
-cd pubky-noise-main
+cd pubky-noise
 cargo test --features uniffi_macros --lib
 ```
 **Expected**: All tests pass (6+ rate_limiter tests + FFI tests)  
@@ -55,7 +54,7 @@ cargo clippy --all-features
 ```swift
 // Package.swift
 dependencies: [
-    .package(path: "../pubky-noise-main/platforms/ios")
+    .package(path: "../pubky-noise/platforms/ios")
 ]
 ```
 
@@ -135,7 +134,7 @@ func testKeychainStorage() {
 `settings.gradle.kts`:
 ```kotlin
 include(":pubky_noise")
-project(":pubky_noise").projectDir = File("../pubky-noise-main/platforms/android")
+project(":pubky_noise").projectDir = File("../pubky-noise/platforms/android")
 ```
 
 `app/build.gradle.kts`:
@@ -538,7 +537,7 @@ func testEncryptionPerformance() {
 **Found a bug?**
 1. Check `docs/FFI_EXPERT_REVIEW.md` for known issues
 2. Enable `trace` feature and reproduce
-3. File issue at https://github.com/pubky/pubky-noise-main/issues
+3. File issue at https://github.com/BitcoinErrorLog/pubky-noise/issues
 4. Include: platform, logs, steps to reproduce
 
 **Need help?**
@@ -564,7 +563,7 @@ Before considering integration complete:
 
 ---
 
-*Checklist Version: 1.1*  
-*Last Updated: 2025-12-11*  
-*pubky-noise Version: 1.0.0*
+*Checklist Version: 1.2*  
+*Last Updated: 2025-12-31*  
+*pubky-noise Version: 1.1.0*
 

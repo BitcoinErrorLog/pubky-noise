@@ -24,7 +24,7 @@ Add the PubkyNoise library to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.pubky:noise:0.7.0")
+    implementation("com.pubky:pubky-noise:1.1.0")
 }
 ```
 

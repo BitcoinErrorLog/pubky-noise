@@ -24,7 +24,7 @@ Add the PubkyNoise library to your `Package.swift` or Xcode project:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/pubky/noise", from: "0.7.0")
+    .package(url: "https://github.com/BitcoinErrorLog/pubky-noise", from: "1.1.0")
 ]
 ```
 

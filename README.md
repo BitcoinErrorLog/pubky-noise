@@ -32,16 +32,16 @@ Direct client↔server Noise sessions for Pubky using `snow`. Default build is d
 
 * `default = []`: direct-only, no PKARR, no extra dependencies.
 * `pkarr`: optional signed metadata fetch and verification for server static and epoch.
-* `trace`: opt-in `tracing` and `hex` for non-sensitive logs.
-* `secure-mem`: opt-in best-effort page pinning and DONTDUMP on supported OSes (server side).
+* `trace`: opt-in `tracing` for non-sensitive logs.
+* `secure-mem`: reserved for future best-effort memory hardening (currently a no-op).
 * `pubky-sdk`: Convenience wrapper for `RingKeyProvider` using Pubky SDK `Keypair`.
 * `storage-queue`: Support for storage-backed messaging using Pubky storage as a queue (requires `pubky` and `async-trait`).
 
 ## Key handling model
 
-* Device X25519 static is derived per device and per epoch using HKDF and a seed available to Ring. The secret is created inside a closure and passed directly to `snow::Builder::local_private_key` via `secrecy::Zeroizing<[u8;32]>`.
+* Device X25519 static is derived per device (and an internal epoch) using HKDF and a seed available to Ring. The secret is created inside a closure and passed directly to `snow::Builder::local_private_key` via `zeroize::Zeroizing<[u8;32]>`.
 * The app never stores the raw secret beyond the closure scope. No logs, no clones, no return of the secret to caller code.
-* Rotation is achieved by bumping epoch. Ring can recreate the same statics for a device and epoch. Homeserver can revoke by policy.
+* Epoch rotation is not implemented yet (epoch is currently fixed to 0); applications should use fresh device IDs (or a new seed) to rotate until explicit epoch rotation is added.
 
 ## Session Management
 
@@ -225,7 +225,7 @@ match result {
 
 ## Security notes
 
-* `Zeroizing` reduces lifetime of secrets in memory but cannot guarantee full eradication across OS subsystems. For servers, enable `secure-mem` and run under minimal privileges.
+* `Zeroizing` reduces lifetime of secrets in memory but cannot guarantee full eradication across OS subsystems. Run under minimal privileges and treat host memory as potentially observable in crash/forensics scenarios.
 * Enforce input size caps and rate limits in your network layer to avoid trivial DoS.
 * Keep `snow` up to date. If suites change, bump minor version of this crate.
 * For mobile apps: Always persist session state and counters before suspension to avoid data loss.

@@ -1,6 +1,6 @@
 # Threat Model & Security Architecture
 
-**Project**: pubky-noise v1.0.0  
+**Project**: pubky-noise v1.1.0  
 **Document Version**: 1.0  
 **Last Updated**: November 20, 2025
 

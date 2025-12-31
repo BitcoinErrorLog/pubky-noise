@@ -1,6 +1,6 @@
 # Production Readiness Audit Report: pubky-noise
 
-**Version**: 1.0.0  
+**Version**: 1.1.0  
 **Date**: December 31, 2025  
 **Auditor**: Claude Opus 4.5 (based on paykit-rs/review-prompt.md methodology)
 
@@ -314,9 +314,9 @@ pub struct DummyRing {
 
 **Location**: `THREAT_MODEL.md:4`
 
-**Description**: Document says "pubky-noise v0.7.0" but Cargo.toml says "1.0.0".
+**Description**: Document says "pubky-noise v0.7.0" but Cargo.toml says "1.1.0".
 
-**Fix**: Update THREAT_MODEL.md version to 1.0.0.
+**Fix**: Update THREAT_MODEL.md version to 1.1.0.
 
 ---
 

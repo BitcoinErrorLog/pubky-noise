@@ -1,6 +1,6 @@
 # Master Production Readiness Audit Report: pubky-noise
 
-**Version**: 1.0.0  
+**Version**: 1.1.0  
 **Date**: December 31, 2025  
 **Methodology**: Combined analysis from 4 AI reviewers (Gemini, GPT-5.1 high, Claude Sonnet 4.5 Max, Claude Opus 4.5)  
 **Verification**: All issues independently verified against current codebase
@@ -247,9 +247,9 @@ No max size on `first_msg`. Similarly, `IdentityPayload.server_hint: Option<Stri
 **Location**: `THREAT_MODEL.md:4`  
 **Verified**: ✅ TRUE
 
-Says "pubky-noise v0.7.0" but Cargo.toml says "1.0.0".
+Says "pubky-noise v0.7.0" but Cargo.toml says "1.1.0".
 
-**Fix**: Update to "1.0.0".
+**Fix**: Update to "1.1.0".
 
 ---
 
@@ -365,7 +365,7 @@ All 4 reviewers praised these aspects:
 1. ✅ Add `PkarrResolver` implementation for `DummyPkarr`
 2. ✅ Fix `derive_device_key` and `public_key_from_secret` seed length validation
 3. ✅ Fix expiry validation to fail closed on clock errors
-4. ✅ Update `THREAT_MODEL.md` version to 1.0.0
+4. ✅ Update `THREAT_MODEL.md` version to 1.1.0
 
 ### Phase 2: v1.0.1 Patch ✅ COMPLETED
 5. ✅ Document or remove `ServerPolicy` (unused fields)

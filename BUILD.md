@@ -3,7 +3,7 @@
 **Crate**: `pubky-noise`  
 **Description**: Noise protocol implementation with Pubky integration  
 **Type**: Library with FFI bindings (UniFFI)  
-**Version**: 0.7.0
+**Version**: 1.1.0
 
 ---
 
@@ -43,7 +43,7 @@ cargo install uniffi-bindgen
 
 ```bash
 # Standard Rust build
-cd pubky-noise-main
+cd pubky-noise
 cargo build
 
 # Run tests
@@ -214,7 +214,7 @@ cargo test -- --nocapture
 ## Project Structure
 
 ```
-pubky-noise-main/
+pubky-noise/
 ├── Cargo.toml              # Package metadata
 ├── BUILD.md                # This file
 ├── README.md               # Project overview
@@ -461,18 +461,17 @@ The `uniffi.toml` file configures FFI generation:
 
 ```toml
 [bindings.kotlin]
-package_name = "app.pubky.noise"
-cdylib_name = "pubky_noise"
+package_name = "com.pubky.noise"
 
 [bindings.swift]
-module_name = "pubky_noise"
+module_name = "PubkyNoise"
 ```
 
 ---
 
 ## API Stability
 
-**Version**: 0.7.0  
+**Version**: 1.1.0  
 **Status**: Stable for production use
 
 ### Compatibility

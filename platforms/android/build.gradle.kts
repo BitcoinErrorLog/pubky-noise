@@ -52,7 +52,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.pubky"
             artifactId = "pubky-noise"
-            version = "0.7.0"
+            version = "1.1.0"
             
             afterEvaluate {
                 from(components["release"])
