@@ -61,3 +61,17 @@ impl Default for DummyPkarr {
         Self::new()
     }
 }
+
+impl PkarrResolver for DummyPkarr {
+    fn fetch_server_noise_record(&self, _server_id: &str) -> Result<PkarrNoiseRecord, NoiseError> {
+        Err(NoiseError::Pkarr(
+            "DummyPkarr: not implemented".to_string(),
+        ))
+    }
+
+    fn fetch_server_ed25519_pub(&self, _server_id: &str) -> Result<[u8; 32], NoiseError> {
+        Err(NoiseError::Pkarr(
+            "DummyPkarr: not implemented".to_string(),
+        ))
+    }
+}

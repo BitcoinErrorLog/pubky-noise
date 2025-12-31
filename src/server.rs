@@ -114,11 +114,16 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
 
         // Validate expiration timestamp BEFORE signature verification (fail-fast)
         // This is defense-in-depth: if a payload has an expiration, enforce it
+        // We fail closed if system time is unreliable when expiration is present
         if let Some(expires_at) = payload.expires_at {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
-                .unwrap_or(0);
+                .map_err(|_| {
+                    NoiseError::Other(
+                        "System clock before UNIX epoch; cannot validate expiration".to_string(),
+                    )
+                })?;
             if now > expires_at {
                 return Err(NoiseError::SessionExpired(format!(
                     "Identity payload expired at {} (current time: {})",

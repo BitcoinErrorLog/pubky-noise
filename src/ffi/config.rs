@@ -35,6 +35,7 @@ pub fn performance_config() -> FfiMobileConfig {
 ///
 /// # Errors
 ///
+/// Returns `FfiNoiseError::Ring` if seed is less than 32 bytes.
 /// Returns `FfiNoiseError::Other` if key derivation fails (extremely rare).
 #[uniffi::export]
 pub fn derive_device_key(
@@ -42,19 +43,30 @@ pub fn derive_device_key(
     device_id: Vec<u8>,
     epoch: u32,
 ) -> Result<Vec<u8>, FfiNoiseError> {
-    let mut seed_arr = [0u8; 32];
-    if seed.len() >= 32 {
-        seed_arr.copy_from_slice(&seed[0..32]);
+    if seed.len() < 32 {
+        return Err(FfiNoiseError::Ring {
+            message: "Seed must be at least 32 bytes".to_string(),
+        });
     }
+    let mut seed_arr = [0u8; 32];
+    seed_arr.copy_from_slice(&seed[0..32]);
     let sk = crate::kdf::derive_x25519_for_device_epoch(&seed_arr, &device_id, epoch)?;
     Ok(sk.to_vec())
 }
 
+/// Derive a public key from a 32-byte secret.
+///
+/// # Errors
+///
+/// Returns `FfiNoiseError::Ring` if secret is less than 32 bytes.
 #[uniffi::export]
-pub fn public_key_from_secret(secret: Vec<u8>) -> Vec<u8> {
-    let mut secret_arr = [0u8; 32];
-    if secret.len() >= 32 {
-        secret_arr.copy_from_slice(&secret[0..32]);
+pub fn public_key_from_secret(secret: Vec<u8>) -> Result<Vec<u8>, FfiNoiseError> {
+    if secret.len() < 32 {
+        return Err(FfiNoiseError::Ring {
+            message: "Secret must be at least 32 bytes".to_string(),
+        });
     }
-    crate::kdf::x25519_pk_from_sk(&secret_arr).to_vec()
+    let mut secret_arr = [0u8; 32];
+    secret_arr.copy_from_slice(&secret[0..32]);
+    Ok(crate::kdf::x25519_pk_from_sk(&secret_arr).to_vec())
 }

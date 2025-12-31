@@ -59,13 +59,28 @@ mod ffi_tests {
     #[test]
     fn test_public_key_from_secret() {
         let secret = vec![42u8; 32];
-        let pk = public_key_from_secret(secret.clone());
+        let pk = public_key_from_secret(secret.clone()).expect("Should derive public key");
 
         assert_eq!(pk.len(), 32);
 
         // Same secret should produce same public key
-        let pk2 = public_key_from_secret(secret);
+        let pk2 = public_key_from_secret(secret).expect("Should derive public key");
         assert_eq!(pk, pk2);
+    }
+
+    #[test]
+    fn test_public_key_from_secret_short_input() {
+        let short_secret = vec![42u8; 16]; // Too short
+        let result = public_key_from_secret(short_secret);
+        assert!(result.is_err(), "Should reject short secret");
+    }
+
+    #[test]
+    fn test_derive_device_key_short_seed() {
+        let short_seed = vec![1u8; 16]; // Too short
+        let device_id = b"device".to_vec();
+        let result = derive_device_key(short_seed, device_id, 0);
+        assert!(result.is_err(), "Should reject short seed");
     }
 
     #[test]
