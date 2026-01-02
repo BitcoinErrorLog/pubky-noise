@@ -134,3 +134,12 @@ impl TryFrom<FfiSessionState> for SessionState {
         })
     }
 }
+
+/// FFI-safe X25519 keypair for sealed blob operations.
+#[derive(uniffi::Record)]
+pub struct FfiX25519Keypair {
+    /// Secret key (32 bytes). Zeroize after use.
+    pub secret_key: Vec<u8>,
+    /// Public key (32 bytes).
+    pub public_key: Vec<u8>,
+}

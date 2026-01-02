@@ -39,6 +39,7 @@ pub mod rate_limiter;
 pub mod ring;
 #[cfg(feature = "secure-mem")]
 pub mod secure_mem;
+pub mod sealed_blob;
 pub mod server;
 pub mod session_id;
 pub mod session_manager;
@@ -60,6 +61,10 @@ pub use pkarr::{DummyPkarr, PkarrNoiseRecord, PkarrResolver};
 pub use pubky_ring::PubkyRingProvider;
 pub use rate_limiter::{RateLimitReason, RateLimitResult, RateLimiter, RateLimiterConfig};
 pub use ring::{DummyRing, RingKeyFiller, RingKeyProvider};
+pub use sealed_blob::{
+    is_sealed_blob, sealed_blob_decrypt, sealed_blob_encrypt, x25519_generate_keypair,
+    x25519_public_from_secret, SealedBlobEnvelope, MAX_PLAINTEXT_SIZE, SEALED_BLOB_VERSION,
+};
 pub use server::{NoiseServer, ServerPolicy};
 pub use session_id::SessionId;
 pub use session_manager::{NoiseRole, NoiseSessionManager, ThreadSafeSessionManager};
