@@ -53,7 +53,7 @@ pub use datalink_adapter::NoiseLink;
 pub use errors::{NoiseError, NoiseErrorCode, NoiseResult};
 #[cfg(feature = "storage-queue")]
 pub use handshake_queue::HandshakeQueue;
-pub use identity_payload::BindingMessageParams;
+pub use identity_payload::{ed25519_sign, ed25519_verify, BindingMessageParams};
 pub use mobile_manager::{ConnectionStatus, MobileConfig, NoiseManager, SessionState};
 #[cfg(feature = "pkarr")]
 pub use pkarr::{DummyPkarr, PkarrNoiseRecord, PkarrResolver};

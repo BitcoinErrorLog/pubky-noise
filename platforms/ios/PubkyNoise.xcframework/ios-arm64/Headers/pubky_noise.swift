@@ -1706,6 +1706,48 @@ public func deriveDeviceKeypair(seed: Data, deviceId: Data, epoch: UInt32)throws
 })
 }
 /**
+ * Sign an arbitrary message with an Ed25519 secret key.
+ *
+ * # Arguments
+ *
+ * * `ed25519_secret_hex` - 64-character hex string of the 32-byte Ed25519 secret key
+ * * `message_hex` - Hex-encoded message bytes to sign
+ *
+ * # Returns
+ *
+ * 128-character hex string of the 64-byte Ed25519 signature.
+ */
+public func ed25519Sign(ed25519SecretHex: String, messageHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_ed25519_sign(
+        FfiConverterString.lower(ed25519SecretHex),
+        FfiConverterString.lower(messageHex),$0
+    )
+})
+}
+/**
+ * Verify an Ed25519 signature.
+ *
+ * # Arguments
+ *
+ * * `ed25519_public_hex` - 64-character hex string of the 32-byte Ed25519 public key
+ * * `message_hex` - Hex-encoded message bytes that were signed
+ * * `signature_hex` - 128-character hex string of the 64-byte signature
+ *
+ * # Returns
+ *
+ * `true` if the signature is valid, `false` otherwise.
+ */
+public func ed25519Verify(ed25519PublicHex: String, messageHex: String, signatureHex: String)throws  -> Bool  {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_ed25519_verify(
+        FfiConverterString.lower(ed25519PublicHex),
+        FfiConverterString.lower(messageHex),
+        FfiConverterString.lower(signatureHex),$0
+    )
+})
+}
+/**
  * Check if a JSON string looks like a sealed blob envelope.
  *
  * This is a quick heuristic check for distinguishing encrypted from legacy plaintext.
@@ -1845,6 +1887,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_ed25519_verify() != 14993) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_is_sealed_blob() != 59485) {

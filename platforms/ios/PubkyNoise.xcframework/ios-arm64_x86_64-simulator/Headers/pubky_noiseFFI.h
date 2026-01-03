@@ -353,6 +353,16 @@ RustBuffer uniffi_pubky_noise_fn_func_derive_device_key(RustBuffer seed, RustBuf
 RustBuffer uniffi_pubky_noise_fn_func_derive_device_keypair(RustBuffer seed, RustBuffer device_id, uint32_t epoch, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_SIGN
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_SIGN
+RustBuffer uniffi_pubky_noise_fn_func_ed25519_sign(RustBuffer ed25519_secret_hex, RustBuffer message_hex, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_VERIFY
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_VERIFY
+int8_t uniffi_pubky_noise_fn_func_ed25519_verify(RustBuffer ed25519_public_hex, RustBuffer message_hex, RustBuffer signature_hex, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_IS_SEALED_BLOB
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_IS_SEALED_BLOB
 int8_t uniffi_pubky_noise_fn_func_is_sealed_blob(RustBuffer json, RustCallStatus *_Nonnull out_status
@@ -691,6 +701,18 @@ uint16_t uniffi_pubky_noise_checksum_func_derive_device_key(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_DERIVE_DEVICE_KEYPAIR
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_DERIVE_DEVICE_KEYPAIR
 uint16_t uniffi_pubky_noise_checksum_func_derive_device_keypair(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_SIGN
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_SIGN
+uint16_t uniffi_pubky_noise_checksum_func_ed25519_sign(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_VERIFY
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_VERIFY
+uint16_t uniffi_pubky_noise_checksum_func_ed25519_verify(void
     
 );
 #endif

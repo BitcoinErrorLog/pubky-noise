@@ -1686,6 +1686,102 @@ public func deriveDeviceKey(seed: Data, deviceId: Data, epoch: UInt32)throws  ->
 })
 }
 /**
+ * Derive a full X25519 keypair from seed, device ID, and epoch.
+ *
+ * This is a convenience function that combines `derive_device_key` and
+ * `public_key_from_secret` to return both the secret and public keys.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if seed is less than 32 bytes.
+ * Returns `FfiNoiseError::Other` if key derivation fails.
+ */
+public func deriveDeviceKeypair(seed: Data, deviceId: Data, epoch: UInt32)throws  -> FfiX25519Keypair  {
+    return try  FfiConverterTypeFfiX25519Keypair_lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_derive_device_keypair(
+        FfiConverterData.lower(seed),
+        FfiConverterData.lower(deviceId),
+        FfiConverterUInt32.lower(epoch),$0
+    )
+})
+}
+/**
+ * Derive noise seed from Ed25519 secret key using HKDF-SHA256.
+ *
+ * This is used to derive future X25519 epoch keys locally without
+ * needing to call Ring again. The seed is domain-separated and
+ * cannot be used for signing.
+ *
+ * HKDF parameters:
+ * - salt: "paykit-noise-seed-v1"
+ * - ikm: Ed25519 secret key (32 bytes)
+ * - info: device ID
+ * - output: 32 bytes
+ *
+ * # Arguments
+ *
+ * * `ed25519_secret_hex` - Ed25519 secret key as 64-char hex string (32 bytes)
+ * * `device_id_hex` - Device ID as hex string
+ *
+ * # Returns
+ *
+ * 64-character hex string of the 32-byte noise seed.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if input is invalid.
+ */
+public func deriveNoiseSeed(ed25519SecretHex: String, deviceIdHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_derive_noise_seed(
+        FfiConverterString.lower(ed25519SecretHex),
+        FfiConverterString.lower(deviceIdHex),$0
+    )
+})
+}
+/**
+ * Sign an arbitrary message with an Ed25519 secret key.
+ *
+ * # Arguments
+ *
+ * * `ed25519_secret_hex` - 64-character hex string of the 32-byte Ed25519 secret key
+ * * `message_hex` - Hex-encoded message bytes to sign
+ *
+ * # Returns
+ *
+ * 128-character hex string of the 64-byte Ed25519 signature.
+ */
+public func ed25519Sign(ed25519SecretHex: String, messageHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_ed25519_sign(
+        FfiConverterString.lower(ed25519SecretHex),
+        FfiConverterString.lower(messageHex),$0
+    )
+})
+}
+/**
+ * Verify an Ed25519 signature.
+ *
+ * # Arguments
+ *
+ * * `ed25519_public_hex` - 64-character hex string of the 32-byte Ed25519 public key
+ * * `message_hex` - Hex-encoded message bytes that were signed
+ * * `signature_hex` - 128-character hex string of the 64-byte signature
+ *
+ * # Returns
+ *
+ * `true` if the signature is valid, `false` otherwise.
+ */
+public func ed25519Verify(ed25519PublicHex: String, messageHex: String, signatureHex: String)throws  -> Bool  {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_ed25519_verify(
+        FfiConverterString.lower(ed25519PublicHex),
+        FfiConverterString.lower(messageHex),
+        FfiConverterString.lower(signatureHex),$0
+    )
+})
+}
+/**
  * Check if a JSON string looks like a sealed blob envelope.
  *
  * This is a quick heuristic check for distinguishing encrypted from legacy plaintext.
@@ -1822,6 +1918,18 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_derive_device_key() != 53176) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_derive_noise_seed() != 52084) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_ed25519_verify() != 14993) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_is_sealed_blob() != 59485) {

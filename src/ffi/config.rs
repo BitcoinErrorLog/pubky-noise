@@ -221,3 +221,157 @@ pub fn sealed_blob_decrypt(
 pub fn is_sealed_blob(json: String) -> bool {
     crate::sealed_blob::is_sealed_blob(&json)
 }
+
+/// Derive noise seed from Ed25519 secret key using HKDF-SHA256.
+///
+/// This is used to derive future X25519 epoch keys locally without
+/// needing to call Ring again. The seed is domain-separated and
+/// cannot be used for signing.
+///
+/// HKDF parameters:
+/// - salt: "paykit-noise-seed-v1"
+/// - ikm: Ed25519 secret key (32 bytes)
+/// - info: device ID
+/// - output: 32 bytes
+///
+/// # Arguments
+///
+/// * `ed25519_secret_hex` - Ed25519 secret key as 64-char hex string (32 bytes)
+/// * `device_id_hex` - Device ID as hex string
+///
+/// # Returns
+///
+/// 64-character hex string of the 32-byte noise seed.
+///
+/// # Errors
+///
+/// Returns `FfiNoiseError::Ring` if input is invalid.
+#[uniffi::export]
+pub fn derive_noise_seed(
+    ed25519_secret_hex: String,
+    device_id_hex: String,
+) -> Result<String, FfiNoiseError> {
+    let secret_bytes = hex::decode(&ed25519_secret_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for Ed25519 secret key: {}", e),
+    })?;
+
+    if secret_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Ed25519 secret key must be 32 bytes, got {}",
+                secret_bytes.len()
+            ),
+        });
+    }
+
+    let device_id = hex::decode(&device_id_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for device ID: {}", e),
+    })?;
+
+    let mut sk_arr = [0u8; 32];
+    sk_arr.copy_from_slice(&secret_bytes);
+
+    let seed = crate::kdf::derive_noise_seed(&sk_arr, &device_id).map_err(FfiNoiseError::from)?;
+    Ok(hex::encode(seed))
+}
+
+/// Sign an arbitrary message with an Ed25519 secret key.
+///
+/// # Arguments
+///
+/// * `ed25519_secret_hex` - 64-character hex string of the 32-byte Ed25519 secret key
+/// * `message_hex` - Hex-encoded message bytes to sign
+///
+/// # Returns
+///
+/// 128-character hex string of the 64-byte Ed25519 signature.
+#[uniffi::export]
+pub fn ed25519_sign(
+    ed25519_secret_hex: String,
+    message_hex: String,
+) -> Result<String, FfiNoiseError> {
+    let secret_bytes = hex::decode(&ed25519_secret_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for secret key: {}", e),
+    })?;
+
+    if secret_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Ed25519 secret key must be 32 bytes, got {}",
+                secret_bytes.len()
+            ),
+        });
+    }
+
+    let message_bytes = hex::decode(&message_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for message: {}", e),
+    })?;
+
+    let mut sk_arr = [0u8; 32];
+    sk_arr.copy_from_slice(&secret_bytes);
+
+    let signature = crate::identity_payload::ed25519_sign(&sk_arr, &message_bytes)
+        .map_err(FfiNoiseError::from)?;
+
+    Ok(hex::encode(signature))
+}
+
+/// Verify an Ed25519 signature.
+///
+/// # Arguments
+///
+/// * `ed25519_public_hex` - 64-character hex string of the 32-byte Ed25519 public key
+/// * `message_hex` - Hex-encoded message bytes that were signed
+/// * `signature_hex` - 128-character hex string of the 64-byte signature
+///
+/// # Returns
+///
+/// `true` if the signature is valid, `false` otherwise.
+#[uniffi::export]
+pub fn ed25519_verify(
+    ed25519_public_hex: String,
+    message_hex: String,
+    signature_hex: String,
+) -> Result<bool, FfiNoiseError> {
+    let public_bytes = hex::decode(&ed25519_public_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for public key: {}", e),
+    })?;
+
+    if public_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Ed25519 public key must be 32 bytes, got {}",
+                public_bytes.len()
+            ),
+        });
+    }
+
+    let message_bytes = hex::decode(&message_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for message: {}", e),
+    })?;
+
+    let signature_bytes = hex::decode(&signature_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for signature: {}", e),
+    })?;
+
+    if signature_bytes.len() != 64 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Ed25519 signature must be 64 bytes, got {}",
+                signature_bytes.len()
+            ),
+        });
+    }
+
+    let mut pk_arr = [0u8; 32];
+    pk_arr.copy_from_slice(&public_bytes);
+
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(&signature_bytes);
+
+    Ok(crate::identity_payload::ed25519_verify(
+        &pk_arr,
+        &message_bytes,
+        &sig_arr,
+    ))
+}

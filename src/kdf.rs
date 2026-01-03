@@ -1,6 +1,6 @@
 use crate::errors::NoiseError;
 use hkdf::Hkdf;
-use sha2::Sha512;
+use sha2::{Sha256, Sha512};
 use zeroize::Zeroizing;
 
 /// Derive an X25519 secret key from a seed, device ID, and epoch.
@@ -56,4 +56,29 @@ pub fn shared_secret_nonzero(local_sk: &Zeroizing<[u8; 32]>, peer_pk: &[u8; 32])
         acc |= b;
     }
     acc != 0
+}
+
+/// Derive a noise seed from an Ed25519 secret key and device ID.
+///
+/// This produces a 32-byte seed that can be used for local X25519 epoch key
+/// derivation without needing to call Ring again. The seed is domain-separated
+/// and cannot be used for Ed25519 signing.
+///
+/// Uses HKDF-SHA256 with:
+/// - salt: "paykit-noise-seed-v1"
+/// - ikm: Ed25519 secret key (32 bytes)
+/// - info: device ID
+/// - output: 32 bytes
+///
+/// # Errors
+///
+/// Returns `NoiseError::Other` if HKDF expansion fails (should never happen
+/// with valid 32-byte output, but we handle it explicitly for robustness).
+pub fn derive_noise_seed(ed25519_secret: &[u8; 32], device_id: &[u8]) -> Result<[u8; 32], NoiseError> {
+    let salt = b"paykit-noise-seed-v1";
+    let hk = Hkdf::<Sha256>::new(Some(salt), ed25519_secret);
+    let mut seed = [0u8; 32];
+    hk.expand(device_id, &mut seed)
+        .map_err(|e| NoiseError::Other(format!("HKDF expand failed: {:?}", e)))?;
+    Ok(seed)
 }

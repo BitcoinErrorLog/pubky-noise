@@ -764,6 +764,10 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -786,6 +790,10 @@ fun uniffi_pubky_noise_checksum_func_default_config(
 fun uniffi_pubky_noise_checksum_func_derive_device_key(
 ): Short
 fun uniffi_pubky_noise_checksum_func_derive_device_keypair(
+): Short
+fun uniffi_pubky_noise_checksum_func_ed25519_sign(
+): Short
+fun uniffi_pubky_noise_checksum_func_ed25519_verify(
 ): Short
 fun uniffi_pubky_noise_checksum_func_is_sealed_blob(
 ): Short
@@ -918,6 +926,10 @@ fun uniffi_pubky_noise_fn_func_derive_device_key(`seed`: RustBuffer.ByValue,`dev
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_derive_device_keypair(`seed`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`epoch`: Int,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_ed25519_sign(`ed25519SecretHex`: RustBuffer.ByValue,`messageHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_ed25519_verify(`ed25519PublicHex`: RustBuffer.ByValue,`messageHex`: RustBuffer.ByValue,`signatureHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
 fun uniffi_pubky_noise_fn_func_is_sealed_blob(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): Byte
 fun uniffi_pubky_noise_fn_func_performance_config(uniffi_out_err: UniffiRustCallStatus, 
@@ -1068,6 +1080,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_ed25519_verify() != 14993.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_is_sealed_blob() != 59485.toShort()) {
@@ -2687,6 +2705,51 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     uniffiRustCallWithError(FfiNoiseException) { _status ->
     UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_derive_device_keypair(
         FfiConverterByteArray.lower(`seed`),FfiConverterByteArray.lower(`deviceId`),FfiConverterUInt.lower(`epoch`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Sign an arbitrary message with an Ed25519 secret key.
+         *
+         * # Arguments
+         *
+         * * `ed25519_secret_hex` - 64-character hex string of the 32-byte Ed25519 secret key
+         * * `message_hex` - Hex-encoded message bytes to sign
+         *
+         * # Returns
+         *
+         * 128-character hex string of the 64-byte Ed25519 signature.
+         */
+    @Throws(FfiNoiseException::class) fun `ed25519Sign`(`ed25519SecretHex`: kotlin.String, `messageHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_ed25519_sign(
+        FfiConverterString.lower(`ed25519SecretHex`),FfiConverterString.lower(`messageHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Verify an Ed25519 signature.
+         *
+         * # Arguments
+         *
+         * * `ed25519_public_hex` - 64-character hex string of the 32-byte Ed25519 public key
+         * * `message_hex` - Hex-encoded message bytes that were signed
+         * * `signature_hex` - 128-character hex string of the 64-byte signature
+         *
+         * # Returns
+         *
+         * `true` if the signature is valid, `false` otherwise.
+         */
+    @Throws(FfiNoiseException::class) fun `ed25519Verify`(`ed25519PublicHex`: kotlin.String, `messageHex`: kotlin.String, `signatureHex`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_ed25519_verify(
+        FfiConverterString.lower(`ed25519PublicHex`),FfiConverterString.lower(`messageHex`),FfiConverterString.lower(`signatureHex`),_status)
 }
     )
     }

@@ -1157,6 +1157,91 @@ public func FfiConverterTypeFfiSessionState_lower(_ value: FfiSessionState) -> R
     return FfiConverterTypeFfiSessionState.lower(value)
 }
 
+
+/**
+ * FFI-safe X25519 keypair for sealed blob operations.
+ */
+public struct FfiX25519Keypair {
+    /**
+     * Secret key (32 bytes). Zeroize after use.
+     */
+    public var secretKey: Data
+    /**
+     * Public key (32 bytes).
+     */
+    public var publicKey: Data
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Secret key (32 bytes). Zeroize after use.
+         */secretKey: Data, 
+        /**
+         * Public key (32 bytes).
+         */publicKey: Data) {
+        self.secretKey = secretKey
+        self.publicKey = publicKey
+    }
+}
+
+#if compiler(>=6)
+extension FfiX25519Keypair: Sendable {}
+#endif
+
+
+extension FfiX25519Keypair: Equatable, Hashable {
+    public static func ==(lhs: FfiX25519Keypair, rhs: FfiX25519Keypair) -> Bool {
+        if lhs.secretKey != rhs.secretKey {
+            return false
+        }
+        if lhs.publicKey != rhs.publicKey {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(secretKey)
+        hasher.combine(publicKey)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiX25519Keypair: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiX25519Keypair {
+        return
+            try FfiX25519Keypair(
+                secretKey: FfiConverterData.read(from: &buf), 
+                publicKey: FfiConverterData.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiX25519Keypair, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.secretKey, into: &buf)
+        FfiConverterData.write(value.publicKey, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiX25519Keypair_lift(_ buf: RustBuffer) throws -> FfiX25519Keypair {
+    return try FfiConverterTypeFfiX25519Keypair.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiX25519Keypair_lower(_ value: FfiX25519Keypair) -> RustBuffer {
+    return FfiConverterTypeFfiX25519Keypair.lower(value)
+}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
@@ -1600,6 +1685,38 @@ public func deriveDeviceKey(seed: Data, deviceId: Data, epoch: UInt32)throws  ->
     )
 })
 }
+/**
+ * Derive a full X25519 keypair from seed, device ID, and epoch.
+ *
+ * This is a convenience function that combines `derive_device_key` and
+ * `public_key_from_secret` to return both the secret and public keys.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if seed is less than 32 bytes.
+ * Returns `FfiNoiseError::Other` if key derivation fails.
+ */
+public func deriveDeviceKeypair(seed: Data, deviceId: Data, epoch: UInt32)throws  -> FfiX25519Keypair  {
+    return try  FfiConverterTypeFfiX25519Keypair_lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_derive_device_keypair(
+        FfiConverterData.lower(seed),
+        FfiConverterData.lower(deviceId),
+        FfiConverterUInt32.lower(epoch),$0
+    )
+})
+}
+/**
+ * Check if a JSON string looks like a sealed blob envelope.
+ *
+ * This is a quick heuristic check for distinguishing encrypted from legacy plaintext.
+ */
+public func isSealedBlob(json: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_pubky_noise_fn_func_is_sealed_blob(
+        FfiConverterString.lower(json),$0
+    )
+})
+}
 public func performanceConfig() -> FfiMobileConfig  {
     return try!  FfiConverterTypeFfiMobileConfig_lift(try! rustCall() {
     uniffi_pubky_noise_fn_func_performance_config($0
@@ -1616,6 +1733,88 @@ public func performanceConfig() -> FfiMobileConfig  {
 public func publicKeyFromSecret(secret: Data)throws  -> Data  {
     return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
     uniffi_pubky_noise_fn_func_public_key_from_secret(
+        FfiConverterData.lower(secret),$0
+    )
+})
+}
+/**
+ * Decrypt a Paykit Sealed Blob v1 envelope.
+ *
+ * # Arguments
+ *
+ * * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
+ * * `envelope_json` - JSON-encoded sealed blob envelope
+ * * `aad` - Associated authenticated data (must match encryption)
+ *
+ * # Returns
+ *
+ * Decrypted plaintext.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if recipient_sk is not 32 bytes.
+ * Returns `FfiNoiseError::Decryption` if decryption fails (wrong key, wrong AAD, or tampered).
+ */
+public func sealedBlobDecrypt(recipientSk: Data, envelopeJson: String, aad: String)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_sealed_blob_decrypt(
+        FfiConverterData.lower(recipientSk),
+        FfiConverterString.lower(envelopeJson),
+        FfiConverterString.lower(aad),$0
+    )
+})
+}
+/**
+ * Encrypt plaintext using Paykit Sealed Blob v1 format.
+ *
+ * # Arguments
+ *
+ * * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+ * * `plaintext` - Data to encrypt (max 64 KiB)
+ * * `aad` - Associated authenticated data (e.g., "handoff:pubkey:/path")
+ * * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+ *
+ * # Returns
+ *
+ * JSON-encoded sealed blob envelope.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if recipient_pk is not 32 bytes.
+ * Returns `FfiNoiseError::Other` if plaintext exceeds 64 KiB.
+ */
+public func sealedBlobEncrypt(recipientPk: Data, plaintext: Data, aad: String, purpose: String?)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_sealed_blob_encrypt(
+        FfiConverterData.lower(recipientPk),
+        FfiConverterData.lower(plaintext),
+        FfiConverterString.lower(aad),
+        FfiConverterOptionString.lower(purpose),$0
+    )
+})
+}
+/**
+ * Generate a new X25519 keypair for sealed blob encryption.
+ *
+ * Returns a record containing secret_key and public_key, each 32 bytes.
+ * The secret_key should be zeroized after use.
+ */
+public func x25519GenerateKeypair() -> FfiX25519Keypair  {
+    return try!  FfiConverterTypeFfiX25519Keypair_lift(try! rustCall() {
+    uniffi_pubky_noise_fn_func_x25519_generate_keypair($0
+    )
+})
+}
+/**
+ * Derive X25519 public key from a 32-byte secret key.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if secret is not 32 bytes.
+ */
+public func x25519PublicFromSecret(secret: Data)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_x25519_public_from_secret(
         FfiConverterData.lower(secret),$0
     )
 })
@@ -1645,10 +1844,28 @@ private let initializationResult: InitializationResult = {
     if (uniffi_pubky_noise_checksum_func_derive_device_key() != 53176) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_is_sealed_blob() != 59485) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_pubky_noise_checksum_func_performance_config() != 613) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_public_key_from_secret() != 12954) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_sealed_blob_decrypt() != 36862) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_sealed_blob_encrypt() != 44846) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_x25519_generate_keypair() != 20350) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_x25519_public_from_secret() != 14902) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_method_ffinoisemanager_accept_connection() != 45180) {
