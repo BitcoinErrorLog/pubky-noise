@@ -768,6 +768,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -790,6 +792,8 @@ fun uniffi_pubky_noise_checksum_func_default_config(
 fun uniffi_pubky_noise_checksum_func_derive_device_key(
 ): Short
 fun uniffi_pubky_noise_checksum_func_derive_device_keypair(
+): Short
+fun uniffi_pubky_noise_checksum_func_derive_noise_seed(
 ): Short
 fun uniffi_pubky_noise_checksum_func_ed25519_sign(
 ): Short
@@ -925,6 +929,8 @@ fun uniffi_pubky_noise_fn_func_default_config(uniffi_out_err: UniffiRustCallStat
 fun uniffi_pubky_noise_fn_func_derive_device_key(`seed`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`epoch`: Int,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_derive_device_keypair(`seed`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`epoch`: Int,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_derive_noise_seed(`ed25519SecretHex`: RustBuffer.ByValue,`deviceIdHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_ed25519_sign(`ed25519SecretHex`: RustBuffer.ByValue,`messageHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
@@ -1080,6 +1086,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_derive_noise_seed() != 52084.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498.toShort()) {
@@ -2705,6 +2714,42 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     uniffiRustCallWithError(FfiNoiseException) { _status ->
     UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_derive_device_keypair(
         FfiConverterByteArray.lower(`seed`),FfiConverterByteArray.lower(`deviceId`),FfiConverterUInt.lower(`epoch`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Derive noise seed from Ed25519 secret key using HKDF-SHA256.
+         *
+         * This is used to derive future X25519 epoch keys locally without
+         * needing to call Ring again. The seed is domain-separated and
+         * cannot be used for signing.
+         *
+         * HKDF parameters:
+         * - salt: "paykit-noise-seed-v1"
+         * - ikm: Ed25519 secret key (32 bytes)
+         * - info: device ID
+         * - output: 32 bytes
+         *
+         * # Arguments
+         *
+         * * `ed25519_secret_hex` - Ed25519 secret key as 64-char hex string (32 bytes)
+         * * `device_id_hex` - Device ID as hex string
+         *
+         * # Returns
+         *
+         * 64-character hex string of the 32-byte noise seed.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if input is invalid.
+         */
+    @Throws(FfiNoiseException::class) fun `deriveNoiseSeed`(`ed25519SecretHex`: kotlin.String, `deviceIdHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_derive_noise_seed(
+        FfiConverterString.lower(`ed25519SecretHex`),FfiConverterString.lower(`deviceIdHex`),_status)
 }
     )
     }
