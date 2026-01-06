@@ -105,3 +105,4 @@
   - On User B, send new proposal to that pubkey.
   - On User A, verify proposal appears and accept.
 
+
