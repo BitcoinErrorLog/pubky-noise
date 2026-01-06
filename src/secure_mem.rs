@@ -72,6 +72,14 @@ pub fn munlock_slice(data: &mut [u8]) -> Result<(), NoiseError> {
 /// This provides RAII-style memory locking: data is locked on creation
 /// and unlocked on drop.
 ///
+/// **Note on Memory Stability**: Data is stored on the heap via `Box` to ensure
+/// the locked memory address remains stable even when the `LockedBytes` wrapper
+/// is moved. This is important because `mlock` operates on memory addresses,
+/// and moving inline data would invalidate the locked region.
+///
+/// This is best-effort defense-in-depth: on platforms where `mlock` fails or
+/// is unsupported, operations continue silently without memory locking.
+///
 /// # Example
 ///
 /// ```rust,ignore
@@ -87,7 +95,8 @@ pub fn munlock_slice(data: &mut [u8]) -> Result<(), NoiseError> {
 /// ```
 #[cfg(feature = "secure-mem")]
 pub struct LockedBytes<const N: usize> {
-    data: [u8; N],
+    /// Data stored on the heap for stable addressing during mlock.
+    data: Box<[u8; N]>,
     guard: Option<region::LockGuard>,
 }
 
@@ -95,14 +104,20 @@ pub struct LockedBytes<const N: usize> {
 impl<const N: usize> LockedBytes<N> {
     /// Create a new LockedBytes, attempting to lock the memory.
     ///
-    /// Uses `region::lock` directly for proper memory locking.
-    /// The lock is released when this struct is dropped.
+    /// The data is moved to the heap to ensure the locked address remains
+    /// stable even when this wrapper is moved. Uses `region::lock` directly
+    /// for proper memory locking. The lock is released when this struct is dropped.
     pub fn new(data: [u8; N]) -> Self {
         use region::lock;
 
-        let mut s = Self { data, guard: None };
+        // Box the data first so it's on the heap with a stable address
+        let boxed_data = Box::new(data);
+        let mut s = Self {
+            data: boxed_data,
+            guard: None,
+        };
 
-        // Attempt to lock the memory region
+        // Attempt to lock the memory region (now at a stable heap address)
         match lock(s.data.as_ptr(), s.data.len()) {
             Ok(guard) => s.guard = Some(guard),
             Err(_e) => {
@@ -123,14 +138,14 @@ impl<const N: usize> LockedBytes<N> {
 #[cfg(feature = "secure-mem")]
 impl<const N: usize> AsRef<[u8; N]> for LockedBytes<N> {
     fn as_ref(&self) -> &[u8; N] {
-        &self.data
+        &*self.data
     }
 }
 
 #[cfg(feature = "secure-mem")]
 impl<const N: usize> AsMut<[u8; N]> for LockedBytes<N> {
     fn as_mut(&mut self) -> &mut [u8; N] {
-        &mut self.data
+        &mut *self.data
     }
 }
 
@@ -139,7 +154,7 @@ impl<const N: usize> Drop for LockedBytes<N> {
     fn drop(&mut self) {
         // Zero the data before unlocking
         use zeroize::Zeroize;
-        self.data.zeroize();
+        (*self.data).zeroize();
 
         // Unlock (best-effort via LockGuard drop) after zeroize
         let _ = self.guard.take();

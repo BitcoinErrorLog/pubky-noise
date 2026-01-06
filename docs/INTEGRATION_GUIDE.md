@@ -10,7 +10,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pubky-noise = "0.7"
+pubky-noise = "1.2"
 ```
 
 ### Basic Usage
@@ -126,7 +126,7 @@ Enable UniFFI bindings with the `uniffi_macros` feature:
 
 ```toml
 [dependencies]
-pubky-noise = { version = "0.7", features = ["uniffi_macros"] }
+pubky-noise = { version = "1.2", features = ["uniffi_macros"] }
 ```
 
 ## Session Management

@@ -6,12 +6,10 @@
 //! See `/docs/SEALED_BLOB_V1_SPEC.md` in paykit-rs for full specification.
 
 use crate::errors::NoiseError;
-use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
-use curve25519_dalek::montgomery::MontgomeryPoint;
-use curve25519_dalek::scalar::Scalar;
 use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use x25519_dalek::{x25519, X25519_BASEPOINT_BYTES};
 use zeroize::Zeroizing;
 
 /// Current sealed blob version.
@@ -93,18 +91,14 @@ pub fn x25519_generate_keypair() -> ([u8; 32], [u8; 32]) {
     (secret, public)
 }
 
-/// Derive X25519 public key from secret key.
+/// Derive X25519 public key from secret key using proper RFC 7748 operations.
 pub fn x25519_public_from_secret(secret: &[u8; 32]) -> [u8; 32] {
-    let scalar = Scalar::from_bytes_mod_order(*secret);
-    let point = &scalar * ED25519_BASEPOINT_TABLE;
-    point.to_montgomery().to_bytes()
+    x25519(*secret, X25519_BASEPOINT_BYTES)
 }
 
-/// Compute X25519 shared secret.
+/// Compute X25519 shared secret using proper RFC 7748 operations.
 fn x25519_shared_secret(local_sk: &[u8; 32], peer_pk: &[u8; 32]) -> Zeroizing<[u8; 32]> {
-    let scalar = Scalar::from_bytes_mod_order(*local_sk);
-    let peer_point = MontgomeryPoint(*peer_pk);
-    Zeroizing::new((scalar * peer_point).to_bytes())
+    Zeroizing::new(x25519(*local_sk, *peer_pk))
 }
 
 /// Derive symmetric key from shared secret and ephemeral public keys.
@@ -305,10 +299,12 @@ pub fn sealed_blob_decrypt(
 
 /// Check if a JSON string looks like a sealed blob envelope.
 ///
-/// This is a quick heuristic check (looks for `"v":1` and `"epk":`).
+/// This is a quick heuristic check that requires BOTH `"v":1` AND `"epk":`.
 /// Use for distinguishing encrypted from legacy plaintext.
 pub fn is_sealed_blob(json: &str) -> bool {
-    json.contains("\"v\":1") || json.contains("\"v\": 1")
+    let has_v1 = json.contains("\"v\":1") || json.contains("\"v\": 1");
+    let has_epk = json.contains("\"epk\":") || json.contains("\"epk\" :");
+    has_v1 && has_epk
 }
 
 #[cfg(test)]
@@ -390,10 +386,22 @@ mod tests {
 
     #[test]
     fn test_is_sealed_blob() {
+        // Valid sealed blob envelopes (have both v:1 AND epk)
         assert!(is_sealed_blob(r#"{"v":1,"epk":"abc","nonce":"def","ct":"ghi"}"#));
         assert!(is_sealed_blob(r#"{"v": 1, "epk": "abc"}"#));
+        assert!(is_sealed_blob(r#"{"v":1,"epk":"abc"}"#));
+        
+        // Not sealed blobs (missing required fields)
         assert!(!is_sealed_blob(r#"{"session_secret":"abc"}"#));
         assert!(!is_sealed_blob(r#"{"version":1}"#));
+        
+        // Has v:1 but no epk - NOT a sealed blob (prevents false positives)
+        assert!(!is_sealed_blob(r#"{"v":1,"other":"field"}"#));
+        assert!(!is_sealed_blob(r#"{"v": 1}"#));
+        
+        // Has epk but no v:1 - NOT a sealed blob
+        assert!(!is_sealed_blob(r#"{"epk":"abc","v":2}"#));
+        assert!(!is_sealed_blob(r#"{"epk":"abc"}"#));
     }
 }
 

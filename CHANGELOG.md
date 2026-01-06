@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-01-04
+
+### Security Fixes (Critical)
+
+#### X25519 Cryptographic Operations
+
+- **CRITICAL**: Fixed incorrect X25519 scalar multiplication in `kdf.rs` and `sealed_blob.rs`
+  - Previous code used `Scalar::from_bytes_mod_order()` with `ED25519_BASEPOINT_TABLE`, which:
+    - Reduced scalars mod the group order (changing semantics)
+    - Used Edwards basepoint then converted to Montgomery
+  - New code uses `x25519_dalek::x25519()` function directly, implementing proper RFC 7748
+  - This ensures interoperability with `snow` and other RFC 7748-compliant implementations
+  - **Impact**: Previous versions may have had interoperability issues with standard X25519 implementations
+
+#### Protocol Security Hardening
+
+- **Server-side remote static verification**: Added consistency check in both IK and XX patterns
+  - `build_responder_read_ik()` now verifies `hs.get_remote_static() == payload.noise_x25519_pub`
+  - `complete_responder_xx()` now verifies the same consistency
+  - Prevents attacks where a malicious client claims a different identity than used in handshake
+
+- **XX pattern expiration validation**: Added `expires_at` validation to `complete_responder_xx()`
+  - Previously only IK pattern validated expiration; now both patterns do
+  - Enforces consistent defense-in-depth timestamp checks
+
+#### Detection Improvements
+
+- **`is_sealed_blob()` stricter check**: Now requires BOTH `"v":1` AND `"epk":` fields
+  - Previous check only looked for version, risking false positives
+  - Reduces chance of misidentifying non-sealed JSON as sealed blobs
+
+### Fixed
+
+- **`LockedBytes` memory stability**: Changed from inline storage to heap allocation via `Box`
+  - Inline storage could cause `mlock` region to become stale when struct moved
+  - Now uses `Box<[u8; N]>` for stable heap addresses during mlock lifetime
+  - Documented as best-effort defense-in-depth in module docs
+
+### Removed
+
+- **Dead replay tracking code**: Removed unused `seen_client_epochs` and related methods
+  - `MAX_SEEN_EPOCHS` constant removed
+  - `cleanup_seen_epochs()` method removed
+  - `seen_epochs_count()` method removed
+  - These provided no actual protection and gave false sense of security
+
+### Added
+
+- **RFC 7748 test vectors**: New `tests/x25519_vectors.rs` with known-vector tests
+  - Alice/Bob keypair derivation tests from RFC 7748 Section 6.1
+  - Shared secret verification against RFC test vectors
+  - Snow interoperability test
+  - Zero public key rejection test
+
+- **Sealed blob tamper tests**: New `tests/sealed_blob_tamper.rs`
+  - Ciphertext bit-flip detection
+  - Ephemeral public key tampering detection
+  - Nonce tampering detection
+  - Truncation detection
+  - Wrong AAD rejection
+  - Malformed JSON rejection
+  - Invalid key/nonce size rejection
+
 ## [1.1.0] - 2025-12-22
 
 ### Breaking Changes

@@ -41,7 +41,6 @@ fn main() {
     {
         println!("This example requires the 'storage-queue' feature.");
         println!("Run with: cargo run --example storage_queue --features storage-queue");
-        return;
     }
 
     #[cfg(feature = "storage-queue")]

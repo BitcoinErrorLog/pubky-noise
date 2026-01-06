@@ -31,31 +31,31 @@ pub fn derive_x25519_for_device_epoch(
     Ok(sk)
 }
 
+/// Derive X25519 public key from secret key using proper RFC 7748 operations.
+///
+/// Uses x25519-dalek's bare `x25519` function which implements the Montgomery
+/// ladder multiplication exactly as specified in RFC 7748, ensuring
+/// interoperability with snow and other RFC 7748-compliant implementations.
 pub fn x25519_pk_from_sk(sk: &[u8; 32]) -> [u8; 32] {
-    // x25519-dalek v2: compute public key from secret key
-    // Use curve25519-dalek directly for scalar operations
-    use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
-    use curve25519_dalek::scalar::Scalar;
+    use x25519_dalek::{x25519, X25519_BASEPOINT_BYTES};
 
-    let scalar = Scalar::from_bytes_mod_order(*sk);
-    let point = &scalar * ED25519_BASEPOINT_TABLE;
-    point.to_montgomery().to_bytes()
+    x25519(*sk, X25519_BASEPOINT_BYTES)
 }
 
+/// Check if X25519 DH shared secret is non-zero using proper RFC 7748 operations.
+///
+/// Returns `false` if the shared secret is all zeros (indicating an invalid
+/// peer public key such as a low-order point), `true` otherwise.
+///
+/// Uses x25519-dalek's bare `x25519` function which implements the Montgomery
+/// ladder multiplication exactly as specified in RFC 7748, ensuring
+/// interoperability with snow and other RFC 7748-compliant implementations.
 pub fn shared_secret_nonzero(local_sk: &Zeroizing<[u8; 32]>, peer_pk: &[u8; 32]) -> bool {
-    // x25519-dalek v2: perform DH operation using curve25519-dalek primitives
-    use curve25519_dalek::montgomery::MontgomeryPoint;
-    use curve25519_dalek::scalar::Scalar;
+    use x25519_dalek::x25519;
 
-    let scalar = Scalar::from_bytes_mod_order(**local_sk);
-    let peer_point = MontgomeryPoint(*peer_pk);
-    let shared = (scalar * peer_point).to_bytes();
+    let shared = x25519(**local_sk, *peer_pk);
 
-    let mut acc: u8 = 0;
-    for b in shared {
-        acc |= b;
-    }
-    acc != 0
+    shared.iter().any(|&b| b != 0)
 }
 
 /// Derive a noise seed from an Ed25519 secret key and device ID.

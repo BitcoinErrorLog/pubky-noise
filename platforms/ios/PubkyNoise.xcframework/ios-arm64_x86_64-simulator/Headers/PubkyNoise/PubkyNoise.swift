@@ -1706,6 +1706,40 @@ public func deriveDeviceKeypair(seed: Data, deviceId: Data, epoch: UInt32)throws
 })
 }
 /**
+ * Derive noise seed from Ed25519 secret key using HKDF-SHA256.
+ *
+ * This is used to derive future X25519 epoch keys locally without
+ * needing to call Ring again. The seed is domain-separated and
+ * cannot be used for signing.
+ *
+ * HKDF parameters:
+ * - salt: "paykit-noise-seed-v1"
+ * - ikm: Ed25519 secret key (32 bytes)
+ * - info: device ID
+ * - output: 32 bytes
+ *
+ * # Arguments
+ *
+ * * `ed25519_secret_hex` - Ed25519 secret key as 64-char hex string (32 bytes)
+ * * `device_id_hex` - Device ID as hex string
+ *
+ * # Returns
+ *
+ * 64-character hex string of the 32-byte noise seed.
+ *
+ * # Errors
+ *
+ * Returns `FfiNoiseError::Ring` if input is invalid.
+ */
+public func deriveNoiseSeed(ed25519SecretHex: String, deviceIdHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_derive_noise_seed(
+        FfiConverterString.lower(ed25519SecretHex),
+        FfiConverterString.lower(deviceIdHex),$0
+    )
+})
+}
+/**
  * Sign an arbitrary message with an Ed25519 secret key.
  *
  * # Arguments
@@ -1887,6 +1921,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_derive_noise_seed() != 52084) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498) {

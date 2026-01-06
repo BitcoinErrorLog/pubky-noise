@@ -4,9 +4,7 @@
 //! Note: ServerPolicy rate limiting fields are reserved for future use.
 //! Use the RateLimiter type for current rate limiting needs.
 
-use pubky_noise::server::{
-    ServerPolicy, MAX_HANDSHAKE_MSG_LEN, MAX_SEEN_EPOCHS, MAX_SERVER_HINT_LEN,
-};
+use pubky_noise::server::{ServerPolicy, MAX_HANDSHAKE_MSG_LEN, MAX_SERVER_HINT_LEN};
 use pubky_noise::{NoiseServer, RingKeyProvider};
 use std::sync::Arc;
 
@@ -131,7 +129,6 @@ fn test_size_limit_constants() {
     // Verify constants are defined and have reasonable values
     assert_eq!(MAX_HANDSHAKE_MSG_LEN, 65536);
     assert_eq!(MAX_SERVER_HINT_LEN, 256);
-    assert_eq!(MAX_SEEN_EPOCHS, 10_000);
 }
 
 /// Test that handshake message size is validated
@@ -155,28 +152,3 @@ fn test_handshake_rejects_oversized_message() {
     );
 }
 
-/// Test seen_epochs_count and cleanup methods
-#[test]
-fn test_seen_epochs_cleanup() {
-    let ring = Arc::new(TestRing { seed: [1u8; 32] });
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"server", ring);
-
-    // Initially empty
-    assert_eq!(server.seen_epochs_count(), 0);
-
-    // Manually add entries to seen_client_epochs
-    {
-        let mut epochs = server.seen_client_epochs.lock().unwrap();
-        for i in 0..100u32 {
-            let mut key = [0u8; 32];
-            key[0..4].copy_from_slice(&i.to_le_bytes());
-            epochs.insert(key, i);
-        }
-    }
-
-    assert_eq!(server.seen_epochs_count(), 100);
-
-    // Cleanup should do nothing when under limit
-    server.cleanup_seen_epochs();
-    assert_eq!(server.seen_epochs_count(), 100);
-}

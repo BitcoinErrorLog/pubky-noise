@@ -21,9 +21,6 @@ pub const MAX_HANDSHAKE_MSG_LEN: usize = 65536;
 /// Maximum allowed server_hint length in IdentityPayload.
 pub const MAX_SERVER_HINT_LEN: usize = 256;
 
-/// Maximum number of client epochs to track before cleanup.
-pub const MAX_SEEN_EPOCHS: usize = 10_000;
-
 /// Server policy configuration.
 ///
 /// **Note**: These fields are reserved for future use. Rate limiting should currently
@@ -49,7 +46,6 @@ pub struct NoiseServer<R: RingKeyProvider, P = ()> {
     pub prologue: Vec<u8>,
     pub suite: String,
     pub current_epoch: u32,
-    pub seen_client_epochs: std::sync::Mutex<std::collections::HashMap<[u8; 32], u32>>,
     pub policy: ServerPolicy,
 }
 
@@ -74,7 +70,6 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             prologue: b"pubky-noise-v1".to_vec(),
             suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
             current_epoch: INTERNAL_EPOCH,
-            seen_client_epochs: std::sync::Mutex::new(Default::default()),
             policy: ServerPolicy::default(),
         }
     }
@@ -134,6 +129,17 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         let mut buf = vec![0u8; first_msg.len() + 256];
         let n = hs.read_message(first_msg, &mut buf)?;
         let payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
+
+        // Verify that the Noise handshake's remote static matches the payload's claimed key.
+        // This ensures the client actually used the key they claim in their identity binding.
+        if let Some(remote_static) = hs.get_remote_static() {
+            let remote_static_arr: [u8; 32] = remote_static
+                .try_into()
+                .map_err(|_| NoiseError::Other("Remote static key wrong length".to_string()))?;
+            if remote_static_arr != payload.noise_x25519_pub {
+                return Err(NoiseError::IdentityVerify);
+            }
+        }
 
         // Validate server_hint length to prevent abuse
         if let Some(ref hint) = payload.server_hint {
@@ -197,41 +203,6 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         }
 
         Ok((hs, payload))
-    }
-
-    /// Clean up the seen_client_epochs map if it exceeds the maximum size.
-    ///
-    /// This prevents unbounded memory growth in long-running servers.
-    /// Removes all entries when the map exceeds `MAX_SEEN_EPOCHS`.
-    ///
-    /// # Lock Poisoning
-    ///
-    /// Uses `unwrap_or_else(|e| e.into_inner())` to recover gracefully from
-    /// lock poisoning. This prioritizes availability over crash-looping: if
-    /// another thread panicked while holding the lock, we recover the inner
-    /// data and continue. The epoch tracking data remains consistent because
-    /// all mutations are simple HashMap operations.
-    pub fn cleanup_seen_epochs(&self) {
-        let mut epochs = self
-            .seen_client_epochs
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        if epochs.len() > MAX_SEEN_EPOCHS {
-            epochs.clear();
-        }
-    }
-
-    /// Get the current number of tracked client epochs.
-    ///
-    /// # Lock Poisoning
-    ///
-    /// Uses `unwrap_or_else(|e| e.into_inner())` to recover gracefully from
-    /// lock poisoning rather than panicking.
-    pub fn seen_epochs_count(&self) -> usize {
-        self.seen_client_epochs
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .len()
     }
 
     // =========================================================================
@@ -332,6 +303,17 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         let n = hs.read_message(client_final_msg, &mut buf)?;
         let payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
 
+        // Verify that the Noise handshake's remote static matches the payload's claimed key.
+        // This ensures the client actually used the key they claim in their identity binding.
+        if let Some(remote_static) = hs.get_remote_static() {
+            let remote_static_arr: [u8; 32] = remote_static
+                .try_into()
+                .map_err(|_| NoiseError::Other("Remote static key wrong length".to_string()))?;
+            if remote_static_arr != payload.noise_x25519_pub {
+                return Err(NoiseError::IdentityVerify);
+            }
+        }
+
         if let Some(ref hint) = payload.server_hint {
             if hint.len() > MAX_SERVER_HINT_LEN {
                 return Err(NoiseError::Policy(format!(
@@ -353,6 +335,26 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         )?;
         if !ok {
             return Err(NoiseError::InvalidPeerKey);
+        }
+
+        // Validate expiration timestamp BEFORE signature verification (fail-fast)
+        // This is defense-in-depth: if a payload has an expiration, enforce it
+        // We fail closed if system time is unreliable when expiration is present
+        if let Some(expires_at) = payload.expires_at {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .map_err(|_| {
+                    NoiseError::Other(
+                        "System clock before UNIX epoch; cannot validate expiration".to_string(),
+                    )
+                })?;
+            if now > expires_at {
+                return Err(NoiseError::SessionExpired(format!(
+                    "Identity payload expired at {} (current time: {})",
+                    expires_at, now
+                )));
+            }
         }
 
         // Verify identity binding signature
