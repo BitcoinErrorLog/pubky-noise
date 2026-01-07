@@ -102,7 +102,7 @@ pub fn derive_device_keypair(
 }
 
 // ============================================================================
-// Sealed Blob v1 FFI Exports
+// Sealed Blob v2 FFI Exports (v1 backward compatible for decryption)
 // ============================================================================
 
 /// Generate a new X25519 keypair for sealed blob encryption.
@@ -135,7 +135,7 @@ pub fn x25519_public_from_secret(secret: Vec<u8>) -> Result<Vec<u8>, FfiNoiseErr
     Ok(crate::sealed_blob::x25519_public_from_secret(&secret_arr).to_vec())
 }
 
-/// Encrypt plaintext using Paykit Sealed Blob v1 format.
+/// Encrypt plaintext using Paykit Sealed Blob v2 format (XChaCha20-Poly1305).
 ///
 /// # Arguments
 ///
@@ -146,7 +146,7 @@ pub fn x25519_public_from_secret(secret: Vec<u8>) -> Result<Vec<u8>, FfiNoiseErr
 ///
 /// # Returns
 ///
-/// JSON-encoded sealed blob envelope.
+/// JSON-encoded sealed blob v2 envelope.
 ///
 /// # Errors
 ///
@@ -178,12 +178,12 @@ pub fn sealed_blob_encrypt(
     .map_err(FfiNoiseError::from)
 }
 
-/// Decrypt a Paykit Sealed Blob v1 envelope.
+/// Decrypt a Paykit Sealed Blob v1 or v2 envelope (auto-detects version).
 ///
 /// # Arguments
 ///
 /// * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
-/// * `envelope_json` - JSON-encoded sealed blob envelope
+/// * `envelope_json` - JSON-encoded sealed blob envelope (v1 or v2)
 /// * `aad` - Associated authenticated data (must match encryption)
 ///
 /// # Returns
@@ -214,8 +214,9 @@ pub fn sealed_blob_decrypt(
         .map_err(FfiNoiseError::from)
 }
 
-/// Check if a JSON string looks like a sealed blob envelope.
+/// Check if a JSON string looks like a sealed blob envelope (v1 or v2).
 ///
+/// Requires both version field (`"v":1` or `"v":2`) AND ephemeral public key (`"epk":`).
 /// This is a quick heuristic check for distinguishing encrypted from legacy plaintext.
 #[uniffi::export]
 pub fn is_sealed_blob(json: String) -> bool {

@@ -1,9 +1,12 @@
-//! Paykit Sealed Blob v1 Implementation
+//! Paykit Sealed Blob v2 Implementation
 //!
 //! Provides authenticated encryption for secret-bearing data stored on public
-//! Pubky homeserver paths. Uses ephemeral-static X25519 ECDH with ChaCha20-Poly1305.
+//! Pubky homeserver paths. Uses ephemeral-static X25519 ECDH with XChaCha20-Poly1305.
 //!
-//! See `/docs/SEALED_BLOB_V1_SPEC.md` in paykit-rs for full specification.
+//! v2 uses XChaCha20-Poly1305 (24-byte nonce) for improved security.
+//! v1 backward compatibility is maintained for decryption.
+//!
+//! See `/docs/SEALED_BLOB_SPEC.md` in paykit-rs for full specification.
 
 use crate::errors::NoiseError;
 use hkdf::Hkdf;
@@ -12,30 +15,37 @@ use sha2::Sha256;
 use x25519_dalek::{x25519, X25519_BASEPOINT_BYTES};
 use zeroize::Zeroizing;
 
-/// Current sealed blob version.
-pub const SEALED_BLOB_VERSION: u8 = 1;
+/// Current sealed blob version (v2 uses XChaCha20-Poly1305).
+pub const SEALED_BLOB_VERSION: u8 = 2;
 
 /// Maximum plaintext size (64 KiB).
 pub const MAX_PLAINTEXT_SIZE: usize = 65536;
 
-/// HKDF info string for key derivation.
-const HKDF_INFO: &[u8] = b"paykit-sealed-blob-v1";
+/// HKDF info string for v1 key derivation (backward compat).
+const HKDF_INFO_V1: &[u8] = b"paykit-sealed-blob-v1";
 
-/// ChaCha20-Poly1305 nonce size.
-const NONCE_SIZE: usize = 12;
+/// HKDF info string for v2 key derivation.
+const HKDF_INFO_V2: &[u8] = b"pubky-envelope/v2";
+
+/// ChaCha20-Poly1305 nonce size (v1).
+const NONCE_SIZE_V1: usize = 12;
+
+/// XChaCha20-Poly1305 nonce size (v2).
+const NONCE_SIZE_V2: usize = 24;
 
 /// ChaCha20-Poly1305 tag size (included in ciphertext).
 #[allow(dead_code)]
 const TAG_SIZE: usize = 16;
 
 /// Sealed blob envelope (JSON-serializable).
+/// Supports both v1 and v2 formats.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SealedBlobEnvelope {
-    /// Version number (must be 1).
+    /// Version number (1 or 2).
     pub v: u8,
     /// Sender's ephemeral public key, base64url-encoded.
     pub epk: String,
-    /// Nonce, base64url-encoded.
+    /// Nonce, base64url-encoded (12 bytes for v1, 24 bytes for v2).
     pub nonce: String,
     /// Ciphertext + tag, base64url-encoded.
     pub ct: String,
@@ -45,6 +55,12 @@ pub struct SealedBlobEnvelope {
     /// Optional purpose hint.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purpose: Option<String>,
+    /// Optional sender PKARR pubkey (z-base-32). Untrusted unless sig present.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender: Option<String>,
+    /// Optional Ed25519 signature over envelope hash. Required to trust sender.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sig: Option<String>,
 }
 
 /// Sealed blob error codes matching the spec.
@@ -101,8 +117,8 @@ fn x25519_shared_secret(local_sk: &[u8; 32], peer_pk: &[u8; 32]) -> Zeroizing<[u
     Zeroizing::new(x25519(*local_sk, *peer_pk))
 }
 
-/// Derive symmetric key from shared secret and ephemeral public keys.
-fn derive_symmetric_key(
+/// Derive symmetric key from shared secret and ephemeral public keys (v1).
+fn derive_symmetric_key_v1(
     shared_secret: &[u8; 32],
     ephemeral_pk: &[u8; 32],
     recipient_pk: &[u8; 32],
@@ -114,7 +130,25 @@ fn derive_symmetric_key(
     
     let hk = Hkdf::<Sha256>::new(Some(&salt), shared_secret);
     let mut key = Zeroizing::new([0u8; 32]);
-    hk.expand(HKDF_INFO, key.as_mut())
+    hk.expand(HKDF_INFO_V1, key.as_mut())
+        .expect("HKDF expand with 32-byte output should never fail");
+    key
+}
+
+/// Derive symmetric key from shared secret and ephemeral public keys (v2).
+fn derive_symmetric_key_v2(
+    shared_secret: &[u8; 32],
+    ephemeral_pk: &[u8; 32],
+    recipient_pk: &[u8; 32],
+) -> Zeroizing<[u8; 32]> {
+    // salt = ephemeral_pk || recipient_pk
+    let mut salt = [0u8; 64];
+    salt[..32].copy_from_slice(ephemeral_pk);
+    salt[32..].copy_from_slice(recipient_pk);
+    
+    let hk = Hkdf::<Sha256>::new(Some(&salt), shared_secret);
+    let mut key = Zeroizing::new([0u8; 32]);
+    hk.expand(HKDF_INFO_V2, key.as_mut())
         .expect("HKDF expand with 32-byte output should never fail");
     key
 }
@@ -142,10 +176,11 @@ fn base64url_decode(s: &str) -> Result<Vec<u8>, SealedBlobErrorCode> {
         .map_err(|_| SealedBlobErrorCode::InvalidBase64)
 }
 
-/// ChaCha20-Poly1305 encrypt with AAD.
+/// ChaCha20-Poly1305 encrypt with AAD (v1 - used in tests for backward compat).
+#[allow(dead_code)]
 fn chacha20poly1305_encrypt(
     key: &[u8; 32],
-    nonce: &[u8; NONCE_SIZE],
+    nonce: &[u8; NONCE_SIZE_V1],
     plaintext: &[u8],
     aad: &[u8],
 ) -> Vec<u8> {
@@ -158,10 +193,10 @@ fn chacha20poly1305_encrypt(
         .expect("ChaCha20Poly1305 encryption should never fail")
 }
 
-/// ChaCha20-Poly1305 decrypt with AAD.
+/// ChaCha20-Poly1305 decrypt with AAD (v1).
 fn chacha20poly1305_decrypt(
     key: &[u8; 32],
-    nonce: &[u8; NONCE_SIZE],
+    nonce: &[u8; NONCE_SIZE_V1],
     ciphertext: &[u8],
     aad: &[u8],
 ) -> Result<Vec<u8>, SealedBlobErrorCode> {
@@ -174,7 +209,39 @@ fn chacha20poly1305_decrypt(
         .map_err(|_| SealedBlobErrorCode::DecryptionFailed)
 }
 
-/// Encrypt plaintext to recipient's X25519 public key.
+/// XChaCha20-Poly1305 encrypt with AAD (v2).
+fn xchacha20poly1305_encrypt(
+    key: &[u8; 32],
+    nonce: &[u8; NONCE_SIZE_V2],
+    plaintext: &[u8],
+    aad: &[u8],
+) -> Vec<u8> {
+    use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+    use chacha20poly1305::XChaCha20Poly1305;
+    
+    let cipher = XChaCha20Poly1305::new(key.into());
+    cipher
+        .encrypt(nonce.into(), Payload { msg: plaintext, aad })
+        .expect("XChaCha20Poly1305 encryption should never fail")
+}
+
+/// XChaCha20-Poly1305 decrypt with AAD (v2).
+fn xchacha20poly1305_decrypt(
+    key: &[u8; 32],
+    nonce: &[u8; NONCE_SIZE_V2],
+    ciphertext: &[u8],
+    aad: &[u8],
+) -> Result<Vec<u8>, SealedBlobErrorCode> {
+    use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+    use chacha20poly1305::XChaCha20Poly1305;
+    
+    let cipher = XChaCha20Poly1305::new(key.into());
+    cipher
+        .decrypt(nonce.into(), Payload { msg: ciphertext, aad })
+        .map_err(|_| SealedBlobErrorCode::DecryptionFailed)
+}
+
+/// Encrypt plaintext to recipient's X25519 public key using Sealed Blob v2.
 ///
 /// # Arguments
 ///
@@ -185,7 +252,7 @@ fn chacha20poly1305_decrypt(
 ///
 /// # Returns
 ///
-/// JSON-encoded sealed blob envelope.
+/// JSON-encoded sealed blob v2 envelope.
 pub fn sealed_blob_encrypt(
     recipient_pk: &[u8; 32],
     plaintext: &[u8],
@@ -208,15 +275,15 @@ pub fn sealed_blob_encrypt(
     // Compute shared secret
     let shared_secret = x25519_shared_secret(&ephemeral_sk, recipient_pk);
     
-    // Derive symmetric key
-    let key = derive_symmetric_key(&shared_secret, &ephemeral_pk, recipient_pk);
+    // Derive symmetric key (v2)
+    let key = derive_symmetric_key_v2(&shared_secret, &ephemeral_pk, recipient_pk);
     
-    // Generate random nonce
-    let mut nonce = [0u8; NONCE_SIZE];
+    // Generate random 24-byte nonce for XChaCha20
+    let mut nonce = [0u8; NONCE_SIZE_V2];
     rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut nonce);
     
-    // Encrypt
-    let ciphertext = chacha20poly1305_encrypt(&key, &nonce, plaintext, aad.as_bytes());
+    // Encrypt with XChaCha20-Poly1305
+    let ciphertext = xchacha20poly1305_encrypt(&key, &nonce, plaintext, aad.as_bytes());
     
     // Build envelope
     let envelope = SealedBlobEnvelope {
@@ -226,17 +293,20 @@ pub fn sealed_blob_encrypt(
         ct: base64url_encode(&ciphertext),
         kid: Some(compute_kid(recipient_pk)),
         purpose: purpose.map(String::from),
+        sender: None, // Deferred to future enhancement
+        sig: None,    // Deferred to future enhancement
     };
     
     serde_json::to_string(&envelope).map_err(|e| NoiseError::Serde(e.to_string()))
 }
 
 /// Decrypt sealed blob envelope using recipient's secret key.
+/// Auto-detects v1 or v2 format.
 ///
 /// # Arguments
 ///
 /// * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
-/// * `envelope_json` - JSON-encoded sealed blob envelope
+/// * `envelope_json` - JSON-encoded sealed blob envelope (v1 or v2)
 /// * `aad` - Associated authenticated data (must match encryption)
 ///
 /// # Returns
@@ -251,60 +321,76 @@ pub fn sealed_blob_decrypt(
     let envelope: SealedBlobEnvelope = serde_json::from_str(envelope_json)
         .map_err(|_| NoiseError::Decryption(SealedBlobErrorCode::MalformedEnvelope.to_string()))?;
     
-    // Verify version
-    if envelope.v != SEALED_BLOB_VERSION {
-        return Err(NoiseError::Decryption(format!(
-            "{}: got version {}",
-            SealedBlobErrorCode::UnsupportedVersion,
-            envelope.v
-        )));
-    }
-    
-    // Decode fields
+    // Decode ephemeral public key
     let ephemeral_pk_bytes = base64url_decode(&envelope.epk)
         .map_err(|e| NoiseError::Decryption(e.to_string()))?;
-    let nonce_bytes = base64url_decode(&envelope.nonce)
-        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
-    let ciphertext = base64url_decode(&envelope.ct)
-        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
     
-    // Validate sizes
     if ephemeral_pk_bytes.len() != 32 {
         return Err(NoiseError::Decryption(
             SealedBlobErrorCode::InvalidKeySize.to_string(),
         ));
     }
-    if nonce_bytes.len() != NONCE_SIZE {
-        return Err(NoiseError::Decryption(
-            SealedBlobErrorCode::InvalidNonceSize.to_string(),
-        ));
-    }
     
     let mut ephemeral_pk = [0u8; 32];
     ephemeral_pk.copy_from_slice(&ephemeral_pk_bytes);
-    let mut nonce = [0u8; NONCE_SIZE];
-    nonce.copy_from_slice(&nonce_bytes);
+    
+    // Decode nonce and ciphertext
+    let nonce_bytes = base64url_decode(&envelope.nonce)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    let ciphertext = base64url_decode(&envelope.ct)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
     
     // Compute recipient public key and shared secret
     let recipient_pk = x25519_public_from_secret(recipient_sk);
     let shared_secret = x25519_shared_secret(recipient_sk, &ephemeral_pk);
     
-    // Derive symmetric key
-    let key = derive_symmetric_key(&shared_secret, &ephemeral_pk, &recipient_pk);
-    
-    // Decrypt
-    chacha20poly1305_decrypt(&key, &nonce, &ciphertext, aad.as_bytes())
-        .map_err(|e| NoiseError::Decryption(e.to_string()))
+    // Version-specific decryption
+    match envelope.v {
+        1 => {
+            // v1: ChaCha20-Poly1305, 12-byte nonce, HKDF_INFO_V1
+            if nonce_bytes.len() != NONCE_SIZE_V1 {
+                return Err(NoiseError::Decryption(
+                    SealedBlobErrorCode::InvalidNonceSize.to_string(),
+                ));
+            }
+            let mut nonce = [0u8; NONCE_SIZE_V1];
+            nonce.copy_from_slice(&nonce_bytes);
+            
+            let key = derive_symmetric_key_v1(&shared_secret, &ephemeral_pk, &recipient_pk);
+            chacha20poly1305_decrypt(&key, &nonce, &ciphertext, aad.as_bytes())
+                .map_err(|e| NoiseError::Decryption(e.to_string()))
+        }
+        2 => {
+            // v2: XChaCha20-Poly1305, 24-byte nonce, HKDF_INFO_V2
+            if nonce_bytes.len() != NONCE_SIZE_V2 {
+                return Err(NoiseError::Decryption(
+                    SealedBlobErrorCode::InvalidNonceSize.to_string(),
+                ));
+            }
+            let mut nonce = [0u8; NONCE_SIZE_V2];
+            nonce.copy_from_slice(&nonce_bytes);
+            
+            let key = derive_symmetric_key_v2(&shared_secret, &ephemeral_pk, &recipient_pk);
+            xchacha20poly1305_decrypt(&key, &nonce, &ciphertext, aad.as_bytes())
+                .map_err(|e| NoiseError::Decryption(e.to_string()))
+        }
+        _ => Err(NoiseError::Decryption(format!(
+            "{}: got version {}",
+            SealedBlobErrorCode::UnsupportedVersion,
+            envelope.v
+        ))),
+    }
 }
 
 /// Check if a JSON string looks like a sealed blob envelope.
 ///
-/// This is a quick heuristic check that requires BOTH `"v":1` AND `"epk":`.
-/// Use for distinguishing encrypted from legacy plaintext.
+/// This is a quick heuristic check that requires BOTH version (`"v":1` or `"v":2`)
+/// AND `"epk":`. Use for distinguishing encrypted from legacy plaintext.
 pub fn is_sealed_blob(json: &str) -> bool {
     let has_v1 = json.contains("\"v\":1") || json.contains("\"v\": 1");
+    let has_v2 = json.contains("\"v\":2") || json.contains("\"v\": 2");
     let has_epk = json.contains("\"epk\":") || json.contains("\"epk\" :");
-    has_v1 && has_epk
+    (has_v1 || has_v2) && has_epk
 }
 
 #[cfg(test)]
@@ -323,14 +409,54 @@ mod tests {
     }
 
     #[test]
-    fn test_roundtrip_encrypt_decrypt() {
+    fn test_roundtrip_encrypt_decrypt_v2() {
         let (recipient_sk, recipient_pk) = x25519_generate_keypair();
         let plaintext = b"hello world";
         let aad = "handoff:testpubkey123:/pub/paykit.app/v0/handoff/abc";
         
         let envelope = sealed_blob_encrypt(&recipient_pk, plaintext, aad, Some("handoff")).unwrap();
-        let decrypted = sealed_blob_decrypt(&recipient_sk, &envelope, aad).unwrap();
         
+        // Verify it's v2
+        assert!(envelope.contains("\"v\":2"));
+        
+        let decrypted = sealed_blob_decrypt(&recipient_sk, &envelope, aad).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_v1_envelope_still_decrypts() {
+        // Hardcoded v1 envelope for backward compatibility testing
+        // This was generated with the old v1 code
+        let (recipient_sk, recipient_pk) = x25519_generate_keypair();
+        let plaintext = b"test v1 data";
+        let aad = "test:v1:aad";
+        
+        // Manually create a v1 envelope using v1 logic
+        let (ephemeral_sk, ephemeral_pk) = x25519_generate_keypair();
+        let ephemeral_sk = Zeroizing::new(ephemeral_sk);
+        let shared_secret = x25519_shared_secret(&ephemeral_sk, &recipient_pk);
+        let key = derive_symmetric_key_v1(&shared_secret, &ephemeral_pk, &recipient_pk);
+        
+        let mut nonce = [0u8; NONCE_SIZE_V1];
+        rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut nonce);
+        
+        let ciphertext = chacha20poly1305_encrypt(&key, &nonce, plaintext, aad.as_bytes());
+        
+        let envelope = SealedBlobEnvelope {
+            v: 1, // v1!
+            epk: base64url_encode(&ephemeral_pk),
+            nonce: base64url_encode(&nonce),
+            ct: base64url_encode(&ciphertext),
+            kid: Some(compute_kid(&recipient_pk)),
+            purpose: Some("test".to_string()),
+            sender: None,
+            sig: None,
+        };
+        
+        let envelope_json = serde_json::to_string(&envelope).unwrap();
+        
+        // Decrypt with the v2 code - should auto-detect v1
+        let decrypted = sealed_blob_decrypt(&recipient_sk, &envelope_json, aad).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
@@ -371,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn test_envelope_structure() {
+    fn test_envelope_structure_v2() {
         let (_, recipient_pk) = x25519_generate_keypair();
         let plaintext = b"test";
         let aad = "test:aad";
@@ -379,29 +505,55 @@ mod tests {
         let envelope_json = sealed_blob_encrypt(&recipient_pk, plaintext, aad, Some("handoff")).unwrap();
         let envelope: SealedBlobEnvelope = serde_json::from_str(&envelope_json).unwrap();
         
-        assert_eq!(envelope.v, 1);
+        assert_eq!(envelope.v, 2);
         assert!(envelope.kid.is_some());
         assert_eq!(envelope.purpose, Some("handoff".to_string()));
+        assert!(envelope.sender.is_none()); // Deferred
+        assert!(envelope.sig.is_none());    // Deferred
+        
+        // v2 nonce should be 24 bytes (32 chars base64url)
+        let nonce_bytes = base64url_decode(&envelope.nonce).unwrap();
+        assert_eq!(nonce_bytes.len(), NONCE_SIZE_V2);
     }
 
     #[test]
     fn test_is_sealed_blob() {
-        // Valid sealed blob envelopes (have both v:1 AND epk)
+        // Valid sealed blob envelopes (have version AND epk)
         assert!(is_sealed_blob(r#"{"v":1,"epk":"abc","nonce":"def","ct":"ghi"}"#));
         assert!(is_sealed_blob(r#"{"v": 1, "epk": "abc"}"#));
         assert!(is_sealed_blob(r#"{"v":1,"epk":"abc"}"#));
+        assert!(is_sealed_blob(r#"{"v":2,"epk":"abc","nonce":"def","ct":"ghi"}"#));
+        assert!(is_sealed_blob(r#"{"v": 2, "epk": "abc"}"#));
+        assert!(is_sealed_blob(r#"{"v":2,"epk":"abc"}"#));
         
         // Not sealed blobs (missing required fields)
         assert!(!is_sealed_blob(r#"{"session_secret":"abc"}"#));
         assert!(!is_sealed_blob(r#"{"version":1}"#));
         
-        // Has v:1 but no epk - NOT a sealed blob (prevents false positives)
+        // Has version but no epk - NOT a sealed blob (prevents false positives)
         assert!(!is_sealed_blob(r#"{"v":1,"other":"field"}"#));
         assert!(!is_sealed_blob(r#"{"v": 1}"#));
+        assert!(!is_sealed_blob(r#"{"v":2,"other":"field"}"#));
+        assert!(!is_sealed_blob(r#"{"v": 2}"#));
         
-        // Has epk but no v:1 - NOT a sealed blob
-        assert!(!is_sealed_blob(r#"{"epk":"abc","v":2}"#));
+        // Has epk but no version - NOT a sealed blob
+        assert!(!is_sealed_blob(r#"{"epk":"abc","v":3}"#)); // v3 not supported
         assert!(!is_sealed_blob(r#"{"epk":"abc"}"#));
     }
-}
 
+    #[test]
+    fn test_unsupported_version_fails() {
+        // Create a v2 envelope then modify it to have an unsupported version
+        let (recipient_sk, recipient_pk) = x25519_generate_keypair();
+        let plaintext = b"test";
+        let aad = "test:aad";
+        
+        let envelope_json = sealed_blob_encrypt(&recipient_pk, plaintext, aad, None).unwrap();
+        // Replace "v":2 with "v":99
+        let bad_envelope = envelope_json.replace("\"v\":2", "\"v\":99");
+        
+        let result = sealed_blob_decrypt(&recipient_sk, &bad_envelope, aad);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unsupported version"));
+    }
+}

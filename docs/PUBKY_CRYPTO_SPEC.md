@@ -365,6 +365,7 @@ key = HKDF-SHA256(
 For v2 envelopes: 24 bytes random (XChaCha20-Poly1305).
 
 For v1 envelopes (legacy): 12 bytes random (ChaCha20-Poly1305).
+For v2 envelopes (current): 24 bytes random (XChaCha20-Poly1305).
 
 ### 7.5 AAD Construction
 
@@ -592,6 +593,7 @@ Test vectors for interoperability testing are defined in `pubky-noise/tests/`.
 | Identity binding prefix | `"pubky-noise-bind:v1"` |
 | Envelope key info (v1) | `"paykit-sealed-blob-v1"` |
 | Envelope key info (v2) | `"pubky-envelope/v2"` |
+| Envelope key info (v2) | `"pubky-envelope/v2"` |
 | Envelope signature prefix | `"pubky-envelope-sig/v2"` |
 
 ---
@@ -618,7 +620,7 @@ This section documents gaps between the spec and current implementation.
 |---------|--------|----------|
 | X25519 derivation with device_id + epoch | ✅ Implemented | `pubky-noise/src/kdf.rs` |
 | Session ID from handshake hash | ✅ Implemented | `pubky-noise/src/session_id.rs` |
-| Sealed Blob v1 encryption | ✅ Implemented | `pubky-noise/src/sealed_blob.rs` |
+| Sealed Blob v2 encryption | ✅ Implemented | `pubky-noise/src/sealed_blob.rs` |
 | RingKeyProvider trait | ✅ Implemented | `pubky-noise/src/ring.rs` |
 | Identity binding in handshake | ✅ Implemented | `pubky-noise/src/identity_payload.rs` |
 | Secure handoff (Ring → Bitkit) | ✅ Implemented | `pubky-ring/src/utils/actions/paykitConnectAction.ts` |
@@ -630,7 +632,7 @@ This section documents gaps between the spec and current implementation.
 | APP_SEED derivation layer | ❌ Not implemented | Currently uses ed25519 seed directly |
 | Role parameter in X25519 derivation | ❌ Not implemented | Info is `device_id \|\| epoch` only |
 | LOCAL_ARCHIVE_KEY derivation | ❌ Not implemented | Needs new function in kdf.rs |
-| Sealed Blob v2 (XChaCha20, sender field) | ❌ Not implemented | v1 uses ChaCha20-Poly1305 |
+| Sealed Blob v1 backward compat | ✅ Implemented | Decryption auto-detects v1/v2 |
 | Epoch fallback decryption | ❌ Not implemented | Single epoch only |
 | Message kind field in envelopes | ❌ Not implemented | Purpose field exists but not typed |
 

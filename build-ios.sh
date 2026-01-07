@@ -72,16 +72,17 @@ rm -rf "$IOS_DIR/PubkyNoise.xcframework"
 # Create a simulator universal library (x86_64 + arm64 simulator)
 # Note: Modern Xcode needs arm64 simulator support
 echo "Creating universal simulator library..."
+mkdir -p "$TARGET_DIR/sim-universal"
 lipo -create \
     "$TARGET_DIR/x86_64-apple-ios/release/libpubky_noise.a" \
     "$TARGET_DIR/aarch64-apple-ios-sim/release/libpubky_noise.a" \
-    -output "$TARGET_DIR/universal-sim-libpubky_noise.a"
+    -output "$TARGET_DIR/sim-universal/libpubky_noise.a"
 
 echo "Building XCFramework..."
 xcodebuild -create-xcframework \
     -library "$TARGET_DIR/aarch64-apple-ios/release/libpubky_noise.a" \
     -headers "$IOS_DIR/Sources" \
-    -library "$TARGET_DIR/universal-sim-libpubky_noise.a" \
+    -library "$TARGET_DIR/sim-universal/libpubky_noise.a" \
     -headers "$IOS_DIR/Sources" \
     -output "$IOS_DIR/PubkyNoise.xcframework"
 

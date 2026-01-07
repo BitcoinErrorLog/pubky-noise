@@ -133,22 +133,22 @@ fn test_wrong_aad_fails() {
     );
 }
 
-/// Test that wrong version is rejected
+/// Test that unsupported version is rejected
 #[test]
-fn test_wrong_version_rejected() {
+fn test_unsupported_version_rejected() {
     let (envelope_json, recipient_sk, aad) = create_test_blob();
 
-    // Parse and change version
+    // Parse and change version to unsupported
     let mut envelope: SealedBlobEnvelope = serde_json::from_str(&envelope_json).unwrap();
-    envelope.v = 2; // Wrong version
+    envelope.v = 99; // Unsupported version
 
     let tampered_json = serde_json::to_string(&envelope).unwrap();
 
-    // Decryption should fail due to version mismatch
+    // Decryption should fail due to unsupported version
     let result = sealed_blob_decrypt(&recipient_sk, &tampered_json, &aad);
     assert!(
         result.is_err(),
-        "Decryption should fail with wrong version"
+        "Decryption should fail with unsupported version"
     );
 }
 
@@ -248,7 +248,7 @@ fn test_invalid_nonce_size_rejected() {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine;
 
-    // Too short
+    // Too short (v2 expects 24 bytes)
     envelope.nonce = URL_SAFE_NO_PAD.encode([0u8; 8]);
     let tampered_json = serde_json::to_string(&envelope).unwrap();
     let result = sealed_blob_decrypt(&recipient_sk, &tampered_json, &aad);
@@ -257,8 +257,8 @@ fn test_invalid_nonce_size_rejected() {
         "Decryption should fail with too-short nonce"
     );
 
-    // Too long
-    envelope.nonce = URL_SAFE_NO_PAD.encode([0u8; 24]);
+    // Too long (v2 expects 24 bytes, not 32)
+    envelope.nonce = URL_SAFE_NO_PAD.encode([0u8; 32]);
     let tampered_json = serde_json::to_string(&envelope).unwrap();
     let result = sealed_blob_decrypt(&recipient_sk, &tampered_json, &aad);
     assert!(

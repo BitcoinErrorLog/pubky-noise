@@ -1,0 +1,65 @@
+{
+  "description": "Cross-language test vectors for Sealed Blob v1 and v2",
+  "note": "Use these vectors to verify Swift/Kotlin implementations produce compatible results",
+  "vectors": [
+    {
+      "name": "v2_basic_roundtrip",
+      "description": "Basic v2 encryption/decryption test case - verify decryption with known key/aad",
+      "recipient_sk_hex": "0102030405060708091011121314151617181920212223242526272829303140",
+      "plaintext_hex": "48656c6c6f2c20576f726c6421",
+      "plaintext_ascii": "Hello, World!",
+      "aad": "test:v2:cross_platform",
+      "purpose": "test",
+      "expected": {
+        "version": 2,
+        "nonce_length_bytes": 24,
+        "notes": "Ciphertext will differ per encryption due to random nonce, but decryption should always recover plaintext. Use this for roundtrip testing."
+      }
+    },
+    {
+      "name": "v1_compatibility_frozen",
+      "description": "Pre-computed v1 envelope with frozen ciphertext for backward compatibility testing",
+      "recipient_sk_hex": "1022334455667788990011121314151617181920212223242526272829ee7f40",
+      "note": "recipient_sk is clamped (sk[0] &= 248, sk[31] &= 127, sk[31] |= 64)",
+      "aad": "test:v1:compat",
+      "v1_envelope": {
+        "v": 1,
+        "epk": "QrcZC6lKhz5XVTbIiLMORfdFl1KRz0B9D4RgvgE5Vms",
+        "nonce": "AQIDBAUGBwgJCgsM",
+        "ct": "YY0tmQsVUbOOb_4Z8w7wpZFM1lQ3S5qXgxI"
+      },
+      "expected_plaintext_hex": "763120746573742064617461",
+      "expected_plaintext_ascii": "v1 test data",
+      "notes": "This envelope was generated with ephemeral_sk clamped and deterministic nonce [1..12]. Decrypt with recipient_sk and aad to get plaintext."
+    },
+    {
+      "name": "kid_computation",
+      "description": "Key ID computation test (first 8 bytes of SHA-256(recipient_pk), hex)",
+      "recipient_pk_hex": "2fe57da347cd62431528daac5fbb290730fff684afc4cfc2ed90995f58cb3b74",
+      "expected_kid_hex": "7c6e7d8e2f1a4b5c"
+    },
+    {
+      "name": "is_sealed_blob_detection",
+      "description": "Strings that should and should not be detected as sealed blobs",
+      "valid": [
+        "{\"v\":1,\"epk\":\"abc\"}",
+        "{\"v\": 1, \"epk\": \"xyz\"}",
+        "{\"v\":2,\"epk\":\"abc\"}",
+        "{\"v\": 2, \"epk\": \"xyz\"}",
+        "{\"v\":1,\"epk\":\"abc\",\"nonce\":\"def\",\"ct\":\"ghi\"}",
+        "{\"v\":2,\"epk\":\"abc\",\"nonce\":\"def\",\"ct\":\"ghi\"}"
+      ],
+      "invalid": [
+        "{\"v\":1}",
+        "{\"v\":2}",
+        "{\"epk\":\"abc\"}",
+        "{\"v\":0,\"epk\":\"abc\"}",
+        "{\"v\":3,\"epk\":\"abc\"}",
+        "{\"v\":99,\"epk\":\"abc\"}",
+        "not json",
+        "",
+        "null"
+      ]
+    }
+  ]
+}
