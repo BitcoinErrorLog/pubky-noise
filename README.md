@@ -28,6 +28,8 @@ Direct client↔server Noise sessions for Pubky using `snow`. Default build is d
 * Suites: `Noise_XX_25519_ChaChaPoly_BLAKE2s`, `Noise_IK_25519_ChaChaPoly_BLAKE2s`, and `Noise_NN_25519_ChaChaPoly_BLAKE2s`.
 * Hash: BLAKE2s. AEAD: ChaCha20-Poly1305. DH: X25519.
 
+**Full cryptographic specification**: See the [Pubky Crypto Spec](https://github.com/pubky/pubky-core/blob/main/docs/PUBKY_CRYPTO_SPEC.md) for complete documentation of key derivation, envelope formats, and security considerations.
+
 ## Features
 
 * `default = []`: direct-only, no PKARR, no extra dependencies.
