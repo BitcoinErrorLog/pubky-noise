@@ -49,7 +49,8 @@ pub struct SealedBlobEnvelope {
     pub nonce: String,
     /// Ciphertext + tag, base64url-encoded.
     pub ct: String,
-    /// Optional key identifier (first 8 bytes of SHA-256(recipient_pk), hex).
+    /// Key identifier: first 16 bytes of SHA-256(recipient_inbox_x25519_pub), hex-encoded.
+    /// Per PUBKY_CRYPTO_SPEC v2.5, this is `inbox_kid` and MUST be 16 bytes (32 hex chars).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kid: Option<String>,
     /// Optional purpose hint.
@@ -153,11 +154,20 @@ fn derive_symmetric_key_v2(
     key
 }
 
-/// Compute key identifier from recipient public key.
+/// Compute inbox_kid from recipient's InboxKey public key.
+///
+/// Per PUBKY_CRYPTO_SPEC v2.5 Section 7.2:
+/// ```text
+/// inbox_kid = first_16_bytes(SHA256(recipient_inbox_x25519_pub))
+/// ```
+///
+/// The `inbox_kid` identifies the recipient's InboxKey (not TransportKey)
+/// for O(1) key selection.
 fn compute_kid(recipient_pk: &[u8; 32]) -> String {
     use sha2::{Digest, Sha256};
     let hash = Sha256::digest(recipient_pk);
-    hex::encode(&hash[..8])
+    // Per PUBKY_CRYPTO_SPEC v2.5: inbox_kid = first 16 bytes = 32 hex chars
+    hex::encode(&hash[..16])
 }
 
 /// Base64url encode without padding.

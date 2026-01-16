@@ -8,6 +8,10 @@ use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
 /// Role in the Noise protocol handshake.
+///
+/// **Note**: The Noise state machine knows which side it is. The `role` field
+/// exists for application-layer disambiguation when needed (e.g., logging,
+/// debugging). It is not cryptographically significant.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Role {
     Client,
@@ -43,13 +47,31 @@ mod signature_serde {
 ///
 /// Contains the Ed25519 identity, the X25519 ephemeral key used in the handshake,
 /// and a signature binding them together.
+///
+/// ## Wire Format Notes (per PUBKY_CRYPTO_SPEC v2.5)
+///
+/// - **epoch**: Deprecated. Always 0. Epoch is Ring-internal derivation metadata
+///   and MUST NOT appear in signed payloads. This field is kept for wire format
+///   compatibility with older implementations.
+///
+/// - **noise_x25519_pub**: Deprecated. The Noise static keys are already carried
+///   by the Noise handshake itself. Duplicating them adds wire bytes and creates
+///   mismatch ambiguity.
+///
+/// - **role**: Application-layer disambiguation only. Not cryptographically significant.
+///
+/// - **server_hint**: Optional, non-normative metadata. May be rotated freely without
+///   affecting identity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityPayload {
     pub ed25519_pub: [u8; 32],
+    /// Deprecated: Use the Noise handshake's static key instead.
     pub noise_x25519_pub: [u8; 32],
-    /// Internal epoch field (always 0, kept for wire format compatibility).
+    /// Deprecated: Always 0. Epoch is Ring-internal state and MUST NOT be exposed on wire.
     pub epoch: u32,
+    /// Application-layer disambiguation only. Not cryptographically significant.
     pub role: Role,
+    /// Optional, non-normative routing metadata. May be rotated freely without affecting identity.
     pub server_hint: Option<String>,
     /// Optional expiration timestamp (Unix seconds since epoch).
     ///

@@ -34,20 +34,45 @@ use std::sync::Arc;
 #[cfg(feature = "storage-queue")]
 use crate::storage_queue::{RetryConfig, StorageBackedMessaging};
 
-/// Connection status for a Noise session
+/// Connection status for a Noise session.
+///
+/// ## Persistence
+///
+/// When the `storage-queue` feature is enabled, this enum derives `Serialize`/`Deserialize`
+/// to support state persistence across app restarts. Applications should:
+///
+/// 1. Persist `SessionState` (which includes `ConnectionStatus`) before app suspension
+/// 2. Restore on resume using `NoiseManager::restore_state()`
+/// 3. Check status and initiate reconnection if needed
+///
+/// ## Reconnection Strategy
+///
+/// Applications should implement **laddered backoff** for reconnection:
+///
+/// ```text
+/// Attempt 1: wait 1s
+/// Attempt 2: wait 2s
+/// Attempt 3: wait 4s
+/// Attempt 4: wait 8s
+/// Attempt 5: wait 16s (capped)
+/// ```
+///
+/// Use `MobileConfig::reconnect_delay_ms` as the initial delay, then double
+/// for each subsequent attempt up to a reasonable maximum (e.g., 30s).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "storage-queue",
     derive(serde::Serialize, serde::Deserialize)
 )]
 pub enum ConnectionStatus {
-    /// Session is connected and ready
+    /// Session is connected and ready for encryption/decryption.
     Connected,
-    /// Session is attempting to reconnect
+    /// Session is attempting to reconnect (application-managed).
+    /// Track reconnection attempts externally and use laddered backoff.
     Reconnecting,
-    /// Session is disconnected
+    /// Session is disconnected. Call `initiate_connection()` to reconnect.
     Disconnected,
-    /// Session encountered an error
+    /// Session encountered an error. Check logs and potentially retry.
     Error,
 }
 

@@ -3,20 +3,40 @@ use hkdf::Hkdf;
 use sha2::{Sha256, Sha512};
 use zeroize::Zeroizing;
 
+/// Minimum device_id length in bytes.
+///
+/// Per PUBKY_CRYPTO_SPEC v2.5 Section 4.4, device_id MUST be at least 16 bytes.
+pub const MIN_DEVICE_ID_LEN: usize = 16;
+
 /// Derive an X25519 secret key from a seed, device ID, and epoch.
 ///
 /// Uses HKDF-SHA512 with a fixed salt to derive keys deterministically.
-/// The resulting key is clamped for X25519 compatibility.
+/// The resulting key is clamped for X25519 compatibility per RFC 7748.
+///
+/// # Arguments
+///
+/// * `seed` - 32-byte seed material
+/// * `device_id` - Device identifier (MUST be at least 16 bytes)
+/// * `epoch` - Key epoch (32-bit little-endian integer)
 ///
 /// # Errors
 ///
-/// Returns `NoiseError::Other` if HKDF expansion fails (should never happen
-/// with valid 32-byte output, but we handle it explicitly for robustness).
+/// Returns `NoiseError::Other` if:
+/// - `device_id` is less than 16 bytes
+/// - HKDF expansion fails (should never happen with valid 32-byte output)
 pub fn derive_x25519_for_device_epoch(
     seed: &[u8; 32],
     device_id: &[u8],
     epoch: u32,
 ) -> Result<[u8; 32], NoiseError> {
+    // Enforce minimum device_id length per PUBKY_CRYPTO_SPEC v2.5
+    if device_id.len() < MIN_DEVICE_ID_LEN {
+        return Err(NoiseError::Other(format!(
+            "device_id too short: {} bytes (minimum {} bytes required)",
+            device_id.len(),
+            MIN_DEVICE_ID_LEN
+        )));
+    }
     let salt = b"pubky-noise-x25519:v1";
     let hk = Hkdf::<Sha512>::new(Some(salt), seed);
     let mut info = Vec::with_capacity(device_id.len() + 4);

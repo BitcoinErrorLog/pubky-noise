@@ -43,9 +43,22 @@ impl<T: RingKeyProvider + ?Sized> RingKeyFiller for T {
 
 /// Test-only key provider for demos and testing.
 ///
-/// **Warning**: This stores the seed in plaintext memory. For production,
-/// implement `RingKeyProvider` using your platform's secure key storage
-/// (e.g., iOS Keychain, Android Keystore).
+/// # ⚠️ WARNING: NOT FOR PRODUCTION USE
+///
+/// **`DummyRing` is for testing only.** Production deployments MUST use
+/// platform keychain/keystore integration.
+///
+/// This implementation:
+/// - Stores the seed in plaintext memory
+/// - Does not use hardware-backed security
+/// - Does not implement proper key zeroization on drop
+///
+/// For production, implement `RingKeyProvider` using your platform's secure
+/// key storage:
+/// - **iOS**: Use Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`
+/// - **Android**: Use Keystore with hardware backing (StrongBox if available)
+///
+/// See PUBKY_CRYPTO_SPEC Section 5.4 "Platform Keychain Integration" for details.
 pub struct DummyRing {
     seed32: [u8; 32],
     kid: String,

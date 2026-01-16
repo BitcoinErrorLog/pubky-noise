@@ -8,9 +8,16 @@ use zeroize::Zeroizing;
 ///
 /// **Note**: Key epoch rotation is not currently implemented. The epoch field
 /// exists in the wire format for future compatibility, but is always set to 0.
-/// For key rotation needs, applications should use fresh device IDs or manage
-/// key versioning at a higher layer.
+/// Per PUBKY_CRYPTO_SPEC v2.5, epoch is Ring-internal state and MUST NOT be
+/// exposed on the wire. For key rotation needs, use key_version via Ring FFI.
 const INTERNAL_EPOCH: u32 = 0;
+
+/// Default prologue for the Noise protocol handshake.
+///
+/// Per PUBKY_CRYPTO_SPEC v2.5 Section 6.2, the prologue MUST be a fixed constant
+/// per protocol version. Arbitrary or caller-supplied prologues are PROHIBITED
+/// to prevent covert channels and interoperability failures.
+pub const DEFAULT_PROLOGUE: &[u8] = b"pubky-noise-v1";
 
 /// Default handshake expiry duration in seconds (5 minutes).
 ///
@@ -24,6 +31,8 @@ pub struct NoiseClient<R: RingKeyProvider, P = ()> {
     pub device_id: Vec<u8>,
     pub ring: std::sync::Arc<R>,
     _phantom: PhantomData<P>,
+    /// Protocol prologue. Per PUBKY_CRYPTO_SPEC v2.5, this MUST be a fixed constant.
+    /// Do not modify unless implementing a new protocol version.
     pub prologue: Vec<u8>,
     pub suite: String,
     /// Current Unix timestamp in seconds. When set, enables handshake expiry.
@@ -73,7 +82,10 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
     /// # Arguments
     ///
     /// * `server_static_pub` - The server's static X25519 public key.
-    /// * `server_hint` - Optional hint for server routing.
+    /// * `server_hint` - Optional hint for server routing. Per PUBKY_CRYPTO_SPEC v2.5,
+    ///   this is non-normative metadata that may be rotated freely without affecting
+    ///   identity. If present in signed payloads, authenticity is verified but
+    ///   semantics/reachability are not enforced.
     ///
     /// # Returns
     ///

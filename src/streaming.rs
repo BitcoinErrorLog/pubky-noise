@@ -1,6 +1,31 @@
+//! Streaming wrapper for Noise protocol transport.
+//!
+//! This module provides a streaming interface for sending large data over
+//! a Noise-encrypted channel by chunking the plaintext and encrypting each
+//! chunk separately.
+//!
+//! ## Usage
+//!
+//! `StreamingNoiseLink` wraps a `NoiseLink` and provides chunk-based
+//! encryption/decryption:
+//!
+//! - Use `encrypt_streaming()` to encrypt large plaintext into multiple chunks
+//! - Use `decrypt_streaming()` to decrypt chunks back to plaintext
+//! - Default chunk size is 64 KiB
+//!
+//! ## Relationship to mobile_manager
+//!
+//! This module provides low-level streaming primitives. For mobile applications,
+//! use `MobileNoiseManager` instead, which provides higher-level connection
+//! management with automatic reconnection and state tracking.
+
 use crate::datalink_adapter::NoiseLink;
 use crate::errors::NoiseError;
 
+/// Streaming wrapper for NoiseLink that handles chunking large messages.
+///
+/// Encrypts/decrypts data in configurable chunk sizes for efficient
+/// transmission of large payloads over Noise-encrypted channels.
 pub struct StreamingNoiseLink {
     inner: NoiseLink,
     chunk_size: usize,
