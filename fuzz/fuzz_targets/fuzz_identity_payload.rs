@@ -7,24 +7,16 @@ use pubky_noise::identity_payload::{make_binding_message, BindingMessageParams, 
 /// Arbitrary input for binding message generation
 #[derive(Debug, Arbitrary)]
 struct BindingMessageInput {
-    pattern_tag: String,
-    prologue: Vec<u8>,
     ed25519_pub: [u8; 32],
     local_noise_pub: [u8; 32],
     has_remote: bool,
     remote_noise_pub: [u8; 32],
     is_client: bool,
-    has_server_hint: bool,
-    server_hint: String,
-    has_expires_at: bool,
-    expires_at: u64,
 }
 
 fuzz_target!(|input: BindingMessageInput| {
     // Test that make_binding_message doesn't panic with arbitrary inputs
     let params = BindingMessageParams {
-        pattern_tag: &input.pattern_tag,
-        prologue: &input.prologue,
         ed25519_pub: &input.ed25519_pub,
         local_noise_pub: &input.local_noise_pub,
         remote_noise_pub: if input.has_remote {
@@ -37,16 +29,6 @@ fuzz_target!(|input: BindingMessageInput| {
         } else {
             Role::Server
         },
-        server_hint: if input.has_server_hint {
-            Some(input.server_hint.as_str())
-        } else {
-            None
-        },
-        expires_at: if input.has_expires_at {
-            Some(input.expires_at)
-        } else {
-            None
-        },
     };
 
     // Should never panic
@@ -56,4 +38,3 @@ fuzz_target!(|input: BindingMessageInput| {
     let result2 = make_binding_message(&params);
     assert_eq!(_result, result2);
 });
-

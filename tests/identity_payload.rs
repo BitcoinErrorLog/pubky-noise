@@ -2,6 +2,15 @@
 //!
 //! This module tests the critical authentication functions that bind
 //! Ed25519 identities to Noise X25519 session keys.
+//!
+//! ## Wire Format (PUBKY_CRYPTO_SPEC v2.5)
+//!
+//! The binding message uses BLAKE3 with inputs:
+//! - "pubky-noise-binding/v1" prefix
+//! - ed25519_pub (32 bytes)
+//! - local_noise_pub (32 bytes)
+//! - role_byte (1 byte: 0x00=Client, 0x01=Server)
+//! - remote_noise_pub (32 bytes)
 
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use pubky_noise::identity_payload::{
@@ -17,25 +26,19 @@ fn test_binding_message_consistency() {
     let remote_x25519 = [3u8; 32];
 
     let msg1 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test-prologue",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&remote_x25519),
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: Some("test-server"),
-        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test-prologue",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&remote_x25519),
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: Some("test-server"),
-        expires_at: None,
     });
 
     assert_eq!(msg1, msg2, "Binding message should be deterministic");
@@ -48,42 +51,20 @@ fn test_binding_message_uniqueness() {
     let remote_x25519 = [3u8; 32];
 
     let base_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&remote_x25519),
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: Some("hint"),
-        expires_at: None,
     });
-
-    // Change pattern
-    let msg_diff_pattern = make_binding_message(&BindingMessageParams {
-        pattern_tag: "XX",
-        prologue: b"prologue",
-        ed25519_pub: &ed25519_pub,
-        local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&remote_x25519),
-        role: Role::Client,
-        server_hint: Some("hint"),
-        expires_at: None,
-    });
-    assert_ne!(
-        base_msg, msg_diff_pattern,
-        "Different pattern should change message"
-    );
 
     // Change role
     let msg_diff_role = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&remote_x25519),
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Server,
-        server_hint: Some("hint"),
-        expires_at: None,
     });
     assert_ne!(
         base_msg, msg_diff_role,
@@ -94,18 +75,45 @@ fn test_binding_message_uniqueness() {
     let mut different_ed = ed25519_pub;
     different_ed[0] ^= 0xff;
     let msg_diff_ed25519 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue",
         ed25519_pub: &different_ed,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&remote_x25519),
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: Some("hint"),
-        expires_at: None,
     });
     assert_ne!(
         base_msg, msg_diff_ed25519,
         "Different ed25519 key should change message"
+    );
+
+    // Change local X25519 key
+    let mut different_local = local_x25519;
+    different_local[0] ^= 0xff;
+    let msg_diff_local = make_binding_message(&BindingMessageParams {
+        ed25519_pub: &ed25519_pub,
+        local_noise_pub: &different_local,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
+        role: Role::Client,
+    });
+    assert_ne!(
+        base_msg, msg_diff_local,
+        "Different local key should change message"
+    );
+
+    // Change remote X25519 key
+    let mut different_remote = remote_x25519;
+    different_remote[0] ^= 0xff;
+    let msg_diff_remote = make_binding_message(&BindingMessageParams {
+        ed25519_pub: &ed25519_pub,
+        local_noise_pub: &local_x25519,
+        remote_noise_pub: Some(&different_remote,
+        ),
+        role: Role::Client,
+    });
+    assert_ne!(
+        base_msg, msg_diff_remote,
+        "Different remote key should change message"
     );
 }
 
@@ -117,16 +125,14 @@ fn test_signature_roundtrip() {
 
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let binding_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     let signature = sign_identity_payload(&signing_key, &binding_msg);
@@ -144,16 +150,14 @@ fn test_signature_wrong_key() {
 
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let binding_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     let signature = sign_identity_payload(&signing_key, &binding_msg);
@@ -170,30 +174,25 @@ fn test_signature_tampered_message() {
 
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let binding_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     let signature = sign_identity_payload(&signing_key, &binding_msg);
 
-    // Different message should fail
+    // Different message (different role) should fail
     let different_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "XX",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
-        role: Role::Client,
-        server_hint: None,
-        expires_at: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
+        role: Role::Server,
     });
 
     let is_valid = verify_identity_payload(&verifying_key, &different_msg, &signature);
@@ -208,16 +207,14 @@ fn test_signature_invalid_format() {
 
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let binding_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     // Invalid signature (all zeros)
@@ -230,65 +227,27 @@ fn test_signature_invalid_format() {
 fn test_role_differentiation() {
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let client_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     let server_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Server,
-        server_hint: None,
-        expires_at: None,
     });
 
     assert_ne!(
         client_msg, server_msg,
         "Different roles should produce different bindings"
-    );
-}
-
-#[test]
-fn test_pattern_differentiation() {
-    let ed25519_pub = [1u8; 32];
-    let local_x25519 = [2u8; 32];
-
-    let msg_xx = make_binding_message(&BindingMessageParams {
-        pattern_tag: "XX",
-        prologue: b"test",
-        ed25519_pub: &ed25519_pub,
-        local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
-        role: Role::Client,
-        server_hint: None,
-        expires_at: None,
-    });
-
-    let msg_ik = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
-        ed25519_pub: &ed25519_pub,
-        local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
-        role: Role::Client,
-        server_hint: None,
-        expires_at: None,
-    });
-
-    assert_ne!(
-        msg_xx, msg_ik,
-        "Different patterns should produce different bindings"
     );
 }
 
@@ -300,16 +259,14 @@ fn test_multiple_signatures_same_message() {
 
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let binding_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     // Create two signatures for the same message
@@ -331,27 +288,22 @@ fn test_multiple_signatures_same_message() {
 fn test_binding_message_32_bytes() {
     let ed25519_pub = [1u8; 32];
     let local_x25519 = [2u8; 32];
+    let remote_x25519 = [3u8; 32];
 
     let msg1 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"test",
         ed25519_pub: &ed25519_pub,
         local_noise_pub: &local_x25519,
-        remote_noise_pub: None,
+        remote_noise_pub: Some(&remote_x25519,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "XX",
-        prologue: b"very-long-prologue-that-is-different",
-        ed25519_pub: &ed25519_pub,
-        local_noise_pub: &local_x25519,
-        remote_noise_pub: Some(&[99u8; 32]),
+        ed25519_pub: &[99u8; 32],
+        local_noise_pub: &[88u8; 32],
+        remote_noise_pub: Some(&[77u8; 32],
+        ),
         role: Role::Server,
-        server_hint: Some("long-server-hint.example.com"),
-        expires_at: None,
     });
 
     assert_eq!(msg1.len(), 32, "Binding message should always be 32 bytes");

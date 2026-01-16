@@ -113,12 +113,12 @@ fn test_noise_link_creation() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client.clone());
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     // Server static key (using internal epoch 0)
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -133,10 +133,10 @@ fn test_noise_link_with_different_device_ids() {
     let ring = Arc::new(DummyRing::new([99u8; 32], "kid"));
 
     let devices = vec![
-        b"device-1".as_slice(),
-        b"device-2".as_slice(),
-        b"mobile-phone".as_slice(),
-        b"desktop-app".as_slice(),
+        b"device-1-000000000".as_slice(),
+        b"device-2-000000000".as_slice(),
+        b"mobile-phone-00000".as_slice(),
+        b"desktop-app-00000".as_slice(),
     ];
 
     for device_id in devices {
@@ -191,17 +191,17 @@ fn test_multiple_noise_links_independent() {
     let ring1 = Arc::new(DummyRing::new([1u8; 32], "kid1"));
     let ring2 = Arc::new(DummyRing::new([2u8; 32], "kid2"));
 
-    let client1 = NoiseClient::<_, ()>::new_direct("kid1", b"dev1", ring1.clone());
-    let client2 = NoiseClient::<_, ()>::new_direct("kid2", b"dev2", ring2.clone());
+    let client1 = NoiseClient::<_, ()>::new_direct("kid1", b"dev1-000000000000", ring1.clone());
+    let client2 = NoiseClient::<_, ()>::new_direct("kid2", b"dev2-000000000000", ring2.clone());
 
-    let _server1 = NoiseServer::<_, ()>::new_direct("kid1", b"srv1", ring1.clone());
-    let _server2 = NoiseServer::<_, ()>::new_direct("kid2", b"srv2", ring2.clone());
+    let _server1 = NoiseServer::<_, ()>::new_direct("kid1", b"srv1-000000000000", ring1.clone());
+    let _server2 = NoiseServer::<_, ()>::new_direct("kid2", b"srv2-000000000000", ring2.clone());
 
     // Using internal epoch 0
-    let server1_sk = ring1.derive_device_x25519("kid1", b"srv1", 0).unwrap();
+    let server1_sk = ring1.derive_device_x25519("kid1", b"srv1-000000000000", 0).unwrap();
     let server1_pk = pubky_noise::kdf::x25519_pk_from_sk(&server1_sk);
 
-    let server2_sk = ring2.derive_device_x25519("kid2", b"srv2", 0).unwrap();
+    let server2_sk = ring2.derive_device_x25519("kid2", b"srv2-000000000000", 0).unwrap();
     let server2_pk = pubky_noise::kdf::x25519_pk_from_sk(&server2_sk);
 
     let link1 = client_start_ik_direct(&client1, &server1_pk, None);
@@ -246,7 +246,7 @@ fn test_retry_config_debug() {
 fn test_handshake_message_size() {
     // Test that handshake messages are within reasonable size limits
     let ring = Arc::new(DummyRing::new([123u8; 32], "kid"));
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"device", ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"device-minimum-16b", ring.clone());
     let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", ring.clone());
 
     // Using internal epoch 0
@@ -272,8 +272,8 @@ fn test_different_kids_produce_different_links() {
     let ring1 = Arc::new(DummyRing::new([100u8; 32], "kid-alice"));
     let ring2 = Arc::new(DummyRing::new([200u8; 32], "kid-bob")); // Different seed
 
-    let sk1 = ring1.derive_device_x25519("kid-alice", b"dev", 0).unwrap();
-    let sk2 = ring2.derive_device_x25519("kid-bob", b"dev", 0).unwrap();
+    let sk1 = ring1.derive_device_x25519("kid-alice", b"dev-0000000000000", 0).unwrap();
+    let sk2 = ring2.derive_device_x25519("kid-bob", b"dev-0000000000000", 0).unwrap();
 
     assert_ne!(sk1, sk2, "Different seeds should produce different keys");
 }
@@ -284,8 +284,8 @@ fn test_same_params_produce_same_keys() {
     let ring1 = Arc::new(DummyRing::new([100u8; 32], "kid"));
     let ring2 = Arc::new(DummyRing::new([100u8; 32], "kid"));
 
-    let sk1 = ring1.derive_device_x25519("kid", b"device", 0).unwrap();
-    let sk2 = ring2.derive_device_x25519("kid", b"device", 0).unwrap();
+    let sk1 = ring1.derive_device_x25519("kid", b"device-minimum-16b", 0).unwrap();
+    let sk2 = ring2.derive_device_x25519("kid", b"device-minimum-16b", 0).unwrap();
 
     assert_eq!(sk1, sk2, "Same parameters should produce same keys");
 }
@@ -357,13 +357,13 @@ fn test_api_ergonomics() {
     let ring = Arc::new(DummyRing::new([1u8; 32], "my-key"));
 
     // Should be easy to create client
-    let client = NoiseClient::<_, ()>::new_direct("my-key", b"my-device", ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("my-key", b"my-device-00000000", ring.clone());
 
     // Should be easy to create server
-    let _server = NoiseServer::<_, ()>::new_direct("my-key", b"my-server", ring.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("my-key", b"my-server-00000000", ring.clone());
 
     // Should be easy to get static key (using internal epoch 0)
-    let server_sk = ring.derive_device_x25519("my-key", b"my-server", 0);
+    let server_sk = ring.derive_device_x25519("my-key", b"my-server-00000000", 0);
     assert!(
         server_sk.is_ok(),
         "Key derivation should be straightforward"

@@ -109,7 +109,7 @@ mod hkdf_error_tests {
     fn test_hkdf_returns_result() {
         // Test that derive_x25519_for_device_epoch returns a Result
         let seed = [0u8; 32];
-        let device_id = b"test-device";
+        let device_id = b"test-device-0000000";
         let epoch = 0u32;
 
         let result = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, device_id, epoch);
@@ -125,7 +125,7 @@ mod hkdf_error_tests {
     fn test_hkdf_key_clamping() {
         // Verify X25519 key clamping is applied
         let seed = [42u8; 32];
-        let device_id = b"clamping-test";
+        let device_id = b"clamping-test-0000";
         let key = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, device_id, 0)
             .expect("HKDF should succeed");
 
@@ -138,7 +138,7 @@ mod hkdf_error_tests {
     #[test]
     fn test_hkdf_deterministic() {
         let seed = [1u8; 32];
-        let device_id = b"determinism-test";
+        let device_id = b"determinism-test0";
 
         let key1 = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, device_id, 0).unwrap();
         let key2 = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, device_id, 0).unwrap();
@@ -149,7 +149,7 @@ mod hkdf_error_tests {
     #[test]
     fn test_hkdf_epoch_differentiation() {
         let seed = [2u8; 32];
-        let device_id = b"epoch-test";
+        let device_id = b"epoch-test-0000000";
 
         let key0 = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, device_id, 0).unwrap();
         let key1 = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, device_id, 1).unwrap();
@@ -162,9 +162,9 @@ mod hkdf_error_tests {
         let seed = [3u8; 32];
 
         let key_a =
-            pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"device-a", 0).unwrap();
+            pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"device-a-000000000", 0).unwrap();
         let key_b =
-            pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"device-b", 0).unwrap();
+            pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"device-b-000000000", 0).unwrap();
 
         assert_ne!(
             key_a, key_b,
@@ -236,7 +236,7 @@ mod client_expiry_tests {
     #[test]
     fn test_client_default_no_expiry() {
         let ring = make_ring();
-        let client = NoiseClient::<DummyRing>::new_direct("test-kid", b"device-1", ring);
+        let client = NoiseClient::<DummyRing>::new_direct("test-kid", b"device-1-000000000", ring);
 
         // By default, now_unix is None
         assert!(client.now_unix.is_none());
@@ -245,7 +245,7 @@ mod client_expiry_tests {
     #[test]
     fn test_client_with_now_unix() {
         let ring = make_ring();
-        let client = NoiseClient::<DummyRing>::new_direct("test-kid", b"device-1", ring)
+        let client = NoiseClient::<DummyRing>::new_direct("test-kid", b"device-1-000000000", ring)
             .with_now_unix(1700000000);
 
         assert_eq!(client.now_unix, Some(1700000000));
@@ -256,7 +256,7 @@ mod client_expiry_tests {
     #[test]
     fn test_client_custom_expiry() {
         let ring = make_ring();
-        let client = NoiseClient::<DummyRing>::new_direct("test-kid", b"device-1", ring)
+        let client = NoiseClient::<DummyRing>::new_direct("test-kid", b"device-1-000000000", ring)
             .with_now_unix(1700000000)
             .with_expiry_secs(600); // 10 minutes
 

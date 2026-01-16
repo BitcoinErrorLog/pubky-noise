@@ -29,6 +29,7 @@ ed25519-dalek = "2"
 curve25519-dalek = "4"
 sha2 = "0.10"
 blake2 = "0.10"
+blake3 = "1.5"
 hkdf = "0.12"
 zeroize = "1"
 # Note: secrecy was removed - use zeroize::Zeroizing instead

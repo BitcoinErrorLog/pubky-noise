@@ -1707,6 +1707,7 @@ dependencies = [
  "async-trait",
  "base64",
  "blake2",
+ "blake3",
  "camino",
  "cfg-if",
  "chacha20poly1305",

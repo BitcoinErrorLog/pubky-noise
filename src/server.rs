@@ -6,16 +6,15 @@ use crate::ring::{RingKeyFiller, RingKeyProvider};
 use std::marker::PhantomData;
 use zeroize::Zeroizing;
 
-/// Internal epoch value - always 0.
-///
-/// **Note**: Key epoch rotation is not currently implemented. The epoch field
-/// exists in the wire format for future compatibility, but is always set to 0.
-/// For key rotation needs, applications should use fresh device IDs or manage
-/// key versioning at a higher layer.
+/// Internal epoch value for Ring derivation (always 0).
+/// Key rotation is managed via key_version, not epoch.
 const INTERNAL_EPOCH: u32 = 0;
 
+/// Fixed prologue for the Noise protocol handshake.
+/// Per PUBKY_CRYPTO_SPEC v2.5 Section 6.2, this MUST be a fixed constant.
+const PROLOGUE: &[u8] = b"pubky-noise-v1";
+
 /// Maximum allowed handshake message length in bytes.
-/// This prevents memory exhaustion from maliciously large messages.
 pub const MAX_HANDSHAKE_MSG_LEN: usize = 65536;
 
 /// Maximum allowed server_hint length in IdentityPayload.
@@ -43,9 +42,7 @@ pub struct NoiseServer<R: RingKeyProvider, P = ()> {
     pub device_id: Vec<u8>,
     pub ring: std::sync::Arc<R>,
     _phantom: PhantomData<P>,
-    pub prologue: Vec<u8>,
     pub suite: String,
-    pub current_epoch: u32,
     pub policy: ServerPolicy,
 }
 
@@ -67,9 +64,7 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             device_id: device_id.as_ref().to_vec(),
             ring,
             _phantom: PhantomData,
-            prologue: b"pubky-noise-v1".to_vec(),
             suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
-            current_epoch: INTERNAL_EPOCH,
             policy: ServerPolicy::default(),
         }
     }
@@ -91,7 +86,6 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         &self,
         first_msg: &[u8],
     ) -> Result<(snow::HandshakeState, IdentityPayload), NoiseError> {
-        // Validate input size to prevent memory exhaustion attacks
         if first_msg.len() > MAX_HANDSHAKE_MSG_LEN {
             return Err(NoiseError::Policy(format!(
                 "Handshake message too large: {} bytes (max {})",
@@ -111,13 +105,10 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             &self.device_id,
             INTERNAL_EPOCH,
             |x_sk: &Zeroizing<[u8; 32]>| -> Result<(snow::HandshakeState, [u8; 32]), NoiseError> {
-                // Derive public key from private key before passing to builder
                 let x_pk_arr = crate::kdf::x25519_pk_from_sk(x_sk);
-
-                // Chain builder calls since each method consumes and returns self
                 let hs = builder
-                    .local_private_key(&**x_sk) // Deref Zeroizing to &[u8; 32] to &[u8]
-                    .prologue(&self.prologue)
+                    .local_private_key(&**x_sk)
+                    .prologue(PROLOGUE)
                     .build_responder()
                     .map_err(NoiseError::from)?;
                 Ok((hs, x_pk_arr))
@@ -130,16 +121,12 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         let n = hs.read_message(first_msg, &mut buf)?;
         let payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
 
-        // Verify that the Noise handshake's remote static matches the payload's claimed key.
-        // This ensures the client actually used the key they claim in their identity binding.
-        if let Some(remote_static) = hs.get_remote_static() {
-            let remote_static_arr: [u8; 32] = remote_static
-                .try_into()
-                .map_err(|_| NoiseError::Other("Remote static key wrong length".to_string()))?;
-            if remote_static_arr != payload.noise_x25519_pub {
-                return Err(NoiseError::IdentityVerify);
-            }
-        }
+        // Get client's static key from Noise handshake state (per spec v2.5)
+        let client_static_pk: [u8; 32] = hs
+            .get_remote_static()
+            .ok_or(NoiseError::RemoteStaticMissing)?
+            .try_into()
+            .map_err(|_| NoiseError::Other("Remote static key wrong length".to_string()))?;
 
         // Validate server_hint length to prevent abuse
         if let Some(ref hint) = payload.server_hint {
@@ -158,17 +145,15 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             &self.device_id,
             INTERNAL_EPOCH,
             |x_sk: &Zeroizing<[u8; 32]>| {
-                crate::kdf::shared_secret_nonzero(x_sk, &payload.noise_x25519_pub)
+                crate::kdf::shared_secret_nonzero(x_sk, &client_static_pk)
             },
         )?;
         if !ok {
             return Err(NoiseError::InvalidPeerKey);
         }
 
-        // Validate expiration timestamp BEFORE signature verification (fail-fast)
-        // This is defense-in-depth: if a payload has an expiration, enforce it
-        // We fail closed if system time is unreliable when expiration is present
-        if let Some(expires_at) = payload.expires_at {
+        // Validate hint_expires_at timestamp (scoped to server_hint only)
+        if let Some(hint_expires_at) = payload.hint_expires_at {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
@@ -177,23 +162,21 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
                         "System clock before UNIX epoch; cannot validate expiration".to_string(),
                     )
                 })?;
-            if now > expires_at {
+            if now > hint_expires_at {
                 return Err(NoiseError::SessionExpired(format!(
-                    "Identity payload expired at {} (current time: {})",
-                    expires_at, now
+                    "Identity payload hint expired at {} (current time: {})",
+                    hint_expires_at, now
                 )));
             }
         }
 
+        // Verify identity binding signature
+        // Client's binding: client_ed25519, client_static, Client role, server_static
         let msg32 = make_binding_message(&BindingMessageParams {
-            pattern_tag: "IK",
-            prologue: &self.prologue,
             ed25519_pub: &payload.ed25519_pub,
-            local_noise_pub: &payload.noise_x25519_pub,
+            local_noise_pub: &client_static_pk,
             remote_noise_pub: Some(&x_pk_arr),
             role: Role::Client,
-            server_hint: payload.server_hint.as_deref(),
-            expires_at: payload.expires_at,
         });
         let vk = ed25519_dalek::VerifyingKey::from_bytes(&payload.ed25519_pub)
             .map_err(|e| NoiseError::Other(e.to_string()))?;
@@ -236,7 +219,7 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
                 let x_pk_arr = crate::kdf::x25519_pk_from_sk(x_sk);
                 let hs = builder
                     .local_private_key(&**x_sk)
-                    .prologue(&self.prologue)
+                    .prologue(PROLOGUE)
                     .build_responder()
                     .map_err(NoiseError::from)?;
                 Ok((hs, x_pk_arr))
@@ -249,30 +232,26 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
 
         // Build server's identity payload
         let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
-        let expires_at: Option<u64> = std::time::SystemTime::now()
+        let hint_expires_at: Option<u64> = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .ok()
             .map(|d| d.as_secs() + 300);
 
+        // Server's binding: server_ed25519, server_static, Server role
+        // In XX step 2, client's static is not yet known, so remote_noise_pub is None
         let msg32 = make_binding_message(&BindingMessageParams {
-            pattern_tag: "XX",
-            prologue: &self.prologue,
             ed25519_pub: &ed_pub,
             local_noise_pub: &x_pk_arr,
             remote_noise_pub: None,
             role: Role::Server,
-            server_hint: None,
-            expires_at,
         });
         let sig64 = self.ring.sign_ed25519(&self.kid, &msg32)?;
 
         let payload = IdentityPayload {
             ed25519_pub: ed_pub,
-            noise_x25519_pub: x_pk_arr,
-            epoch: INTERNAL_EPOCH,
             role: Role::Server,
             server_hint: None,
-            expires_at,
+            hint_expires_at,
             sig: sig64,
         };
 
@@ -303,16 +282,12 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
         let n = hs.read_message(client_final_msg, &mut buf)?;
         let payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
 
-        // Verify that the Noise handshake's remote static matches the payload's claimed key.
-        // This ensures the client actually used the key they claim in their identity binding.
-        if let Some(remote_static) = hs.get_remote_static() {
-            let remote_static_arr: [u8; 32] = remote_static
-                .try_into()
-                .map_err(|_| NoiseError::Other("Remote static key wrong length".to_string()))?;
-            if remote_static_arr != payload.noise_x25519_pub {
-                return Err(NoiseError::IdentityVerify);
-            }
-        }
+        // Get client's static key from Noise handshake state (per spec v2.5)
+        let client_static_pk: [u8; 32] = hs
+            .get_remote_static()
+            .ok_or(NoiseError::RemoteStaticMissing)?
+            .try_into()
+            .map_err(|_| NoiseError::Other("Remote static key wrong length".to_string()))?;
 
         if let Some(ref hint) = payload.server_hint {
             if hint.len() > MAX_SERVER_HINT_LEN {
@@ -330,17 +305,15 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             &self.device_id,
             INTERNAL_EPOCH,
             |x_sk: &Zeroizing<[u8; 32]>| {
-                crate::kdf::shared_secret_nonzero(x_sk, &payload.noise_x25519_pub)
+                crate::kdf::shared_secret_nonzero(x_sk, &client_static_pk)
             },
         )?;
         if !ok {
             return Err(NoiseError::InvalidPeerKey);
         }
 
-        // Validate expiration timestamp BEFORE signature verification (fail-fast)
-        // This is defense-in-depth: if a payload has an expiration, enforce it
-        // We fail closed if system time is unreliable when expiration is present
-        if let Some(expires_at) = payload.expires_at {
+        // Validate hint_expires_at timestamp (scoped to server_hint only)
+        if let Some(hint_expires_at) = payload.hint_expires_at {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
@@ -349,24 +322,21 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
                         "System clock before UNIX epoch; cannot validate expiration".to_string(),
                     )
                 })?;
-            if now > expires_at {
+            if now > hint_expires_at {
                 return Err(NoiseError::SessionExpired(format!(
-                    "Identity payload expired at {} (current time: {})",
-                    expires_at, now
+                    "Identity payload hint expired at {} (current time: {})",
+                    hint_expires_at, now
                 )));
             }
         }
 
         // Verify identity binding signature
+        // Client's binding: client_ed25519, client_static, Client role, server_static
         let msg32 = make_binding_message(&BindingMessageParams {
-            pattern_tag: "XX",
-            prologue: &self.prologue,
             ed25519_pub: &payload.ed25519_pub,
-            local_noise_pub: &payload.noise_x25519_pub,
+            local_noise_pub: &client_static_pk,
             remote_noise_pub: Some(server_static_pk),
             role: Role::Client,
-            server_hint: payload.server_hint.as_deref(),
-            expires_at: payload.expires_at,
         });
         let vk = ed25519_dalek::VerifyingKey::from_bytes(&payload.ed25519_pub)
             .map_err(|e| NoiseError::Other(e.to_string()))?;
@@ -406,7 +376,7 @@ impl<R: RingKeyProvider, P> NoiseServer<R, P> {
             .map_err(|e: snow::Error| NoiseError::Other(e.to_string()))?;
 
         let mut hs = snow::Builder::new(params)
-            .prologue(&self.prologue)
+            .prologue(PROLOGUE)
             .build_responder()
             .map_err(NoiseError::from)?;
 

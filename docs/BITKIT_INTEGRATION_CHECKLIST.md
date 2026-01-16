@@ -10,7 +10,7 @@ This checklist guides you through testing and integrating `pubky-noise` into you
   - Previous code had incorrect math that could cause interoperability issues
   - Now uses `x25519_dalek::x25519()` for correct Montgomery ladder multiplication
 - **Server-side remote static verification**: IK and XX patterns now verify that the handshake's remote static matches the claimed identity
-- **XX pattern expiration validation**: Now validates `expires_at` in XX pattern (previously only IK)
+- **XX pattern expiration validation**: Now validates `hint_expires_at` in XX pattern (previously only IK)
 - **Stricter `is_sealed_blob()` check**: Now requires both version AND epk fields
 - **`LockedBytes` heap allocation**: Fixed memory stability issue with mlock
 

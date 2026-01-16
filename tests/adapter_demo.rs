@@ -43,8 +43,8 @@ fn adapter_smoke_compiles() {
     // The type parameters are:
     // - R: RingKeyProvider implementation
     // - P: Optional phantom type for PKARR (usually ())
-    let _client = NoiseClient::<_, ()>::new_direct("client-key-id", b"device-client", ring_client);
-    let _server = NoiseServer::<_, ()>::new_direct("server-key-id", b"device-server", ring_server);
+    let _client = NoiseClient::<_, ()>::new_direct("client-key-id", b"device-client-00000", ring_client);
+    let _server = NoiseServer::<_, ()>::new_direct("server-key-id", b"device-server-00000", ring_server);
 }
 
 // =============================================================================
@@ -66,13 +66,13 @@ fn test_ik_handshake_complete() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     // Get server's static public key
     // In production, this would be obtained through secure configuration
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -132,11 +132,11 @@ fn test_ik_handshake_with_hint() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -171,8 +171,8 @@ fn test_xx_pattern_tofu() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server);
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server);
 
     // XX pattern doesn't require server's static key upfront
     let result = client.build_initiator_xx_tofu(None);
@@ -207,11 +207,11 @@ fn test_streaming_link() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -243,11 +243,11 @@ fn test_streaming_default_chunk_size() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -283,12 +283,12 @@ fn test_session_manager() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "kid",
-        b"dev-server",
+        b"dev-server-00000000",
         ring_server.clone(),
     ));
 
@@ -296,7 +296,7 @@ fn test_session_manager() {
     let mut server_manager = NoiseSessionManager::new_server(server.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -340,12 +340,12 @@ fn test_thread_safe_session_manager() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "kid",
-        b"dev-server",
+        b"dev-server-00000000",
         ring_server.clone(),
     ));
 
@@ -353,7 +353,7 @@ fn test_thread_safe_session_manager() {
     let manager = ThreadSafeSessionManager::new_client(client.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -401,7 +401,7 @@ fn test_thread_safe_session_manager() {
 #[test]
 fn test_error_invalid_peer_key() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
 
     // All-zero key is invalid (would produce zero shared secret)
     let invalid_server_pk = [0u8; 32];
@@ -427,11 +427,11 @@ fn test_error_handling_patterns() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -537,12 +537,12 @@ fn test_mobile_manager_basic() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "kid",
-        b"dev-server",
+        b"dev-server-00000000",
         ring_server.clone(),
     ));
 
@@ -559,7 +559,7 @@ fn test_mobile_manager_basic() {
     let mut server_manager = NoiseManager::new_server(server, config);
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -597,12 +597,12 @@ fn test_mobile_manager_state_persistence() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client.clone(),
     ));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "kid",
-        b"dev-server",
+        b"dev-server-00000000",
         ring_server.clone(),
     ));
 
@@ -611,7 +611,7 @@ fn test_mobile_manager_state_persistence() {
     let mut server_manager = NoiseManager::new_server(server, config.clone());
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -639,7 +639,7 @@ fn test_mobile_manager_state_persistence() {
     // Simulate creating a new manager instance after app restart
     let client2 = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let mut new_manager = NoiseManager::new_client(client2, config);
@@ -664,12 +664,12 @@ fn test_connection_status_tracking() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "kid",
-        b"dev-server",
+        b"dev-server-00000000",
         ring_server.clone(),
     ));
 
@@ -678,7 +678,7 @@ fn test_connection_status_tracking() {
     let mut server_manager = NoiseManager::new_server(server, config);
 
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -732,17 +732,17 @@ fn test_multiple_sessions() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let server1 = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server1",
-        b"server1",
+        b"server1-device-000",
         ring_server1.clone(),
     ));
     let server2 = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server2",
-        b"server2",
+        b"server2-device-000",
         ring_server2.clone(),
     ));
 
@@ -753,12 +753,12 @@ fn test_multiple_sessions() {
 
     // Get server public keys
     let server1_sk = ring_server1
-        .derive_device_x25519("server1", b"server1", 0)
+        .derive_device_x25519("server1", b"server1-device-000", 0)
         .unwrap();
     let server1_pk = pubky_noise::kdf::x25519_pk_from_sk(&server1_sk);
 
     let server2_sk = ring_server2
-        .derive_device_x25519("server2", b"server2", 0)
+        .derive_device_x25519("server2", b"server2-device-000", 0)
         .unwrap();
     let server2_pk = pubky_noise::kdf::x25519_pk_from_sk(&server2_sk);
 

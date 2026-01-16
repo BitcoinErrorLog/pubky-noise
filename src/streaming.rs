@@ -16,8 +16,9 @@
 //! ## Relationship to mobile_manager
 //!
 //! This module provides low-level streaming primitives. For mobile applications,
-//! use `MobileNoiseManager` instead, which provides higher-level connection
-//! management with automatic reconnection and state tracking.
+//! use `NoiseManager` instead (in `mobile_manager.rs`), which provides higher-level
+//! connection management with state tracking. Note: auto-reconnection is not
+//! provided; applications must handle connection lifecycle explicitly.
 
 use crate::datalink_adapter::NoiseLink;
 use crate::errors::NoiseError;

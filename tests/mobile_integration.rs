@@ -23,7 +23,7 @@ fn test_mobile_lifecycle() {
 
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server-kid",
-        b"server-device",
+        b"server-device-00000",
         ring_server.clone(),
     ));
 
@@ -41,7 +41,7 @@ fn test_mobile_lifecycle() {
 
     // Get server's public key (using internal epoch 0)
     let server_sk = ring_server
-        .derive_device_x25519("server-kid", b"server-device", 0)
+        .derive_device_x25519("server-kid", b"server-device-00000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -97,18 +97,18 @@ fn test_session_id_serialization() {
 
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"dev-client",
+        b"dev-client-00000000",
         ring_client,
     ));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "kid",
-        b"dev-server",
+        b"dev-server-00000000",
         ring_server.clone(),
     ));
 
     // Perform 3-step handshake (using internal epoch 0)
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -144,7 +144,7 @@ fn test_thread_safe_manager() {
     let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"device",
+        b"device-minimum-16b",
         ring.clone(),
     ));
 
@@ -155,12 +155,12 @@ fn test_thread_safe_manager() {
     let server_ring = Arc::new(DummyRing::new([2u8; 32], "server"));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server",
-        b"server",
+        b"server-device-00000",
         server_ring.clone(),
     ));
     // Using internal epoch 0
     let server_sk = server_ring
-        .derive_device_x25519("server", b"server", 0)
+        .derive_device_x25519("server", b"server-device-00000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -221,12 +221,12 @@ fn test_streaming_for_mobile() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     // 3-step handshake (using internal epoch 0)
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -297,7 +297,7 @@ fn test_multiple_session_management() {
     let ring = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "kid",
-        b"device",
+        b"device-minimum-16b",
         ring.clone(),
     ));
 
@@ -309,23 +309,23 @@ fn test_multiple_session_management() {
 
     let server1 = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server1",
-        b"server1",
+        b"server1-device-0000",
         ring_server1.clone(),
     ));
     let server2 = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server2",
-        b"server2",
+        b"server2-device-0000",
         ring_server2.clone(),
     ));
 
     // Using internal epoch 0
     let server1_sk = ring_server1
-        .derive_device_x25519("server1", b"server1", 0)
+        .derive_device_x25519("server1", b"server1-device-0000", 0)
         .unwrap();
     let server1_pk = pubky_noise::kdf::x25519_pk_from_sk(&server1_sk);
 
     let server2_sk = ring_server2
-        .derive_device_x25519("server2", b"server2", 0)
+        .derive_device_x25519("server2", b"server2-device-0000", 0)
         .unwrap();
     let server2_pk = pubky_noise::kdf::x25519_pk_from_sk(&server2_sk);
 
@@ -392,7 +392,7 @@ fn test_connection_status_tracking() {
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "client_kid"));
     let client = Arc::new(NoiseClient::<_, ()>::new_direct(
         "client_kid",
-        b"client_device",
+        b"client_device_00000",
         ring_client.clone(),
     ));
     let mut client_manager = NoiseManager::new_client(client.clone(), MobileConfig::default());
@@ -401,14 +401,14 @@ fn test_connection_status_tracking() {
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "server_kid"));
     let server = Arc::new(NoiseServer::<_, ()>::new_direct(
         "server_kid",
-        b"server_device",
+        b"server_device_00000",
         ring_server.clone(),
     ));
     let mut server_manager = NoiseManager::new_server(server.clone(), MobileConfig::default());
 
     // Get server's static public key (using internal epoch 0)
     let server_sk = ring_server
-        .derive_device_x25519("server_kid", b"server_device", 0)
+        .derive_device_x25519("server_kid", b"server_device_00000", 0)
         .unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 

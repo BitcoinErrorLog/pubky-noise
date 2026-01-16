@@ -287,7 +287,7 @@ fn test_ffi_manager_client_creation() {
 
     let seed = vec![42u8; 32];
     let kid = "test-kid".to_string();
-    let device_id = b"device-1".to_vec();
+    let device_id = b"device-1-000000000".to_vec();
 
     let result = FfiNoiseManager::new_client(config, seed, kid, device_id);
     assert!(result.is_ok(), "Should create client manager successfully");
@@ -306,7 +306,7 @@ fn test_ffi_manager_server_creation() {
 
     let seed = vec![99u8; 32];
     let kid = "server-kid".to_string();
-    let device_id = b"server-device".to_vec();
+    let device_id = b"server-device-0000".to_vec();
 
     let result = FfiNoiseManager::new_server(config, seed, kid, device_id);
     assert!(result.is_ok(), "Should create server manager successfully");
@@ -355,7 +355,7 @@ fn test_ffi_manager_invalid_seed_length() {
 
     let short_seed = vec![1u8; 16]; // Too short
     let kid = "test-kid".to_string();
-    let device_id = b"device".to_vec();
+    let device_id = b"device-0000000000".to_vec();
 
     let result = FfiNoiseManager::new_client(config, short_seed, kid, device_id);
     assert!(result.is_err(), "Should reject short seed");
@@ -374,7 +374,7 @@ fn test_ffi_manager_empty_kid() {
 
     let seed = vec![42u8; 32];
     let empty_kid = String::new();
-    let device_id = b"device".to_vec();
+    let device_id = b"device-0000000000".to_vec();
 
     // Empty kid might be allowed or rejected depending on implementation
     let _result = FfiNoiseManager::new_client(config, seed, empty_kid, device_id);

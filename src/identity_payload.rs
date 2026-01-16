@@ -2,8 +2,11 @@
 //!
 //! This module provides the identity binding mechanism that links Ed25519 identities
 //! to Noise X25519 ephemeral keys, preventing man-in-the-middle attacks.
+//!
+//! ## Wire Format (PUBKY_CRYPTO_SPEC v2.5)
+//!
+//! The binding message uses BLAKE3 with a specific input format per spec Section 6.4.
 
-use blake2::{Blake2s256, Digest};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
@@ -45,76 +48,74 @@ mod signature_serde {
 
 /// Identity payload transmitted during Noise handshake.
 ///
-/// Contains the Ed25519 identity, the X25519 ephemeral key used in the handshake,
-/// and a signature binding them together.
+/// Contains the Ed25519 identity and a signature binding it to the Noise handshake.
 ///
-/// ## Wire Format Notes (per PUBKY_CRYPTO_SPEC v2.5)
+/// ## Wire Format (PUBKY_CRYPTO_SPEC v2.5 Section 6.3)
 ///
-/// - **epoch**: Deprecated. Always 0. Epoch is Ring-internal derivation metadata
-///   and MUST NOT appear in signed payloads. This field is kept for wire format
-///   compatibility with older implementations.
+/// - **ed25519_pub**: The sender's Ed25519 public key (PKARR identity)
+/// - **role**: Application-layer disambiguation (Client or Server). Not cryptographically significant.
+/// - **server_hint**: Optional, non-normative routing metadata. May be rotated freely.
+/// - **hint_expires_at**: Optional TTL scoped to server_hint only (not key validity)
+/// - **sig**: Ed25519 signature over binding message (see Section 6.4)
 ///
-/// - **noise_x25519_pub**: Deprecated. The Noise static keys are already carried
-///   by the Noise handshake itself. Duplicating them adds wire bytes and creates
-///   mismatch ambiguity.
-///
-/// - **role**: Application-layer disambiguation only. Not cryptographically significant.
-///
-/// - **server_hint**: Optional, non-normative metadata. May be rotated freely without
-///   affecting identity.
+/// **Removed in v2.5**: `epoch` and `noise_x25519_pub` (Noise handshake already carries static keys)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentityPayload {
+    /// Sender's Ed25519 public key (PKARR identity)
     pub ed25519_pub: [u8; 32],
-    /// Deprecated: Use the Noise handshake's static key instead.
-    pub noise_x25519_pub: [u8; 32],
-    /// Deprecated: Always 0. Epoch is Ring-internal state and MUST NOT be exposed on wire.
-    pub epoch: u32,
     /// Application-layer disambiguation only. Not cryptographically significant.
     pub role: Role,
     /// Optional, non-normative routing metadata. May be rotated freely without affecting identity.
     pub server_hint: Option<String>,
-    /// Optional expiration timestamp (Unix seconds since epoch).
+    /// Optional expiration timestamp (Unix seconds) scoped to `server_hint` only.
     ///
     /// When set, the receiver should validate that the current time is before
-    /// this timestamp before accepting the payload. This provides defense-in-depth
-    /// against replay attacks with compromised keys.
+    /// this timestamp before accepting the server_hint routing metadata.
+    /// This does NOT affect key validity or session lifetime.
     ///
-    /// If `None`, no expiration check is performed (backward compatible with
-    /// payloads that don't include this field).
+    /// If `None`, no expiration check is performed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<u64>,
+    pub hint_expires_at: Option<u64>,
+    /// Ed25519 signature over binding message (see make_binding_message)
     #[serde(with = "signature_serde")]
     pub sig: [u8; 64],
 }
 
-/// Parameters for constructing a binding message.
+/// Parameters for constructing a binding message per PUBKY_CRYPTO_SPEC v2.5 Section 6.4.
 ///
 /// This struct groups all the parameters needed to create a cryptographic
-/// binding between an Ed25519 identity and a Noise X25519 ephemeral key.
+/// binding between an Ed25519 identity and a Noise X25519 static key.
 pub struct BindingMessageParams<'a> {
-    /// Pattern identifier (e.g., "IK" or "XX").
-    pub pattern_tag: &'a str,
-    /// Protocol prologue bytes.
-    pub prologue: &'a [u8],
-    /// Ed25519 public key being bound.
+    /// Ed25519 public key being bound (peerid).
     pub ed25519_pub: &'a [u8; 32],
-    /// Local X25519 public key.
+    /// Local X25519 static public key from the Noise handshake.
     pub local_noise_pub: &'a [u8; 32],
-    /// Remote X25519 public key (if known).
+    /// Remote X25519 static public key from the Noise handshake.
+    /// Optional because in XX pattern step 2, server doesn't yet know client's static.
     pub remote_noise_pub: Option<&'a [u8; 32]>,
-    /// Role in the handshake.
+    /// Role in the handshake (Client or Server).
     pub role: Role,
-    /// Optional server hint for routing.
-    pub server_hint: Option<&'a str>,
-    /// Optional expiration timestamp (Unix seconds since epoch).
-    /// When set, included in the binding message for signature verification.
-    pub expires_at: Option<u64>,
 }
 
 /// Create a binding message hash for identity payload signing.
 ///
 /// The binding message cryptographically links the Ed25519 identity to the
-/// Noise X25519 ephemeral keys, preventing man-in-the-middle attacks.
+/// Noise X25519 static keys, preventing man-in-the-middle attacks.
+///
+/// ## Binding Message Construction (PUBKY_CRYPTO_SPEC v2.5 Section 6.4)
+///
+/// ```text
+/// binding_message = BLAKE3(
+///     "pubky-noise-binding/v1" ||
+///     peerid ||                    // 32 bytes: Ed25519 public key
+///     noise_static_pub ||          // 32 bytes: local X25519 static key
+///     role_byte ||                 // 1 byte: 0x00=Client, 0x01=Server
+///     [remote_static_pub]          // 32 bytes: peer's X25519 static key (if known)
+/// )
+/// ```
+///
+/// Note: `remote_static_pub` is optional because in XX pattern step 2, the
+/// server doesn't yet know the client's static key.
 ///
 /// # Arguments
 ///
@@ -122,38 +123,20 @@ pub struct BindingMessageParams<'a> {
 ///
 /// # Returns
 ///
-/// A 32-byte BLAKE2s hash suitable for Ed25519 signing.
+/// A 32-byte BLAKE3 hash suitable for Ed25519 signing.
 pub fn make_binding_message(params: &BindingMessageParams<'_>) -> [u8; 32] {
-    // Internal epoch value - always 0 (kept for wire format compatibility)
-    const INTERNAL_EPOCH: u32 = 0;
-
-    let mut h = Blake2s256::new();
-    h.update(b"pubky-noise-bind:v1");
-    h.update(params.pattern_tag.as_bytes());
-    h.update(params.prologue);
+    let mut h = blake3::Hasher::new();
+    h.update(b"pubky-noise-binding/v1");
     h.update(params.ed25519_pub);
     h.update(params.local_noise_pub);
-    if let Some(r) = params.remote_noise_pub {
-        h.update(r);
+    h.update(&[match params.role {
+        Role::Client => 0x00,
+        Role::Server => 0x01,
+    }]);
+    if let Some(remote) = params.remote_noise_pub {
+        h.update(remote);
     }
-    h.update(INTERNAL_EPOCH.to_le_bytes());
-    h.update(match params.role {
-        Role::Client => b"client",
-        Role::Server => b"server",
-    });
-    if let Some(hint) = params.server_hint {
-        h.update(hint.as_bytes());
-    }
-    // Include expires_at in the binding message when present
-    // This ensures the timestamp is covered by the signature
-    if let Some(expires_at) = params.expires_at {
-        h.update(b"expires_at:");
-        h.update(expires_at.to_le_bytes());
-    }
-    let out = h.finalize();
-    let mut digest = [0u8; 32];
-    digest.copy_from_slice(&out[..32]);
-    digest
+    *h.finalize().as_bytes()
 }
 
 pub fn sign_identity_payload(ed25519_sk: &SigningKey, msg32: &[u8; 32]) -> [u8; 64] {

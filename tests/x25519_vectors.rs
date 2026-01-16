@@ -132,7 +132,7 @@ fn test_snow_interop_keypair() {
     ];
 
     // Derive X25519 key using our HKDF approach (which does clamping)
-    let derived_sk = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"test", 0).unwrap();
+    let derived_sk = pubky_noise::kdf::derive_x25519_for_device_epoch(&seed, b"test-device-00000", 0).unwrap();
     let our_public = x25519_pk_from_sk(&derived_sk);
 
     // Use XX pattern which doesn't require remote public key

@@ -45,12 +45,12 @@ fn test_partition_during_handshake() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring.clone());
 
     // Get server's public key
     let server_sk = server_ring
-        .derive_device_x25519("kid", b"server", 0)
+        .derive_device_x25519("kid", b"server-device-00000", 0)
         .unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -80,12 +80,12 @@ fn test_partition_during_message_exchange() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring.clone());
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring.clone());
 
     // Get server's public key
     let server_sk = server_ring
-        .derive_device_x25519("kid", b"server", 0)
+        .derive_device_x25519("kid", b"server-device-00000", 0)
         .unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
@@ -142,12 +142,12 @@ fn test_multiple_partition_cycles() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring.clone());
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring.clone());
 
     // Get server's public key
     let server_sk = server_ring
-        .derive_device_x25519("kid", b"server", 0)
+        .derive_device_x25519("kid", b"server-device-00000", 0)
         .unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 

@@ -15,9 +15,9 @@ fn test_ffi_smoke() {
     // Setup keys
     let client_seed = [1u8; 32];
     let client_kid = "client_kid".to_string();
-    let device_id = b"device_id".to_vec();
+    let device_id = b"device_id_000000".to_vec();
     let server_seed = [2u8; 32];
-    let server_device_id = b"server_device".to_vec();
+    let server_device_id = b"server_device_0000".to_vec();
 
     // Server setup (manual for now as FFI doesn't expose server)
     let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0).unwrap();
@@ -69,7 +69,7 @@ fn test_ffi_server_client_handshake() {
     // Setup keys
     let client_seed = [1u8; 32];
     let server_seed = [2u8; 32];
-    let server_device_id = b"server_device".to_vec();
+    let server_device_id = b"server_device_0000".to_vec();
 
     // Get server's public key (derived the same way the server will derive it)
     let server_sk = derive_x25519_for_device_epoch(&server_seed, &server_device_id, 0).unwrap();

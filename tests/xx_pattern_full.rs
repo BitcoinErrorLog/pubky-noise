@@ -48,8 +48,8 @@ fn test_xx_full_handshake_with_identity() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"dev-client", client_ring.clone());
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"dev-server", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"dev-client-00000000", client_ring.clone());
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"dev-server-00000000", server_ring.clone());
 
     // Step 1: Client initiates XX (no server key needed)
     let init = client_start_xx_tofu(&client, Some("test-server.example.com"))
@@ -118,8 +118,8 @@ fn test_xx_then_ik_key_pinning() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"dev-client", client_ring.clone());
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"dev-server", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"dev-client-00000000", client_ring.clone());
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"dev-server-00000000", server_ring.clone());
 
     // First connection: XX (TOFU)
     let (c_link, _s_link, _client_id, _server_id, learned_server_pk) =
@@ -130,7 +130,7 @@ fn test_xx_then_ik_key_pinning() {
 
     // Verify the learned server key matches what we'd compute directly
     let expected_server_sk = server_ring
-        .derive_device_x25519("server-kid", b"dev-server", 0)
+        .derive_device_x25519("server-kid", b"dev-server-00000000", 0)
         .unwrap();
     let expected_server_pk = pubky_noise::kdf::x25519_pk_from_sk(&expected_server_sk);
     assert_eq!(
@@ -170,8 +170,8 @@ fn test_xx_server_hint_propagation() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"dev-client", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"dev-server", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"dev-client-00000000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"dev-server-00000000", server_ring);
 
     let server_hint = Some("my-production-server");
 
@@ -202,8 +202,8 @@ fn test_xx_test_helper() {
     let client_ring = Arc::new(TestRing { seed: [10u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [20u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring);
 
     let (mut c_link, mut s_link, client_id, server_id, server_pk) =
         complete_xx_handshake_for_test(&client, &server, None)
@@ -232,8 +232,8 @@ fn test_xx_ik_incompatible() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring.clone());
 
     // Client sends XX first message
     let init = client_start_xx_tofu(&client, None).unwrap();

@@ -11,12 +11,12 @@ async fn test_storage_queue_flow() {
     // Setup Noise
     let ring_client = Arc::new(DummyRing::new([1u8; 32], "kid"));
     let ring_server = Arc::new(DummyRing::new([2u8; 32], "kid"));
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client", ring_client.clone());
-    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server", ring_server.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"dev-client-00000000", ring_client.clone());
+    let server = NoiseServer::<_, ()>::new_direct("kid", b"dev-server-00000000", ring_server.clone());
 
     // Server static (using internal epoch 0)
     let server_sk = ring_server
-        .derive_device_x25519("kid", b"dev-server", 0)
+        .derive_device_x25519("kid", b"dev-server-00000000", 0)
         .unwrap();
     let server_static_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 

@@ -38,7 +38,7 @@ mod ffi_tests {
     #[test]
     fn test_key_derivation() {
         let seed = vec![1u8; 32];
-        let device_id = b"test-device".to_vec();
+        let device_id = b"test-device-0000000".to_vec();
         let epoch = 5;
 
         let key = derive_device_key(seed.clone(), device_id.clone(), epoch)
@@ -78,7 +78,7 @@ mod ffi_tests {
     #[test]
     fn test_derive_device_key_short_seed() {
         let short_seed = vec![1u8; 16]; // Too short
-        let device_id = b"device".to_vec();
+        let device_id = b"device-0000000000".to_vec();
         let result = derive_device_key(short_seed, device_id, 0);
         assert!(result.is_err(), "Should reject short seed");
     }
@@ -88,7 +88,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let kid = "test-client".to_string();
-        let device_id = b"device-123".to_vec();
+        let device_id = b"device-123-0000000".to_vec();
 
         let result = FfiNoiseManager::new_client(config, seed, kid, device_id);
         assert!(result.is_ok(), "Failed to create FfiNoiseManager");
@@ -99,7 +99,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 16]; // Wrong size
         let kid = "test-client".to_string();
-        let device_id = b"device-123".to_vec();
+        let device_id = b"device-123-0000000".to_vec();
 
         let result = FfiNoiseManager::new_client(config, seed, kid, device_id);
         assert!(result.is_err());
@@ -114,7 +114,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![2u8; 32];
         let kid = "test-server".to_string();
-        let device_id = b"server-device".to_vec();
+        let device_id = b"server-device-0000".to_vec();
 
         let result = FfiNoiseManager::new_server(config, seed, kid, device_id);
         assert!(result.is_ok(), "Failed to create server FfiNoiseManager");
@@ -125,7 +125,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let manager =
-            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev-000000000000".to_vec()).unwrap();
 
         let sessions = manager.list_sessions();
         assert_eq!(sessions.len(), 0);
@@ -203,7 +203,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let manager =
-            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev-000000000000".to_vec()).unwrap();
 
         // Invalid hex
         let result = manager.get_status("not-hex-at-all".to_string());
@@ -219,7 +219,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let manager =
-            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev-000000000000".to_vec()).unwrap();
 
         // Try to encrypt with non-existent session
         let fake_session = "0".repeat(64); // 32 bytes as hex
@@ -236,7 +236,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let manager =
-            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev-000000000000".to_vec()).unwrap();
 
         let sessions_before = manager.list_sessions();
 
@@ -253,7 +253,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let manager =
-            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap();
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev-000000000000".to_vec()).unwrap();
 
         let fake_session = "0".repeat(64);
         let result = manager.save_state(fake_session);
@@ -267,7 +267,7 @@ mod ffi_tests {
         let config = default_config();
         let seed = vec![1u8; 32];
         let manager = Arc::new(
-            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev".to_vec()).unwrap(),
+            FfiNoiseManager::new_client(config, seed, "test".to_string(), b"dev-000000000000".to_vec()).unwrap(),
         );
 
         let manager1 = manager.clone();
@@ -317,7 +317,7 @@ mod ffi_tests {
     fn test_seed_length_validation() {
         let config = default_config();
         let kid = "test".to_string();
-        let device_id = b"dev".to_vec();
+        let device_id = b"dev-000000000000".to_vec();
 
         // Test various invalid lengths
         for len in [0, 1, 15, 16, 31, 33, 64] {

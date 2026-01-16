@@ -1,4 +1,9 @@
 //! Property-based tests for cryptographic operations.
+//!
+//! ## PUBKY_CRYPTO_SPEC v2.5 Compliance
+//!
+//! Binding message format (Section 6.4):
+//! - BLAKE3("pubky-noise-binding/v1" || ed25519_pub || local_noise_pub || role_byte || remote_noise_pub)
 
 use ed25519_dalek::{SigningKey, SECRET_KEY_LENGTH};
 use pubky_noise::identity_payload::{
@@ -12,10 +17,10 @@ use zeroize::Zeroizing;
 #[test]
 fn property_kdf_deterministic() {
     let test_cases = vec![
-        ([0u8; 32], b"device1".as_slice(), 0u32),
-        ([1u8; 32], b"device2", 1),
-        ([42u8; 32], b"device3", 42),
-        ([0xFFu8; 32], b"device4", 999),
+        ([0u8; 32], b"device1-minimum-16bytes".as_slice(), 0u32),
+        ([1u8; 32], b"device2-minimum-16bytes", 1),
+        ([42u8; 32], b"device3-minimum-16bytes", 42),
+        ([0xFFu8; 32], b"device4-minimum-16bytes", 999),
     ];
 
     for (seed, device_id, epoch) in test_cases {
@@ -34,13 +39,13 @@ fn property_kdf_deterministic() {
 #[test]
 fn property_kdf_device_separation() {
     let seed = [42u8; 32];
-    let epoch = 0; // Use default epoch
+    let epoch = 0;
 
     let devices = [
-        b"device_a".as_slice(),
-        b"device_b",
-        b"device_c",
-        b"device_d",
+        b"device_a_minimum_16bytes".as_slice(),
+        b"device_b_minimum_16bytes",
+        b"device_c_minimum_16bytes",
+        b"device_d_minimum_16bytes",
     ];
 
     let keys: Vec<[u8; 32]> = devices
@@ -48,7 +53,6 @@ fn property_kdf_device_separation() {
         .map(|device_id| derive_x25519_for_device_epoch(&seed, device_id, epoch).unwrap())
         .collect();
 
-    // All keys should be unique
     for i in 0..keys.len() {
         for j in (i + 1)..keys.len() {
             assert_ne!(
@@ -66,7 +70,7 @@ fn property_x25519_clamping() {
     let test_seeds = vec![[0u8; 32], [1u8; 32], [42u8; 32], [0xFFu8; 32], [0x77u8; 32]];
 
     for seed in test_seeds {
-        let sk = derive_x25519_for_device_epoch(&seed, b"device", 0).unwrap();
+        let sk = derive_x25519_for_device_epoch(&seed, b"device-minimum-16bytes", 0).unwrap();
 
         // Check clamping: sk[0] should have bottom 3 bits clear
         assert_eq!(
@@ -109,7 +113,6 @@ fn property_pubkey_uniqueness() {
 
     let public_keys: Vec<[u8; 32]> = secret_keys.iter().map(x25519_pk_from_sk).collect();
 
-    // All public keys should be unique
     for i in 0..public_keys.len() {
         for j in (i + 1)..public_keys.len() {
             assert_ne!(
@@ -128,25 +131,19 @@ fn property_binding_message_deterministic() {
     let remote = [3u8; 32];
 
     let msg1 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue1",
         ed25519_pub: &ed_pub,
         local_noise_pub: &local,
-        remote_noise_pub: Some(&remote),
+        remote_noise_pub: Some(&remote,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     let msg2 = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue1",
         ed25519_pub: &ed_pub,
         local_noise_pub: &local,
-        remote_noise_pub: Some(&remote),
+        remote_noise_pub: Some(&remote,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
 
     assert_eq!(
@@ -163,76 +160,65 @@ fn property_binding_message_sensitivity() {
     let base_remote = [3u8; 32];
 
     let base_msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue",
         ed25519_pub: &base_ed,
         local_noise_pub: &base_local,
-        remote_noise_pub: Some(&base_remote),
+        remote_noise_pub: Some(&base_remote,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
-
-    // Change pattern
-    let msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "XX",
-        prologue: b"prologue",
-        ed25519_pub: &base_ed,
-        local_noise_pub: &base_local,
-        remote_noise_pub: Some(&base_remote),
-        role: Role::Client,
-        server_hint: None,
-        expires_at: None,
-    });
-    assert_ne!(
-        base_msg, msg,
-        "Changing pattern should change binding message"
-    );
-
-    // Change prologue
-    let msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"different",
-        ed25519_pub: &base_ed,
-        local_noise_pub: &base_local,
-        remote_noise_pub: Some(&base_remote),
-        role: Role::Client,
-        server_hint: None,
-        expires_at: None,
-    });
-    assert_ne!(
-        base_msg, msg,
-        "Changing prologue should change binding message"
-    );
 
     // Change ed25519 key
     let mut different_ed = base_ed;
     different_ed[0] ^= 1;
     let msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue",
         ed25519_pub: &different_ed,
         local_noise_pub: &base_local,
-        remote_noise_pub: Some(&base_remote),
+        remote_noise_pub: Some(&base_remote,
+        ),
         role: Role::Client,
-        server_hint: None,
-        expires_at: None,
     });
     assert_ne!(
         base_msg, msg,
         "Changing ed25519 key should change binding message"
     );
 
-    // Change role
+    // Change local key
+    let mut different_local = base_local;
+    different_local[0] ^= 1;
     let msg = make_binding_message(&BindingMessageParams {
-        pattern_tag: "IK",
-        prologue: b"prologue",
+        ed25519_pub: &base_ed,
+        local_noise_pub: &different_local,
+        remote_noise_pub: Some(&base_remote,
+        ),
+        role: Role::Client,
+    });
+    assert_ne!(
+        base_msg, msg,
+        "Changing local key should change binding message"
+    );
+
+    // Change remote key
+    let mut different_remote = base_remote;
+    different_remote[0] ^= 1;
+    let msg = make_binding_message(&BindingMessageParams {
         ed25519_pub: &base_ed,
         local_noise_pub: &base_local,
-        remote_noise_pub: Some(&base_remote),
+        remote_noise_pub: Some(&different_remote,
+        ),
+        role: Role::Client,
+    });
+    assert_ne!(
+        base_msg, msg,
+        "Changing remote key should change binding message"
+    );
+
+    // Change role
+    let msg = make_binding_message(&BindingMessageParams {
+        ed25519_pub: &base_ed,
+        local_noise_pub: &base_local,
+        remote_noise_pub: Some(&base_remote,
+        ),
         role: Role::Server,
-        server_hint: None,
-        expires_at: None,
     });
     assert_ne!(base_msg, msg, "Changing role should change binding message");
 }
@@ -251,7 +237,6 @@ fn property_signature_roundtrip() {
         let signing_key = SigningKey::from_bytes(&seed);
         let verifying_key = signing_key.verifying_key();
 
-        // Create multiple test messages
         let messages = vec![[0u8; 32], [1u8; 32], [42u8; 32], [0xFFu8; 32]];
 
         for msg in messages {
@@ -277,16 +262,13 @@ fn property_signature_key_mismatch() {
 
     let msg = [42u8; 32];
 
-    // Sign with key 1
     let sig1 = sign_identity_payload(&sk1, &msg);
 
-    // Verify with key 2 should fail
     assert!(
         !verify_identity_payload(&vk2, &msg, &sig1),
         "Signature should not verify with wrong key"
     );
 
-    // But verify with correct key should succeed
     assert!(
         verify_identity_payload(&vk1, &msg, &sig1),
         "Signature should verify with correct key"
@@ -322,7 +304,6 @@ fn property_signature_tamper_resistance() {
 /// Property: Zero check should detect all-zero shared secrets
 #[test]
 fn property_zero_check_correctness() {
-    // All-zero peer key should result in zero shared secret
     let sk = Zeroizing::new([1u8; 32]);
     let zero_pk = [0u8; 32];
 
@@ -337,19 +318,14 @@ fn property_zero_check_correctness() {
 fn property_valid_keys_nonzero() {
     let sk = Zeroizing::new([42u8; 32]);
 
-    // Test various non-zero peer keys
     let test_pks = vec![[1u8; 32], [2u8; 32], [0xFFu8; 32], [0x77u8; 32]];
 
     for pk in test_pks {
-        // Skip if pk is all zeros
         if pk.iter().all(|&b| b == 0) {
             continue;
         }
 
         let result = shared_secret_nonzero(&sk, &pk);
-
-        // Most valid keys should result in non-zero shared secrets
-        // (there are rare edge cases with low-order points, but they're extremely rare)
         println!("Peer key {:?} -> non-zero: {}", &pk[0..4], result);
     }
 }

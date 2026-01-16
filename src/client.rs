@@ -4,26 +4,17 @@ use crate::ring::{RingKeyFiller, RingKeyProvider};
 use std::marker::PhantomData;
 use zeroize::Zeroizing;
 
-/// Internal epoch value - always 0.
-///
-/// **Note**: Key epoch rotation is not currently implemented. The epoch field
-/// exists in the wire format for future compatibility, but is always set to 0.
-/// Per PUBKY_CRYPTO_SPEC v2.5, epoch is Ring-internal state and MUST NOT be
-/// exposed on the wire. For key rotation needs, use key_version via Ring FFI.
+/// Internal epoch value for Ring derivation (always 0).
+/// Key rotation is managed via key_version, not epoch.
 const INTERNAL_EPOCH: u32 = 0;
 
-/// Default prologue for the Noise protocol handshake.
+/// Fixed prologue for the Noise protocol handshake.
 ///
 /// Per PUBKY_CRYPTO_SPEC v2.5 Section 6.2, the prologue MUST be a fixed constant
-/// per protocol version. Arbitrary or caller-supplied prologues are PROHIBITED
-/// to prevent covert channels and interoperability failures.
-pub const DEFAULT_PROLOGUE: &[u8] = b"pubky-noise-v1";
+/// per protocol version. Arbitrary or caller-supplied prologues are PROHIBITED.
+const PROLOGUE: &[u8] = b"pubky-noise-v1";
 
 /// Default handshake expiry duration in seconds (5 minutes).
-///
-/// When `now_unix` is set on the client, this value is added to compute `expires_at`.
-/// Servers MUST reject payloads with timestamps in the past, which provides
-/// replay protection for handshake initiation.
 const DEFAULT_HANDSHAKE_EXPIRY_SECS: u64 = 300;
 
 pub struct NoiseClient<R: RingKeyProvider, P = ()> {
@@ -31,14 +22,11 @@ pub struct NoiseClient<R: RingKeyProvider, P = ()> {
     pub device_id: Vec<u8>,
     pub ring: std::sync::Arc<R>,
     _phantom: PhantomData<P>,
-    /// Protocol prologue. Per PUBKY_CRYPTO_SPEC v2.5, this MUST be a fixed constant.
-    /// Do not modify unless implementing a new protocol version.
-    pub prologue: Vec<u8>,
     pub suite: String,
     /// Current Unix timestamp in seconds. When set, enables handshake expiry.
     ///
-    /// Setting this causes the client to include `expires_at = now_unix + 300` in the
-    /// identity payload, providing replay protection for handshake messages.
+    /// Setting this causes the client to include `hint_expires_at` in the
+    /// identity payload, scoped to server_hint routing metadata.
     pub now_unix: Option<u64>,
     /// Custom expiry duration in seconds. Defaults to 300 (5 minutes).
     pub expiry_secs: u64,
@@ -55,7 +43,6 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
             device_id: device_id.as_ref().to_vec(),
             ring,
             _phantom: PhantomData,
-            prologue: b"pubky-noise-v1".to_vec(),
             suite: "Noise_IK_25519_ChaChaPoly_BLAKE2s".into(),
             now_unix: None,
             expiry_secs: DEFAULT_HANDSHAKE_EXPIRY_SECS,
@@ -64,7 +51,7 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
 
     /// Set the current Unix timestamp to enable handshake expiry.
     ///
-    /// When set, the handshake payload will include `expires_at = now_unix + expiry_secs`,
+    /// When set, the handshake payload will include `hint_expires_at = now_unix + expiry_secs`,
     /// which servers can use to reject replayed handshake messages.
     pub fn with_now_unix(mut self, now_unix: u64) -> Self {
         self.now_unix = Some(now_unix);
@@ -84,8 +71,7 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
     /// * `server_static_pub` - The server's static X25519 public key.
     /// * `server_hint` - Optional hint for server routing. Per PUBKY_CRYPTO_SPEC v2.5,
     ///   this is non-normative metadata that may be rotated freely without affecting
-    ///   identity. If present in signed payloads, authenticity is verified but
-    ///   semantics/reachability are not enforced.
+    ///   identity.
     ///
     /// # Returns
     ///
@@ -109,14 +95,11 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
                 if !crate::kdf::shared_secret_nonzero(x_sk, server_static_pub) {
                     return Err(NoiseError::InvalidPeerKey);
                 }
-                // Derive public key from private key before passing to builder
                 let x_pk_arr = crate::kdf::x25519_pk_from_sk(x_sk);
-
-                // Chain builder calls since each method consumes and returns self
                 let hs = builder
-                    .local_private_key(&**x_sk) // Deref Zeroizing to &[u8; 32] to &[u8]
+                    .local_private_key(&**x_sk)
                     .remote_public_key(server_static_pub)
-                    .prologue(&self.prologue)
+                    .prologue(PROLOGUE)
                     .build_initiator()
                     .map_err(NoiseError::from)?;
                 Ok((hs, x_pk_arr))
@@ -124,29 +107,22 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         )??;
         let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
 
-        // Compute expiration if now_unix is set (enables replay protection)
-        // When now_unix is None, expires_at is None for backward compatibility
-        let expires_at: Option<u64> = self.now_unix.map(|now| now + self.expiry_secs);
+        // Compute hint_expires_at if now_unix is set (scoped to server_hint)
+        let hint_expires_at: Option<u64> = self.now_unix.map(|now| now + self.expiry_secs);
 
         let msg32 = make_binding_message(&BindingMessageParams {
-            pattern_tag: "IK",
-            prologue: &self.prologue,
             ed25519_pub: &ed_pub,
             local_noise_pub: &x_pk_arr,
             remote_noise_pub: Some(server_static_pub),
             role: Role::Client,
-            server_hint,
-            expires_at,
         });
         let sig64 = self.ring.sign_ed25519(&self.kid, &msg32)?;
 
         let payload = IdentityPayload {
             ed25519_pub: ed_pub,
-            noise_x25519_pub: x_pk_arr,
-            epoch: INTERNAL_EPOCH, // Always 0 for wire format compatibility
             role: Role::Client,
             server_hint: server_hint.map(|s| s.to_string()),
-            expires_at,
+            hint_expires_at,
             sig: sig64,
         };
 
@@ -181,7 +157,7 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
                 .with_device_x25519(&self.kid, &self.device_id, INTERNAL_EPOCH, |x_sk| {
                     builder
                         .local_private_key(&**x_sk)
-                        .prologue(&self.prologue)
+                        .prologue(PROLOGUE)
                         .build_initiator()
                         .map_err(NoiseError::from)
                 })?;
@@ -207,17 +183,21 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         let n = hs.read_message(server_response, &mut buf)?;
         let server_payload: IdentityPayload = serde_json::from_slice(&buf[..n])?;
 
-        // Extract server's static public key
+        // Extract server's static public key from Noise handshake state
+        // (per spec v2.5, no longer duplicated in IdentityPayload)
         let server_static_pk: [u8; 32] = hs
             .get_remote_static()
             .ok_or(NoiseError::RemoteStaticMissing)?
             .try_into()
             .map_err(|_| NoiseError::Other("Server static key wrong length".to_string()))?;
 
-        // Validate server's static key matches identity payload
-        if server_static_pk != server_payload.noise_x25519_pub {
-            return Err(NoiseError::IdentityVerify);
-        }
+        // Get our static public key for binding message
+        let x_pk_arr = self.ring.with_device_x25519(
+            &self.kid,
+            &self.device_id,
+            INTERNAL_EPOCH,
+            |x_sk: &Zeroizing<[u8; 32]>| crate::kdf::x25519_pk_from_sk(x_sk),
+        )?;
 
         // Reject all-zero shared secret
         let ok = self.ring.with_device_x25519(
@@ -231,15 +211,13 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         }
 
         // Verify server's identity binding signature
+        // Server's binding message uses: server_ed25519, server_static, server_role, [client_static]
+        // In XX step 2, server doesn't know client's static yet, so remote_noise_pub is None
         let msg32 = make_binding_message(&BindingMessageParams {
-            pattern_tag: "XX",
-            prologue: &self.prologue,
             ed25519_pub: &server_payload.ed25519_pub,
-            local_noise_pub: &server_payload.noise_x25519_pub,
+            local_noise_pub: &server_static_pk,
             remote_noise_pub: None,
             role: Role::Server,
-            server_hint: server_payload.server_hint.as_deref(),
-            expires_at: server_payload.expires_at,
         });
         let vk = ed25519_dalek::VerifyingKey::from_bytes(&server_payload.ed25519_pub)
             .map_err(|e| NoiseError::Other(e.to_string()))?;
@@ -250,34 +228,21 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
 
         // Build client's identity payload
         let ed_pub = self.ring.ed25519_pubkey(&self.kid)?;
-        let x_pk_arr = self.ring.with_device_x25519(
-            &self.kid,
-            &self.device_id,
-            INTERNAL_EPOCH,
-            |x_sk: &Zeroizing<[u8; 32]>| crate::kdf::x25519_pk_from_sk(x_sk),
-        )?;
-
-        let expires_at: Option<u64> = self.now_unix.map(|now| now + self.expiry_secs);
+        let hint_expires_at: Option<u64> = self.now_unix.map(|now| now + self.expiry_secs);
 
         let client_msg32 = make_binding_message(&BindingMessageParams {
-            pattern_tag: "XX",
-            prologue: &self.prologue,
             ed25519_pub: &ed_pub,
             local_noise_pub: &x_pk_arr,
             remote_noise_pub: Some(&server_static_pk),
             role: Role::Client,
-            server_hint,
-            expires_at,
         });
         let sig64 = self.ring.sign_ed25519(&self.kid, &client_msg32)?;
 
         let client_payload = IdentityPayload {
             ed25519_pub: ed_pub,
-            noise_x25519_pub: x_pk_arr,
-            epoch: INTERNAL_EPOCH,
             role: Role::Client,
             server_hint: server_hint.map(|s| s.to_string()),
-            expires_at,
+            hint_expires_at,
             sig: sig64,
         };
 
@@ -308,7 +273,7 @@ impl<R: RingKeyProvider, P> NoiseClient<R, P> {
         );
 
         let mut hs = builder
-            .prologue(&self.prologue)
+            .prologue(PROLOGUE)
             .build_initiator()
             .map_err(NoiseError::from)?;
 

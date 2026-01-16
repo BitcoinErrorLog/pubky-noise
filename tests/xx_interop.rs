@@ -47,19 +47,26 @@ impl RingKeyProvider for InteropRing {
     }
 }
 
-/// Verify that the prologue is fixed as specified in the spec.
+/// Verify that prologue is frozen and not configurable.
+///
+/// Per PUBKY_CRYPTO_SPEC v2.5 Section 6.2, the prologue MUST be a fixed constant.
+/// The NoiseClient/NoiseServer structs no longer expose a `prologue` field -
+/// it is hardcoded internally as `b"pubky-noise-v1"`.
 #[test]
 fn test_prologue_is_frozen() {
+    // This test verifies that handshakes complete successfully using the fixed prologue.
+    // The prologue is no longer a public field, so we verify by ensuring
+    // client and server can complete a handshake (which requires matching prologues).
+    
     let client_ring = Arc::new(InteropRing { seed: [1u8; 32] });
+    let server_ring = Arc::new(InteropRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-id", client_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id-16", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id-16", server_ring);
 
-    // The prologue should be fixed to "pubky-noise-v1"
-    assert_eq!(
-        client.prologue.as_slice(),
-        b"pubky-noise-v1",
-        "Prologue must be frozen to 'pubky-noise-v1' per spec section 6.2"
-    );
+    // If prologues weren't matching, handshake would fail
+    let result = complete_xx_handshake_for_test(&client, &server, None);
+    assert!(result.is_ok(), "Handshake with frozen prologue should succeed: {:?}", result.err());
 }
 
 /// Verify that XX pattern correctly learns and pins server's static key.
@@ -68,8 +75,8 @@ fn test_xx_to_ik_upgrade_path() {
     let client_ring = Arc::new(InteropRing { seed: [11u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [22u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring);
 
     // Step 1: Complete XX handshake (TOFU)
     let (c_link, s_link, _client_id, server_id, learned_server_pk) =
@@ -112,8 +119,8 @@ fn test_downgrade_prevention_xx_after_ik() {
     let client_ring = Arc::new(InteropRing { seed: [33u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [44u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring.clone());
 
     // First, establish trust via XX
     let (_, _, _, _, learned_server_pk) = complete_xx_handshake_for_test(&client, &server, None)
@@ -145,8 +152,8 @@ fn test_identity_payload_format_compliance() {
     let client_ring = Arc::new(InteropRing { seed: [55u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [66u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring);
 
     let (_, _, client_identity, server_identity, _) =
         complete_xx_handshake_for_test(&client, &server, Some("test.example.com"))
@@ -176,8 +183,8 @@ fn test_server_hint_non_normative() {
     let client_ring = Arc::new(InteropRing { seed: [77u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [88u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring);
 
     // Test with hint
     let (_, _, client_id_with_hint, _, _) =
@@ -206,8 +213,8 @@ fn test_role_domain_separation() {
     let client_ring = Arc::new(InteropRing { seed: [99u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [100u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring);
 
     let (_, _, client_identity, server_identity, _) =
         complete_xx_handshake_for_test(&client, &server, None)
@@ -228,8 +235,8 @@ fn test_concurrent_xx_session_uniqueness() {
     let client_ring = Arc::new(InteropRing { seed: [111u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [222u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring);
 
     // Complete two separate handshakes
     let (link1, _, _, _, _) = complete_xx_handshake_for_test(&client, &server, None)
@@ -254,8 +261,8 @@ fn test_xx_deterministic_session_id() {
     let client_ring = Arc::new(InteropRing { seed: [1u8; 32] });
     let server_ring = Arc::new(InteropRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id", client_ring);
-    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("client-kid", b"client-device-id000", client_ring);
+    let server = NoiseServer::<_, ()>::new_direct("server-kid", b"server-device-id000", server_ring);
 
     // Start XX handshake
     let init = client_start_xx_tofu(&client, None).expect("XX start should succeed");

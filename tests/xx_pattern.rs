@@ -42,8 +42,8 @@ fn test_xx_pattern_first_contact() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring);
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring);
 
     // XX pattern: Client initiates without knowing server's static key
     let (hs, first_msg, _hint) = client.build_initiator_xx_tofu(None).unwrap();
@@ -62,7 +62,7 @@ fn test_xx_vs_ik_different_messages() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring.clone());
     let server_ring_clone = server_ring.clone();
 
     // XX pattern: No server key needed
@@ -70,7 +70,7 @@ fn test_xx_vs_ik_different_messages() {
 
     // IK pattern: Requires server key
     let server_sk = server_ring_clone
-        .derive_device_x25519("kid", b"server", 0)
+        .derive_device_x25519("kid", b"server-device-00000", 0)
         .unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
     let (_, ik_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
@@ -87,8 +87,8 @@ fn test_xx_pattern_first_contact_scenario() {
     let client_ring = Arc::new(TestRing { seed: [1u8; 32] });
     let server_ring = Arc::new(TestRing { seed: [2u8; 32] });
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", client_ring);
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", server_ring);
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", client_ring);
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", server_ring);
 
     let (hs, first_msg, _hint) = client.build_initiator_xx_tofu(None).unwrap();
 
