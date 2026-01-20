@@ -143,3 +143,23 @@ pub struct FfiX25519Keypair {
     /// Public key (32 bytes).
     pub public_key: Vec<u8>,
 }
+
+/// FFI-safe Ed25519 keypair for UKD AppKey generation.
+#[derive(uniffi::Record)]
+pub struct FfiEd25519Keypair {
+    /// Secret key as hex (64 chars / 32 bytes). Zeroize after use.
+    pub secret_key_hex: String,
+    /// Public key as hex (64 chars / 32 bytes).
+    pub public_key_hex: String,
+}
+
+/// FFI-safe result for AppCert issuance.
+#[derive(uniffi::Record)]
+pub struct FfiAppCertResult {
+    /// Raw cert_body bytes as hex.
+    pub cert_body_hex: String,
+    /// Ed25519 signature as hex (128 chars / 64 bytes).
+    pub sig_hex: String,
+    /// cert_id as hex (32 chars / 16 bytes).
+    pub cert_id_hex: String,
+}

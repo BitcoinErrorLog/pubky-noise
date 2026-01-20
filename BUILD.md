@@ -135,8 +135,8 @@ cargo build --features ffi
 # Or manually for specific target
 rustup target add aarch64-linux-android
 rustup target add armv7-linux-androideabi
-rustup target add i686-linux-android
 rustup target add x86_64-linux-android
+# Note: i686-linux-android (x86 32-bit) is NOT supported
 
 cargo build --target aarch64-linux-android --release
 ```

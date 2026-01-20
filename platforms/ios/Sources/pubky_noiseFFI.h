@@ -358,6 +358,11 @@ RustBuffer uniffi_pubky_noise_fn_func_derive_device_keypair(RustBuffer seed, Rus
 RustBuffer uniffi_pubky_noise_fn_func_derive_noise_seed(RustBuffer ed25519_secret_hex, RustBuffer device_id_hex, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_PUBLIC_FROM_SECRET
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_PUBLIC_FROM_SECRET
+RustBuffer uniffi_pubky_noise_fn_func_ed25519_public_from_secret(RustBuffer ed25519_secret_hex, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_SIGN
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ED25519_SIGN
 RustBuffer uniffi_pubky_noise_fn_func_ed25519_sign(RustBuffer ed25519_secret_hex, RustBuffer message_hex, RustCallStatus *_Nonnull out_status
@@ -368,9 +373,20 @@ RustBuffer uniffi_pubky_noise_fn_func_ed25519_sign(RustBuffer ed25519_secret_hex
 int8_t uniffi_pubky_noise_fn_func_ed25519_verify(RustBuffer ed25519_public_hex, RustBuffer message_hex, RustBuffer signature_hex, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_GENERATE_APP_KEYPAIR
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_GENERATE_APP_KEYPAIR
+RustBuffer uniffi_pubky_noise_fn_func_generate_app_keypair(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_IS_SEALED_BLOB
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_IS_SEALED_BLOB
 int8_t uniffi_pubky_noise_fn_func_is_sealed_blob(RustBuffer json, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ISSUE_APP_CERT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_ISSUE_APP_CERT
+RustBuffer uniffi_pubky_noise_fn_func_issue_app_cert(RustBuffer root_sk_hex, RustBuffer app_id, RustBuffer app_ed25519_pub_hex, RustBuffer transport_x25519_pub_hex, RustBuffer inbox_x25519_pub_hex, RustBuffer device_id_hex, RustBuffer scopes, RustBuffer expires_at, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_PERFORMANCE_CONFIG
@@ -389,9 +405,34 @@ RustBuffer uniffi_pubky_noise_fn_func_public_key_from_secret(RustBuffer secret, 
 RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_decrypt(RustBuffer recipient_sk, RustBuffer envelope_json, RustBuffer aad, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_DECRYPT_WITH_CONTEXT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_DECRYPT_WITH_CONTEXT
+RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_decrypt_with_context(RustBuffer recipient_sk, RustBuffer envelope_json, RustBuffer owner_peerid, RustBuffer canonical_path, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT
 RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_encrypt(RustBuffer recipient_pk, RustBuffer plaintext, RustBuffer aad, RustBuffer purpose, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
+RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(RustBuffer recipient_pk, RustBuffer plaintext, RustBuffer owner_peerid, RustBuffer canonical_path, RustBuffer purpose, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SIGN_TYPED_CONTENT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SIGN_TYPED_CONTENT
+RustBuffer uniffi_pubky_noise_fn_func_sign_typed_content(RustBuffer app_sk_hex, RustBuffer issuer_peerid_hex, RustBuffer cert_id_hex, RustBuffer content_type, RustBuffer payload_hex, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_VERIFY_APP_CERT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_VERIFY_APP_CERT
+RustBuffer uniffi_pubky_noise_fn_func_verify_app_cert(RustBuffer issuer_peerid_hex, RustBuffer cert_body_hex, RustBuffer sig_hex, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_VERIFY_TYPED_CONTENT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_VERIFY_TYPED_CONTENT
+int8_t uniffi_pubky_noise_fn_func_verify_typed_content(RustBuffer app_ed25519_pub_hex, RustBuffer issuer_peerid_hex, RustBuffer cert_id_hex, RustBuffer content_type, RustBuffer payload_hex, RustBuffer sig_hex, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_X25519_GENERATE_KEYPAIR
@@ -715,6 +756,12 @@ uint16_t uniffi_pubky_noise_checksum_func_derive_noise_seed(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_PUBLIC_FROM_SECRET
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_PUBLIC_FROM_SECRET
+uint16_t uniffi_pubky_noise_checksum_func_ed25519_public_from_secret(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_SIGN
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ED25519_SIGN
 uint16_t uniffi_pubky_noise_checksum_func_ed25519_sign(void
@@ -727,9 +774,21 @@ uint16_t uniffi_pubky_noise_checksum_func_ed25519_verify(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_GENERATE_APP_KEYPAIR
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_GENERATE_APP_KEYPAIR
+uint16_t uniffi_pubky_noise_checksum_func_generate_app_keypair(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_IS_SEALED_BLOB
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_IS_SEALED_BLOB
 uint16_t uniffi_pubky_noise_checksum_func_is_sealed_blob(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ISSUE_APP_CERT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_ISSUE_APP_CERT
+uint16_t uniffi_pubky_noise_checksum_func_issue_app_cert(void
     
 );
 #endif
@@ -751,9 +810,39 @@ uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_decrypt(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_DECRYPT_WITH_CONTEXT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_DECRYPT_WITH_CONTEXT
+uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_decrypt_with_context(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT
 uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_encrypt(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
+uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SIGN_TYPED_CONTENT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SIGN_TYPED_CONTENT
+uint16_t uniffi_pubky_noise_checksum_func_sign_typed_content(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_VERIFY_APP_CERT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_VERIFY_APP_CERT
+uint16_t uniffi_pubky_noise_checksum_func_verify_app_cert(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_VERIFY_TYPED_CONTENT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_VERIFY_TYPED_CONTENT
+uint16_t uniffi_pubky_noise_checksum_func_verify_typed_content(void
     
 );
 #endif

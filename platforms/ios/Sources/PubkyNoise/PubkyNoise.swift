@@ -892,6 +892,190 @@ public func FfiConverterTypeFfiAcceptResult_lower(_ value: FfiAcceptResult) -> R
 
 
 /**
+ * FFI-safe result for AppCert issuance.
+ */
+public struct FfiAppCertResult {
+    /**
+     * Raw cert_body bytes as hex.
+     */
+    public var certBodyHex: String
+    /**
+     * Ed25519 signature as hex (128 chars / 64 bytes).
+     */
+    public var sigHex: String
+    /**
+     * cert_id as hex (32 chars / 16 bytes).
+     */
+    public var certIdHex: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Raw cert_body bytes as hex.
+         */certBodyHex: String, 
+        /**
+         * Ed25519 signature as hex (128 chars / 64 bytes).
+         */sigHex: String, 
+        /**
+         * cert_id as hex (32 chars / 16 bytes).
+         */certIdHex: String) {
+        self.certBodyHex = certBodyHex
+        self.sigHex = sigHex
+        self.certIdHex = certIdHex
+    }
+}
+
+#if compiler(>=6)
+extension FfiAppCertResult: Sendable {}
+#endif
+
+
+extension FfiAppCertResult: Equatable, Hashable {
+    public static func ==(lhs: FfiAppCertResult, rhs: FfiAppCertResult) -> Bool {
+        if lhs.certBodyHex != rhs.certBodyHex {
+            return false
+        }
+        if lhs.sigHex != rhs.sigHex {
+            return false
+        }
+        if lhs.certIdHex != rhs.certIdHex {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(certBodyHex)
+        hasher.combine(sigHex)
+        hasher.combine(certIdHex)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiAppCertResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiAppCertResult {
+        return
+            try FfiAppCertResult(
+                certBodyHex: FfiConverterString.read(from: &buf), 
+                sigHex: FfiConverterString.read(from: &buf), 
+                certIdHex: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiAppCertResult, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.certBodyHex, into: &buf)
+        FfiConverterString.write(value.sigHex, into: &buf)
+        FfiConverterString.write(value.certIdHex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiAppCertResult_lift(_ buf: RustBuffer) throws -> FfiAppCertResult {
+    return try FfiConverterTypeFfiAppCertResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiAppCertResult_lower(_ value: FfiAppCertResult) -> RustBuffer {
+    return FfiConverterTypeFfiAppCertResult.lower(value)
+}
+
+
+/**
+ * FFI-safe Ed25519 keypair for UKD AppKey generation.
+ */
+public struct FfiEd25519Keypair {
+    /**
+     * Secret key as hex (64 chars / 32 bytes). Zeroize after use.
+     */
+    public var secretKeyHex: String
+    /**
+     * Public key as hex (64 chars / 32 bytes).
+     */
+    public var publicKeyHex: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Secret key as hex (64 chars / 32 bytes). Zeroize after use.
+         */secretKeyHex: String, 
+        /**
+         * Public key as hex (64 chars / 32 bytes).
+         */publicKeyHex: String) {
+        self.secretKeyHex = secretKeyHex
+        self.publicKeyHex = publicKeyHex
+    }
+}
+
+#if compiler(>=6)
+extension FfiEd25519Keypair: Sendable {}
+#endif
+
+
+extension FfiEd25519Keypair: Equatable, Hashable {
+    public static func ==(lhs: FfiEd25519Keypair, rhs: FfiEd25519Keypair) -> Bool {
+        if lhs.secretKeyHex != rhs.secretKeyHex {
+            return false
+        }
+        if lhs.publicKeyHex != rhs.publicKeyHex {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(secretKeyHex)
+        hasher.combine(publicKeyHex)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFfiEd25519Keypair: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FfiEd25519Keypair {
+        return
+            try FfiEd25519Keypair(
+                secretKeyHex: FfiConverterString.read(from: &buf), 
+                publicKeyHex: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: FfiEd25519Keypair, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.secretKeyHex, into: &buf)
+        FfiConverterString.write(value.publicKeyHex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiEd25519Keypair_lift(_ buf: RustBuffer) throws -> FfiEd25519Keypair {
+    return try FfiConverterTypeFfiEd25519Keypair.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFfiEd25519Keypair_lower(_ value: FfiEd25519Keypair) -> RustBuffer {
+    return FfiConverterTypeFfiEd25519Keypair.lower(value)
+}
+
+
+/**
  * FFI-safe result for initiate_connection
  */
 public struct FfiInitiateResult {
@@ -1635,6 +1819,30 @@ fileprivate struct FfiConverterOptionTypeFfiConnectionStatus: FfiConverterRustBu
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
     typealias SwiftType = [String]
 
@@ -1740,6 +1948,24 @@ public func deriveNoiseSeed(ed25519SecretHex: String, deviceIdHex: String)throws
 })
 }
 /**
+ * Derive Ed25519 public key from secret key.
+ *
+ * # Arguments
+ *
+ * * `ed25519_secret_hex` - Ed25519 secret key (seed) as 64-char hex string (32 bytes)
+ *
+ * # Returns
+ *
+ * Ed25519 public key as 64-char hex string (32 bytes).
+ */
+public func ed25519PublicFromSecret(ed25519SecretHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_ed25519_public_from_secret(
+        FfiConverterString.lower(ed25519SecretHex),$0
+    )
+})
+}
+/**
  * Sign an arbitrary message with an Ed25519 secret key.
  *
  * # Arguments
@@ -1782,6 +2008,19 @@ public func ed25519Verify(ed25519PublicHex: String, messageHex: String, signatur
 })
 }
 /**
+ * Generate a new Ed25519 keypair for use as an AppKey.
+ *
+ * # Returns
+ *
+ * FfiEd25519Keypair with secret_key_hex and public_key_hex, each 64 chars (32 bytes).
+ */
+public func generateAppKeypair() -> FfiEd25519Keypair  {
+    return try!  FfiConverterTypeFfiEd25519Keypair_lift(try! rustCall() {
+    uniffi_pubky_noise_fn_func_generate_app_keypair($0
+    )
+})
+}
+/**
  * Check if a JSON string looks like a sealed blob envelope (v1 or v2).
  *
  * Requires both version field (`"v":1` or `"v":2`) AND ephemeral public key (`"epk":`).
@@ -1791,6 +2030,38 @@ public func isSealedBlob(json: String) -> Bool  {
     return try!  FfiConverterBool.lift(try! rustCall() {
     uniffi_pubky_noise_fn_func_is_sealed_blob(
         FfiConverterString.lower(json),$0
+    )
+})
+}
+/**
+ * Issue an AppCert by signing with the root Ed25519 secret key.
+ *
+ * # Arguments
+ *
+ * * `root_sk_hex` - Root PKARR Ed25519 secret key as hex (64 chars)
+ * * `app_id` - Application identifier (e.g., "pubky.app", "paykit")
+ * * `app_ed25519_pub_hex` - Delegated signing key as hex (64 chars)
+ * * `transport_x25519_pub_hex` - Delegated Noise static key as hex (64 chars)
+ * * `inbox_x25519_pub_hex` - Delegated inbox encryption key as hex (64 chars)
+ * * `device_id_hex` - Optional device ID as hex
+ * * `scopes` - Optional capability scopes
+ * * `expires_at` - Optional expiration timestamp (Unix seconds)
+ *
+ * # Returns
+ *
+ * FfiAppCertResult with cert_body_hex, sig_hex, and cert_id_hex.
+ */
+public func issueAppCert(rootSkHex: String, appId: String, appEd25519PubHex: String, transportX25519PubHex: String, inboxX25519PubHex: String, deviceIdHex: String?, scopes: [String]?, expiresAt: UInt64?)throws  -> FfiAppCertResult  {
+    return try  FfiConverterTypeFfiAppCertResult_lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_issue_app_cert(
+        FfiConverterString.lower(rootSkHex),
+        FfiConverterString.lower(appId),
+        FfiConverterString.lower(appEd25519PubHex),
+        FfiConverterString.lower(transportX25519PubHex),
+        FfiConverterString.lower(inboxX25519PubHex),
+        FfiConverterOptionString.lower(deviceIdHex),
+        FfiConverterOptionSequenceString.lower(scopes),
+        FfiConverterOptionUInt64.lower(expiresAt),$0
     )
 })
 }
@@ -1842,6 +2113,32 @@ public func sealedBlobDecrypt(recipientSk: Data, envelopeJson: String, aad: Stri
 })
 }
 /**
+ * Decrypt Sealed Blob v2 with spec-compliant AAD construction.
+ *
+ * This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5.
+ *
+ * # Arguments
+ *
+ * * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
+ * * `envelope_json` - JSON-encoded sealed blob v2 envelope
+ * * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+ * * `canonical_path` - Canonical storage path (must match encryption)
+ *
+ * # Returns
+ *
+ * Decrypted plaintext.
+ */
+public func sealedBlobDecryptWithContext(recipientSk: Data, envelopeJson: String, ownerPeerid: Data, canonicalPath: String)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_sealed_blob_decrypt_with_context(
+        FfiConverterData.lower(recipientSk),
+        FfiConverterString.lower(envelopeJson),
+        FfiConverterData.lower(ownerPeerid),
+        FfiConverterString.lower(canonicalPath),$0
+    )
+})
+}
+/**
  * Encrypt plaintext using Paykit Sealed Blob v2 format (XChaCha20-Poly1305).
  *
  * # Arguments
@@ -1867,6 +2164,116 @@ public func sealedBlobEncrypt(recipientPk: Data, plaintext: Data, aad: String, p
         FfiConverterData.lower(plaintext),
         FfiConverterString.lower(aad),
         FfiConverterOptionString.lower(purpose),$0
+    )
+})
+}
+/**
+ * Encrypt using Sealed Blob v2 with spec-compliant AAD construction.
+ *
+ * This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5:
+ * ```text
+ * aad = "pubky-envelope/v2:" || owner_peerid_bytes || canonical_path_bytes || header_bytes
+ * ```
+ *
+ * # Arguments
+ *
+ * * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+ * * `plaintext` - Data to encrypt (max 64 KiB)
+ * * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+ * * `canonical_path` - Canonical storage path (e.g., "/pub/paykit.app/v0/handoff/{id}")
+ * * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+ *
+ * # Returns
+ *
+ * JSON-encoded sealed blob v2 envelope.
+ */
+public func sealedBlobEncryptWithContext(recipientPk: Data, plaintext: Data, ownerPeerid: Data, canonicalPath: String, purpose: String?)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(
+        FfiConverterData.lower(recipientPk),
+        FfiConverterData.lower(plaintext),
+        FfiConverterData.lower(ownerPeerid),
+        FfiConverterString.lower(canonicalPath),
+        FfiConverterOptionString.lower(purpose),$0
+    )
+})
+}
+/**
+ * Sign typed content with an AppKey per UKD spec.
+ *
+ * This is a TYPED signing function, not a generic "sign anything" API.
+ * The content_type parameter constrains what is being signed.
+ *
+ * # Arguments
+ *
+ * * `app_sk_hex` - AppKey Ed25519 secret key as hex (64 chars)
+ * * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+ * * `cert_id_hex` - AppCert identifier as hex (32 chars)
+ * * `content_type` - ASCII label describing what is signed (e.g., "pubky.post")
+ * * `payload_hex` - Content payload as hex
+ *
+ * # Returns
+ *
+ * 64-byte Ed25519 signature as hex (128 chars).
+ */
+public func signTypedContent(appSkHex: String, issuerPeeridHex: String, certIdHex: String, contentType: String, payloadHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_sign_typed_content(
+        FfiConverterString.lower(appSkHex),
+        FfiConverterString.lower(issuerPeeridHex),
+        FfiConverterString.lower(certIdHex),
+        FfiConverterString.lower(contentType),
+        FfiConverterString.lower(payloadHex),$0
+    )
+})
+}
+/**
+ * Verify an AppCert signature.
+ *
+ * # Arguments
+ *
+ * * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+ * * `cert_body_hex` - Raw cert_body bytes as hex
+ * * `sig_hex` - Ed25519 signature as hex (128 chars)
+ *
+ * # Returns
+ *
+ * cert_id as hex (32 chars) if valid.
+ */
+public func verifyAppCert(issuerPeeridHex: String, certBodyHex: String, sigHex: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_verify_app_cert(
+        FfiConverterString.lower(issuerPeeridHex),
+        FfiConverterString.lower(certBodyHex),
+        FfiConverterString.lower(sigHex),$0
+    )
+})
+}
+/**
+ * Verify typed content signature.
+ *
+ * # Arguments
+ *
+ * * `app_ed25519_pub_hex` - AppKey Ed25519 public key as hex (64 chars)
+ * * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+ * * `cert_id_hex` - AppCert identifier as hex (32 chars)
+ * * `content_type` - ASCII label describing what is signed
+ * * `payload_hex` - Content payload as hex
+ * * `sig_hex` - Signature to verify as hex (128 chars)
+ *
+ * # Returns
+ *
+ * true if valid.
+ */
+public func verifyTypedContent(appEd25519PubHex: String, issuerPeeridHex: String, certIdHex: String, contentType: String, payloadHex: String, sigHex: String)throws  -> Bool  {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeFfiNoiseError_lift) {
+    uniffi_pubky_noise_fn_func_verify_typed_content(
+        FfiConverterString.lower(appEd25519PubHex),
+        FfiConverterString.lower(issuerPeeridHex),
+        FfiConverterString.lower(certIdHex),
+        FfiConverterString.lower(contentType),
+        FfiConverterString.lower(payloadHex),
+        FfiConverterString.lower(sigHex),$0
     )
 })
 }
@@ -1927,13 +2334,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_pubky_noise_checksum_func_derive_noise_seed() != 52084) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_pubky_noise_checksum_func_ed25519_public_from_secret() != 29948) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_ed25519_verify() != 14993) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_pubky_noise_checksum_func_generate_app_keypair() != 618) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_pubky_noise_checksum_func_is_sealed_blob() != 27217) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_issue_app_cert() != 15978) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_performance_config() != 613) {
@@ -1945,7 +2361,22 @@ private let initializationResult: InitializationResult = {
     if (uniffi_pubky_noise_checksum_func_sealed_blob_decrypt() != 39236) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_pubky_noise_checksum_func_sealed_blob_decrypt_with_context() != 16882) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_pubky_noise_checksum_func_sealed_blob_encrypt() != 19222) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context() != 39578) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_sign_typed_content() != 51008) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_verify_app_cert() != 39996) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_pubky_noise_checksum_func_verify_typed_content() != 11282) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_pubky_noise_checksum_func_x25519_generate_keypair() != 20350) {

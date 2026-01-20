@@ -40,7 +40,9 @@ pub mod ring;
 #[cfg(feature = "secure-mem")]
 pub mod secure_mem;
 pub mod sealed_blob;
+pub mod sealed_blob_v2;
 pub mod server;
+pub mod ukd;
 pub mod session_id;
 pub mod session_manager;
 #[cfg(feature = "storage-queue")]
@@ -64,6 +66,16 @@ pub use ring::{DummyRing, RingKeyFiller, RingKeyProvider};
 pub use sealed_blob::{
     is_sealed_blob, sealed_blob_decrypt, sealed_blob_encrypt, x25519_generate_keypair,
     x25519_public_from_secret, SealedBlobEnvelope, MAX_PLAINTEXT_SIZE, SEALED_BLOB_VERSION,
+    NONCE_SIZE_V2,
+};
+pub use sealed_blob_v2::{
+    Sb2, Sb2Header, build_aad as sb2_build_aad, compute_sig_input as sb2_compute_sig_input,
+    SB2_MAGIC, SB2_VERSION, MAX_HEADER_LEN, MAX_MSG_ID_LEN, AAD_PREFIX as SB2_AAD_PREFIX,
+};
+pub use ukd::{
+    derive_cert_id, generate_app_keypair, issue_app_cert, sign_typed_content,
+    verify_app_cert, verify_typed_content, AppCert, AppCertInput, CERT_ID_LEN,
+    KeyBinding, InboxKeyEntry, TransportKeyEntry, AppKeyEntry,
 };
 pub use server::{NoiseServer, ServerPolicy};
 pub use session_id::SessionId;

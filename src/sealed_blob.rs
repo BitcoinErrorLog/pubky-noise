@@ -31,7 +31,7 @@ const HKDF_INFO_V2: &[u8] = b"pubky-envelope/v2";
 const NONCE_SIZE_V1: usize = 12;
 
 /// XChaCha20-Poly1305 nonce size (v2).
-const NONCE_SIZE_V2: usize = 24;
+pub const NONCE_SIZE_V2: usize = 24;
 
 /// ChaCha20-Poly1305 tag size (included in ciphertext).
 #[allow(dead_code)]
@@ -251,7 +251,317 @@ fn xchacha20poly1305_decrypt(
         .map_err(|_| SealedBlobErrorCode::DecryptionFailed)
 }
 
+/// AAD prefix for Sealed Blob v2 per PUBKY_CRYPTO_SPEC Section 7.5.
+const AAD_PREFIX: &[u8] = b"pubky-envelope/v2:";
+
+/// Build deterministic CBOR header bytes for AAD per PUBKY_CRYPTO_SPEC Section 7.12.
+///
+/// Uses integer keys in numeric order for deterministic encoding:
+/// - Key 3: inbox_kid (bytes 16)
+/// - Key 5: nonce (bytes 24)
+/// - Key 6: purpose (text, optional)
+/// - Key 8: sender_ephemeral_pub (bytes 32)
+fn build_cbor_header_bytes(
+    ephemeral_pk: &[u8; 32],
+    inbox_kid: &[u8; 16],
+    nonce: &[u8; NONCE_SIZE_V2],
+    purpose: Option<&str>,
+) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(96);
+    
+    let field_count: u8 = if purpose.is_some() { 4 } else { 3 };
+    
+    // Write CBOR map header
+    buf.push(0xa0 + field_count);
+    
+    // Key 3: inbox_kid (bytes 16)
+    buf.push(3); // uint 3
+    buf.push(0x50); // bytes(16)
+    buf.extend_from_slice(inbox_kid);
+    
+    // Key 5: nonce (bytes 24)
+    buf.push(5); // uint 5
+    buf.push(0x58); // bytes(24) - 0x58 is one-byte length prefix
+    buf.push(24);
+    buf.extend_from_slice(nonce);
+    
+    // Key 6: purpose (text, optional)
+    if let Some(p) = purpose {
+        buf.push(6); // uint 6
+        let p_bytes = p.as_bytes();
+        let p_len = p_bytes.len();
+        if p_len < 24 {
+            buf.push(0x60 + p_len as u8);
+        } else {
+            buf.push(0x78);
+            buf.push(p_len as u8);
+        }
+        buf.extend_from_slice(p_bytes);
+    }
+    
+    // Key 8: sender_ephemeral_pub (bytes 32)
+    buf.push(8); // uint 8
+    buf.push(0x58); // bytes(32) - 0x58 is one-byte length prefix
+    buf.push(32);
+    buf.extend_from_slice(ephemeral_pk);
+    
+    buf
+}
+
+/// Build AAD bytes per PUBKY_CRYPTO_SPEC Section 7.5 using deterministic CBOR.
+///
+/// ```text
+/// aad = aad_prefix || owner_peerid_bytes || canonical_path_bytes || header_bytes
+/// ```
+///
+/// Uses deterministic CBOR encoding for header_bytes per Section 7.12.
+fn build_spec_aad(
+    owner_peerid: &[u8; 32],
+    canonical_path: &str,
+    ephemeral_pk: &[u8; 32],
+    recipient_pk: &[u8; 32],
+    nonce: &[u8; NONCE_SIZE_V2],
+    purpose: Option<&str>,
+) -> Vec<u8> {
+    // Compute inbox_kid from recipient's X25519 public key
+    let kid_hex = compute_kid(recipient_pk);
+    let mut inbox_kid = [0u8; 16];
+    for (i, chunk) in kid_hex.as_bytes().chunks(2).enumerate() {
+        if i < 16 {
+            let hex_byte = std::str::from_utf8(chunk).unwrap_or("00");
+            inbox_kid[i] = u8::from_str_radix(hex_byte, 16).unwrap_or(0);
+        }
+    }
+    
+    // Build CBOR header bytes
+    let header_cbor = build_cbor_header_bytes(ephemeral_pk, &inbox_kid, nonce, purpose);
+    
+    // Concatenate: prefix || owner_peerid || canonical_path || header_bytes
+    let mut aad = Vec::with_capacity(
+        AAD_PREFIX.len() + 32 + canonical_path.len() + header_cbor.len()
+    );
+    aad.extend_from_slice(AAD_PREFIX);
+    aad.extend_from_slice(owner_peerid);
+    aad.extend_from_slice(canonical_path.as_bytes());
+    aad.extend_from_slice(&header_cbor);
+    
+    aad
+}
+
+/// Build legacy JSON-based AAD for backward compatibility with older envelopes.
+fn build_legacy_json_aad(
+    owner_peerid: &[u8; 32],
+    canonical_path: &str,
+    ephemeral_pk: &[u8; 32],
+    recipient_pk: &[u8; 32],
+    nonce: &[u8; NONCE_SIZE_V2],
+    purpose: Option<&str>,
+) -> Vec<u8> {
+    let kid = compute_kid(recipient_pk);
+    let epk_b64 = base64url_encode(ephemeral_pk);
+    let nonce_b64 = base64url_encode(nonce);
+    
+    // Canonical JSON with sorted keys (no whitespace)
+    let header_json = if let Some(p) = purpose {
+        format!(
+            r#"{{"epk":"{}","kid":"{}","nonce":"{}","purpose":"{}","v":2}}"#,
+            epk_b64, kid, nonce_b64, p
+        )
+    } else {
+        format!(
+            r#"{{"epk":"{}","kid":"{}","nonce":"{}","v":2}}"#,
+            epk_b64, kid, nonce_b64
+        )
+    };
+    
+    let mut aad = Vec::with_capacity(
+        AAD_PREFIX.len() + 32 + canonical_path.len() + header_json.len()
+    );
+    aad.extend_from_slice(AAD_PREFIX);
+    aad.extend_from_slice(owner_peerid);
+    aad.extend_from_slice(canonical_path.as_bytes());
+    aad.extend_from_slice(header_json.as_bytes());
+    
+    aad
+}
+
+/// Encrypt plaintext using Sealed Blob v2 with spec-compliant AAD construction.
+///
+/// This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5:
+/// ```text
+/// aad = "pubky-envelope/v2:" || owner_peerid_bytes || canonical_path_bytes || header_bytes
+/// ```
+///
+/// # Arguments
+///
+/// * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+/// * `plaintext` - Data to encrypt (max 64 KiB)
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path (e.g., "/pub/paykit.app/v0/handoff/{id}")
+/// * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+///
+/// # Returns
+///
+/// JSON-encoded sealed blob v2 envelope.
+pub fn sealed_blob_encrypt_with_context(
+    recipient_pk: &[u8; 32],
+    plaintext: &[u8],
+    owner_peerid: &[u8; 32],
+    canonical_path: &str,
+    purpose: Option<&str>,
+) -> Result<String, NoiseError> {
+    if plaintext.len() > MAX_PLAINTEXT_SIZE {
+        return Err(NoiseError::Other(format!(
+            "{}: plaintext {} bytes exceeds max {}",
+            SealedBlobErrorCode::PlaintextTooLarge,
+            plaintext.len(),
+            MAX_PLAINTEXT_SIZE
+        )));
+    }
+    
+    // Generate ephemeral keypair
+    let (ephemeral_sk, ephemeral_pk) = x25519_generate_keypair();
+    let ephemeral_sk = Zeroizing::new(ephemeral_sk);
+    
+    // Compute shared secret
+    let shared_secret = x25519_shared_secret(&ephemeral_sk, recipient_pk);
+    
+    // Derive symmetric key (v2)
+    let key = derive_symmetric_key_v2(&shared_secret, &ephemeral_pk, recipient_pk);
+    
+    // Generate random 24-byte nonce for XChaCha20
+    let mut nonce = [0u8; NONCE_SIZE_V2];
+    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut nonce);
+    
+    // Build AAD per PUBKY_CRYPTO_SPEC
+    let aad = build_spec_aad(
+        owner_peerid,
+        canonical_path,
+        &ephemeral_pk,
+        recipient_pk,
+        &nonce,
+        purpose,
+    );
+    
+    // Encrypt with XChaCha20-Poly1305
+    let ciphertext = xchacha20poly1305_encrypt(&key, &nonce, plaintext, &aad);
+    
+    // Build envelope
+    let envelope = SealedBlobEnvelope {
+        v: SEALED_BLOB_VERSION,
+        epk: base64url_encode(&ephemeral_pk),
+        nonce: base64url_encode(&nonce),
+        ct: base64url_encode(&ciphertext),
+        kid: Some(compute_kid(recipient_pk)),
+        purpose: purpose.map(String::from),
+        sender: None, // Deferred to future enhancement
+        sig: None,    // Deferred to future enhancement
+    };
+    
+    serde_json::to_string(&envelope).map_err(|e| NoiseError::Serde(e.to_string()))
+}
+
+/// Decrypt sealed blob envelope using spec-compliant AAD construction.
+///
+/// This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5.
+/// For backward compatibility, it tries CBOR-based AAD first, then falls back
+/// to legacy JSON-based AAD for older envelopes.
+///
+/// # Arguments
+///
+/// * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
+/// * `envelope_json` - JSON-encoded sealed blob envelope (v2 only for spec AAD)
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path (must match encryption)
+///
+/// # Returns
+///
+/// Decrypted plaintext.
+pub fn sealed_blob_decrypt_with_context(
+    recipient_sk: &[u8; 32],
+    envelope_json: &str,
+    owner_peerid: &[u8; 32],
+    canonical_path: &str,
+) -> Result<Vec<u8>, NoiseError> {
+    // Parse envelope
+    let envelope: SealedBlobEnvelope = serde_json::from_str(envelope_json)
+        .map_err(|_| NoiseError::Decryption(SealedBlobErrorCode::MalformedEnvelope.to_string()))?;
+    
+    // Only v2 supports spec-compliant AAD
+    if envelope.v != 2 {
+        return Err(NoiseError::Decryption(format!(
+            "sealed_blob_decrypt_with_context requires v2, got v{}",
+            envelope.v
+        )));
+    }
+    
+    // Decode ephemeral public key
+    let ephemeral_pk_bytes = base64url_decode(&envelope.epk)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    
+    if ephemeral_pk_bytes.len() != 32 {
+        return Err(NoiseError::Decryption(
+            SealedBlobErrorCode::InvalidKeySize.to_string(),
+        ));
+    }
+    
+    let mut ephemeral_pk = [0u8; 32];
+    ephemeral_pk.copy_from_slice(&ephemeral_pk_bytes);
+    
+    // Decode nonce and ciphertext
+    let nonce_bytes = base64url_decode(&envelope.nonce)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    let ciphertext = base64url_decode(&envelope.ct)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    
+    if nonce_bytes.len() != NONCE_SIZE_V2 {
+        return Err(NoiseError::Decryption(
+            SealedBlobErrorCode::InvalidNonceSize.to_string(),
+        ));
+    }
+    let mut nonce = [0u8; NONCE_SIZE_V2];
+    nonce.copy_from_slice(&nonce_bytes);
+    
+    // Compute recipient public key and shared secret
+    let recipient_pk = x25519_public_from_secret(recipient_sk);
+    let shared_secret = x25519_shared_secret(recipient_sk, &ephemeral_pk);
+    
+    // Derive symmetric key (v2)
+    let key = derive_symmetric_key_v2(&shared_secret, &ephemeral_pk, &recipient_pk);
+    
+    // Try CBOR-based AAD first (new format per PUBKY_CRYPTO_SPEC v2.5)
+    let cbor_aad = build_spec_aad(
+        owner_peerid,
+        canonical_path,
+        &ephemeral_pk,
+        &recipient_pk,
+        &nonce,
+        envelope.purpose.as_deref(),
+    );
+    
+    if let Ok(plaintext) = xchacha20poly1305_decrypt(&key, &nonce, &ciphertext, &cbor_aad) {
+        return Ok(plaintext);
+    }
+    
+    // Fall back to legacy JSON-based AAD for older envelopes
+    let json_aad = build_legacy_json_aad(
+        owner_peerid,
+        canonical_path,
+        &ephemeral_pk,
+        &recipient_pk,
+        &nonce,
+        envelope.purpose.as_deref(),
+    );
+    
+    xchacha20poly1305_decrypt(&key, &nonce, &ciphertext, &json_aad)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))
+}
+
 /// Encrypt plaintext to recipient's X25519 public key using Sealed Blob v2.
+///
+/// **DEPRECATED**: Use `sealed_blob_encrypt_with_context` for spec-compliant AAD.
+/// This function is retained for backward compatibility with existing callers
+/// that construct their own AAD strings.
 ///
 /// # Arguments
 ///

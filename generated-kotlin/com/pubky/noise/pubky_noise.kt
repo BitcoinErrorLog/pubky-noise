@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package uniffi.pubky_noise
+package com.pubky.noise
 
 // Common helper code.
 //
@@ -752,6 +752,40 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -773,9 +807,43 @@ fun uniffi_pubky_noise_checksum_func_default_config(
 ): Short
 fun uniffi_pubky_noise_checksum_func_derive_device_key(
 ): Short
+fun uniffi_pubky_noise_checksum_func_derive_device_keypair(
+): Short
+fun uniffi_pubky_noise_checksum_func_derive_noise_seed(
+): Short
+fun uniffi_pubky_noise_checksum_func_ed25519_public_from_secret(
+): Short
+fun uniffi_pubky_noise_checksum_func_ed25519_sign(
+): Short
+fun uniffi_pubky_noise_checksum_func_ed25519_verify(
+): Short
+fun uniffi_pubky_noise_checksum_func_generate_app_keypair(
+): Short
+fun uniffi_pubky_noise_checksum_func_is_sealed_blob(
+): Short
+fun uniffi_pubky_noise_checksum_func_issue_app_cert(
+): Short
 fun uniffi_pubky_noise_checksum_func_performance_config(
 ): Short
 fun uniffi_pubky_noise_checksum_func_public_key_from_secret(
+): Short
+fun uniffi_pubky_noise_checksum_func_sealed_blob_decrypt(
+): Short
+fun uniffi_pubky_noise_checksum_func_sealed_blob_decrypt_with_context(
+): Short
+fun uniffi_pubky_noise_checksum_func_sealed_blob_encrypt(
+): Short
+fun uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context(
+): Short
+fun uniffi_pubky_noise_checksum_func_sign_typed_content(
+): Short
+fun uniffi_pubky_noise_checksum_func_verify_app_cert(
+): Short
+fun uniffi_pubky_noise_checksum_func_verify_typed_content(
+): Short
+fun uniffi_pubky_noise_checksum_func_x25519_generate_keypair(
+): Short
+fun uniffi_pubky_noise_checksum_func_x25519_public_from_secret(
 ): Short
 fun uniffi_pubky_noise_checksum_method_ffinoisemanager_accept_connection(
 ): Short
@@ -892,9 +960,43 @@ fun uniffi_pubky_noise_fn_func_default_config(uniffi_out_err: UniffiRustCallStat
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_derive_device_key(`seed`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`epoch`: Int,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_derive_device_keypair(`seed`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`epoch`: Int,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_derive_noise_seed(`ed25519SecretHex`: RustBuffer.ByValue,`deviceIdHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_ed25519_public_from_secret(`ed25519SecretHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_ed25519_sign(`ed25519SecretHex`: RustBuffer.ByValue,`messageHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_ed25519_verify(`ed25519PublicHex`: RustBuffer.ByValue,`messageHex`: RustBuffer.ByValue,`signatureHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+fun uniffi_pubky_noise_fn_func_generate_app_keypair(uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_is_sealed_blob(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+fun uniffi_pubky_noise_fn_func_issue_app_cert(`rootSkHex`: RustBuffer.ByValue,`appId`: RustBuffer.ByValue,`appEd25519PubHex`: RustBuffer.ByValue,`transportX25519PubHex`: RustBuffer.ByValue,`inboxX25519PubHex`: RustBuffer.ByValue,`deviceIdHex`: RustBuffer.ByValue,`scopes`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_performance_config(uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_public_key_from_secret(`secret`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sealed_blob_decrypt(`recipientSk`: RustBuffer.ByValue,`envelopeJson`: RustBuffer.ByValue,`aad`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sealed_blob_decrypt_with_context(`recipientSk`: RustBuffer.ByValue,`envelopeJson`: RustBuffer.ByValue,`ownerPeerid`: RustBuffer.ByValue,`canonicalPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sealed_blob_encrypt(`recipientPk`: RustBuffer.ByValue,`plaintext`: RustBuffer.ByValue,`aad`: RustBuffer.ByValue,`purpose`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(`recipientPk`: RustBuffer.ByValue,`plaintext`: RustBuffer.ByValue,`ownerPeerid`: RustBuffer.ByValue,`canonicalPath`: RustBuffer.ByValue,`purpose`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sign_typed_content(`appSkHex`: RustBuffer.ByValue,`issuerPeeridHex`: RustBuffer.ByValue,`certIdHex`: RustBuffer.ByValue,`contentType`: RustBuffer.ByValue,`payloadHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_verify_app_cert(`issuerPeeridHex`: RustBuffer.ByValue,`certBodyHex`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_verify_typed_content(`appEd25519PubHex`: RustBuffer.ByValue,`issuerPeeridHex`: RustBuffer.ByValue,`certIdHex`: RustBuffer.ByValue,`contentType`: RustBuffer.ByValue,`payloadHex`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+fun uniffi_pubky_noise_fn_func_x25519_generate_keypair(uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_x25519_public_from_secret(`secret`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun ffi_pubky_noise_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
@@ -1031,10 +1133,61 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_pubky_noise_checksum_func_derive_device_key() != 53176.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_pubky_noise_checksum_func_derive_device_keypair() != 18334.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_derive_noise_seed() != 52084.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_ed25519_public_from_secret() != 29948.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_ed25519_sign() != 64498.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_ed25519_verify() != 14993.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_generate_app_keypair() != 618.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_is_sealed_blob() != 27217.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_issue_app_cert() != 15978.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_pubky_noise_checksum_func_performance_config() != 613.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_public_key_from_secret() != 12954.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_decrypt() != 39236.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_decrypt_with_context() != 16882.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_encrypt() != 19222.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context() != 39578.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_sign_typed_content() != 51008.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_verify_app_cert() != 39996.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_verify_typed_content() != 11282.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_x25519_generate_keypair() != 20350.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_x25519_public_from_secret() != 14902.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_method_ffinoisemanager_accept_connection() != 45180.toShort()) {
@@ -1871,6 +2024,95 @@ public object FfiConverterTypeFfiAcceptResult: FfiConverterRustBuffer<FfiAcceptR
 
 
 /**
+ * FFI-safe result for AppCert issuance.
+ */
+data class FfiAppCertResult (
+    /**
+     * Raw cert_body bytes as hex.
+     */
+    var `certBodyHex`: kotlin.String, 
+    /**
+     * Ed25519 signature as hex (128 chars / 64 bytes).
+     */
+    var `sigHex`: kotlin.String, 
+    /**
+     * cert_id as hex (32 chars / 16 bytes).
+     */
+    var `certIdHex`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiAppCertResult: FfiConverterRustBuffer<FfiAppCertResult> {
+    override fun read(buf: ByteBuffer): FfiAppCertResult {
+        return FfiAppCertResult(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiAppCertResult) = (
+            FfiConverterString.allocationSize(value.`certBodyHex`) +
+            FfiConverterString.allocationSize(value.`sigHex`) +
+            FfiConverterString.allocationSize(value.`certIdHex`)
+    )
+
+    override fun write(value: FfiAppCertResult, buf: ByteBuffer) {
+            FfiConverterString.write(value.`certBodyHex`, buf)
+            FfiConverterString.write(value.`sigHex`, buf)
+            FfiConverterString.write(value.`certIdHex`, buf)
+    }
+}
+
+
+
+/**
+ * FFI-safe Ed25519 keypair for UKD AppKey generation.
+ */
+data class FfiEd25519Keypair (
+    /**
+     * Secret key as hex (64 chars / 32 bytes). Zeroize after use.
+     */
+    var `secretKeyHex`: kotlin.String, 
+    /**
+     * Public key as hex (64 chars / 32 bytes).
+     */
+    var `publicKeyHex`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiEd25519Keypair: FfiConverterRustBuffer<FfiEd25519Keypair> {
+    override fun read(buf: ByteBuffer): FfiEd25519Keypair {
+        return FfiEd25519Keypair(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiEd25519Keypair) = (
+            FfiConverterString.allocationSize(value.`secretKeyHex`) +
+            FfiConverterString.allocationSize(value.`publicKeyHex`)
+    )
+
+    override fun write(value: FfiEd25519Keypair, buf: ByteBuffer) {
+            FfiConverterString.write(value.`secretKeyHex`, buf)
+            FfiConverterString.write(value.`publicKeyHex`, buf)
+    }
+}
+
+
+
+/**
  * FFI-safe result for initiate_connection
  */
 data class FfiInitiateResult (
@@ -1994,6 +2236,47 @@ public object FfiConverterTypeFfiSessionState: FfiConverterRustBuffer<FfiSession
             FfiConverterULong.write(value.`writeCounter`, buf)
             FfiConverterULong.write(value.`readCounter`, buf)
             FfiConverterTypeFfiConnectionStatus.write(value.`status`, buf)
+    }
+}
+
+
+
+/**
+ * FFI-safe X25519 keypair for sealed blob operations.
+ */
+data class FfiX25519Keypair (
+    /**
+     * Secret key (32 bytes). Zeroize after use.
+     */
+    var `secretKey`: kotlin.ByteArray, 
+    /**
+     * Public key (32 bytes).
+     */
+    var `publicKey`: kotlin.ByteArray
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiX25519Keypair: FfiConverterRustBuffer<FfiX25519Keypair> {
+    override fun read(buf: ByteBuffer): FfiX25519Keypair {
+        return FfiX25519Keypair(
+            FfiConverterByteArray.read(buf),
+            FfiConverterByteArray.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiX25519Keypair) = (
+            FfiConverterByteArray.allocationSize(value.`secretKey`) +
+            FfiConverterByteArray.allocationSize(value.`publicKey`)
+    )
+
+    override fun write(value: FfiX25519Keypair, buf: ByteBuffer) {
+            FfiConverterByteArray.write(value.`secretKey`, buf)
+            FfiConverterByteArray.write(value.`publicKey`, buf)
     }
 }
 
@@ -2519,6 +2802,38 @@ public object FfiConverterOptionalTypeFfiConnectionStatus: FfiConverterRustBuffe
 /**
  * @suppress
  */
+public object FfiConverterOptionalSequenceString: FfiConverterRustBuffer<List<kotlin.String>?> {
+    override fun read(buf: ByteBuffer): List<kotlin.String>? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterSequenceString.read(buf)
+    }
+
+    override fun allocationSize(value: List<kotlin.String>?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterSequenceString.allocationSize(value)
+        }
+    }
+
+    override fun write(value: List<kotlin.String>?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterSequenceString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
     override fun read(buf: ByteBuffer): List<kotlin.String> {
         val len = buf.getInt()
@@ -2575,6 +2890,188 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     )
     }
     
+
+        /**
+         * Derive a full X25519 keypair from seed, device ID, and epoch.
+         *
+         * This is a convenience function that combines `derive_device_key` and
+         * `public_key_from_secret` to return both the secret and public keys.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if seed is less than 32 bytes.
+         * Returns `FfiNoiseError::Other` if key derivation fails.
+         */
+    @Throws(FfiNoiseException::class) fun `deriveDeviceKeypair`(`seed`: kotlin.ByteArray, `deviceId`: kotlin.ByteArray, `epoch`: kotlin.UInt): FfiX25519Keypair {
+            return FfiConverterTypeFfiX25519Keypair.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_derive_device_keypair(
+        FfiConverterByteArray.lower(`seed`),FfiConverterByteArray.lower(`deviceId`),FfiConverterUInt.lower(`epoch`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Derive noise seed from Ed25519 secret key using HKDF-SHA256.
+         *
+         * This is used to derive future X25519 epoch keys locally without
+         * needing to call Ring again. The seed is domain-separated and
+         * cannot be used for signing.
+         *
+         * HKDF parameters:
+         * - salt: "paykit-noise-seed-v1"
+         * - ikm: Ed25519 secret key (32 bytes)
+         * - info: device ID
+         * - output: 32 bytes
+         *
+         * # Arguments
+         *
+         * * `ed25519_secret_hex` - Ed25519 secret key as 64-char hex string (32 bytes)
+         * * `device_id_hex` - Device ID as hex string
+         *
+         * # Returns
+         *
+         * 64-character hex string of the 32-byte noise seed.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if input is invalid.
+         */
+    @Throws(FfiNoiseException::class) fun `deriveNoiseSeed`(`ed25519SecretHex`: kotlin.String, `deviceIdHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_derive_noise_seed(
+        FfiConverterString.lower(`ed25519SecretHex`),FfiConverterString.lower(`deviceIdHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Derive Ed25519 public key from secret key.
+         *
+         * # Arguments
+         *
+         * * `ed25519_secret_hex` - Ed25519 secret key (seed) as 64-char hex string (32 bytes)
+         *
+         * # Returns
+         *
+         * Ed25519 public key as 64-char hex string (32 bytes).
+         */
+    @Throws(FfiNoiseException::class) fun `ed25519PublicFromSecret`(`ed25519SecretHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_ed25519_public_from_secret(
+        FfiConverterString.lower(`ed25519SecretHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Sign an arbitrary message with an Ed25519 secret key.
+         *
+         * # Arguments
+         *
+         * * `ed25519_secret_hex` - 64-character hex string of the 32-byte Ed25519 secret key
+         * * `message_hex` - Hex-encoded message bytes to sign
+         *
+         * # Returns
+         *
+         * 128-character hex string of the 64-byte Ed25519 signature.
+         */
+    @Throws(FfiNoiseException::class) fun `ed25519Sign`(`ed25519SecretHex`: kotlin.String, `messageHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_ed25519_sign(
+        FfiConverterString.lower(`ed25519SecretHex`),FfiConverterString.lower(`messageHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Verify an Ed25519 signature.
+         *
+         * # Arguments
+         *
+         * * `ed25519_public_hex` - 64-character hex string of the 32-byte Ed25519 public key
+         * * `message_hex` - Hex-encoded message bytes that were signed
+         * * `signature_hex` - 128-character hex string of the 64-byte signature
+         *
+         * # Returns
+         *
+         * `true` if the signature is valid, `false` otherwise.
+         */
+    @Throws(FfiNoiseException::class) fun `ed25519Verify`(`ed25519PublicHex`: kotlin.String, `messageHex`: kotlin.String, `signatureHex`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_ed25519_verify(
+        FfiConverterString.lower(`ed25519PublicHex`),FfiConverterString.lower(`messageHex`),FfiConverterString.lower(`signatureHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Generate a new Ed25519 keypair for use as an AppKey.
+         *
+         * # Returns
+         *
+         * FfiEd25519Keypair with secret_key_hex and public_key_hex, each 64 chars (32 bytes).
+         */ fun `generateAppKeypair`(): FfiEd25519Keypair {
+            return FfiConverterTypeFfiEd25519Keypair.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_generate_app_keypair(
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * Check if a JSON string looks like a sealed blob envelope (v1 or v2).
+         *
+         * Requires both version field (`"v":1` or `"v":2`) AND ephemeral public key (`"epk":`).
+         * This is a quick heuristic check for distinguishing encrypted from legacy plaintext.
+         */ fun `isSealedBlob`(`json`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_is_sealed_blob(
+        FfiConverterString.lower(`json`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Issue an AppCert by signing with the root Ed25519 secret key.
+         *
+         * # Arguments
+         *
+         * * `root_sk_hex` - Root PKARR Ed25519 secret key as hex (64 chars)
+         * * `app_id` - Application identifier (e.g., "pubky.app", "paykit")
+         * * `app_ed25519_pub_hex` - Delegated signing key as hex (64 chars)
+         * * `transport_x25519_pub_hex` - Delegated Noise static key as hex (64 chars)
+         * * `inbox_x25519_pub_hex` - Delegated inbox encryption key as hex (64 chars)
+         * * `device_id_hex` - Optional device ID as hex
+         * * `scopes` - Optional capability scopes
+         * * `expires_at` - Optional expiration timestamp (Unix seconds)
+         *
+         * # Returns
+         *
+         * FfiAppCertResult with cert_body_hex, sig_hex, and cert_id_hex.
+         */
+    @Throws(FfiNoiseException::class) fun `issueAppCert`(`rootSkHex`: kotlin.String, `appId`: kotlin.String, `appEd25519PubHex`: kotlin.String, `transportX25519PubHex`: kotlin.String, `inboxX25519PubHex`: kotlin.String, `deviceIdHex`: kotlin.String?, `scopes`: List<kotlin.String>?, `expiresAt`: kotlin.ULong?): FfiAppCertResult {
+            return FfiConverterTypeFfiAppCertResult.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_issue_app_cert(
+        FfiConverterString.lower(`rootSkHex`),FfiConverterString.lower(`appId`),FfiConverterString.lower(`appEd25519PubHex`),FfiConverterString.lower(`transportX25519PubHex`),FfiConverterString.lower(`inboxX25519PubHex`),FfiConverterOptionalString.lower(`deviceIdHex`),FfiConverterOptionalSequenceString.lower(`scopes`),FfiConverterOptionalULong.lower(`expiresAt`),_status)
+}
+    )
+    }
+    
  fun `performanceConfig`(): FfiMobileConfig {
             return FfiConverterTypeFfiMobileConfig.lift(
     uniffiRustCall() { _status ->
@@ -2596,6 +3093,228 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
             return FfiConverterByteArray.lift(
     uniffiRustCallWithError(FfiNoiseException) { _status ->
     UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_public_key_from_secret(
+        FfiConverterByteArray.lower(`secret`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Decrypt a Paykit Sealed Blob v1 or v2 envelope (auto-detects version).
+         *
+         * # Arguments
+         *
+         * * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
+         * * `envelope_json` - JSON-encoded sealed blob envelope (v1 or v2)
+         * * `aad` - Associated authenticated data (must match encryption)
+         *
+         * # Returns
+         *
+         * Decrypted plaintext.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if recipient_sk is not 32 bytes.
+         * Returns `FfiNoiseError::Decryption` if decryption fails (wrong key, wrong AAD, or tampered).
+         */
+    @Throws(FfiNoiseException::class) fun `sealedBlobDecrypt`(`recipientSk`: kotlin.ByteArray, `envelopeJson`: kotlin.String, `aad`: kotlin.String): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_decrypt(
+        FfiConverterByteArray.lower(`recipientSk`),FfiConverterString.lower(`envelopeJson`),FfiConverterString.lower(`aad`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Decrypt Sealed Blob v2 with spec-compliant AAD construction.
+         *
+         * This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5.
+         *
+         * # Arguments
+         *
+         * * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
+         * * `envelope_json` - JSON-encoded sealed blob v2 envelope
+         * * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+         * * `canonical_path` - Canonical storage path (must match encryption)
+         *
+         * # Returns
+         *
+         * Decrypted plaintext.
+         */
+    @Throws(FfiNoiseException::class) fun `sealedBlobDecryptWithContext`(`recipientSk`: kotlin.ByteArray, `envelopeJson`: kotlin.String, `ownerPeerid`: kotlin.ByteArray, `canonicalPath`: kotlin.String): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_decrypt_with_context(
+        FfiConverterByteArray.lower(`recipientSk`),FfiConverterString.lower(`envelopeJson`),FfiConverterByteArray.lower(`ownerPeerid`),FfiConverterString.lower(`canonicalPath`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Encrypt plaintext using Paykit Sealed Blob v2 format (XChaCha20-Poly1305).
+         *
+         * # Arguments
+         *
+         * * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+         * * `plaintext` - Data to encrypt (max 64 KiB)
+         * * `aad` - Associated authenticated data (e.g., "handoff:pubkey:/path")
+         * * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+         *
+         * # Returns
+         *
+         * JSON-encoded sealed blob v2 envelope.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if recipient_pk is not 32 bytes.
+         * Returns `FfiNoiseError::Other` if plaintext exceeds 64 KiB.
+         */
+    @Throws(FfiNoiseException::class) fun `sealedBlobEncrypt`(`recipientPk`: kotlin.ByteArray, `plaintext`: kotlin.ByteArray, `aad`: kotlin.String, `purpose`: kotlin.String?): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_encrypt(
+        FfiConverterByteArray.lower(`recipientPk`),FfiConverterByteArray.lower(`plaintext`),FfiConverterString.lower(`aad`),FfiConverterOptionalString.lower(`purpose`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Encrypt using Sealed Blob v2 with spec-compliant AAD construction.
+         *
+         * This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5:
+         * ```text
+         * aad = "pubky-envelope/v2:" || owner_peerid_bytes || canonical_path_bytes || header_bytes
+         * ```
+         *
+         * # Arguments
+         *
+         * * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+         * * `plaintext` - Data to encrypt (max 64 KiB)
+         * * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+         * * `canonical_path` - Canonical storage path (e.g., "/pub/paykit.app/v0/handoff/{id}")
+         * * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+         *
+         * # Returns
+         *
+         * JSON-encoded sealed blob v2 envelope.
+         */
+    @Throws(FfiNoiseException::class) fun `sealedBlobEncryptWithContext`(`recipientPk`: kotlin.ByteArray, `plaintext`: kotlin.ByteArray, `ownerPeerid`: kotlin.ByteArray, `canonicalPath`: kotlin.String, `purpose`: kotlin.String?): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(
+        FfiConverterByteArray.lower(`recipientPk`),FfiConverterByteArray.lower(`plaintext`),FfiConverterByteArray.lower(`ownerPeerid`),FfiConverterString.lower(`canonicalPath`),FfiConverterOptionalString.lower(`purpose`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Sign typed content with an AppKey per UKD spec.
+         *
+         * This is a TYPED signing function, not a generic "sign anything" API.
+         * The content_type parameter constrains what is being signed.
+         *
+         * # Arguments
+         *
+         * * `app_sk_hex` - AppKey Ed25519 secret key as hex (64 chars)
+         * * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+         * * `cert_id_hex` - AppCert identifier as hex (32 chars)
+         * * `content_type` - ASCII label describing what is signed (e.g., "pubky.post")
+         * * `payload_hex` - Content payload as hex
+         *
+         * # Returns
+         *
+         * 64-byte Ed25519 signature as hex (128 chars).
+         */
+    @Throws(FfiNoiseException::class) fun `signTypedContent`(`appSkHex`: kotlin.String, `issuerPeeridHex`: kotlin.String, `certIdHex`: kotlin.String, `contentType`: kotlin.String, `payloadHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sign_typed_content(
+        FfiConverterString.lower(`appSkHex`),FfiConverterString.lower(`issuerPeeridHex`),FfiConverterString.lower(`certIdHex`),FfiConverterString.lower(`contentType`),FfiConverterString.lower(`payloadHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Verify an AppCert signature.
+         *
+         * # Arguments
+         *
+         * * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+         * * `cert_body_hex` - Raw cert_body bytes as hex
+         * * `sig_hex` - Ed25519 signature as hex (128 chars)
+         *
+         * # Returns
+         *
+         * cert_id as hex (32 chars) if valid.
+         */
+    @Throws(FfiNoiseException::class) fun `verifyAppCert`(`issuerPeeridHex`: kotlin.String, `certBodyHex`: kotlin.String, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_verify_app_cert(
+        FfiConverterString.lower(`issuerPeeridHex`),FfiConverterString.lower(`certBodyHex`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Verify typed content signature.
+         *
+         * # Arguments
+         *
+         * * `app_ed25519_pub_hex` - AppKey Ed25519 public key as hex (64 chars)
+         * * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+         * * `cert_id_hex` - AppCert identifier as hex (32 chars)
+         * * `content_type` - ASCII label describing what is signed
+         * * `payload_hex` - Content payload as hex
+         * * `sig_hex` - Signature to verify as hex (128 chars)
+         *
+         * # Returns
+         *
+         * true if valid.
+         */
+    @Throws(FfiNoiseException::class) fun `verifyTypedContent`(`appEd25519PubHex`: kotlin.String, `issuerPeeridHex`: kotlin.String, `certIdHex`: kotlin.String, `contentType`: kotlin.String, `payloadHex`: kotlin.String, `sigHex`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_verify_typed_content(
+        FfiConverterString.lower(`appEd25519PubHex`),FfiConverterString.lower(`issuerPeeridHex`),FfiConverterString.lower(`certIdHex`),FfiConverterString.lower(`contentType`),FfiConverterString.lower(`payloadHex`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Generate a new X25519 keypair for sealed blob encryption.
+         *
+         * Returns a record containing secret_key and public_key, each 32 bytes.
+         * The secret_key should be zeroized after use.
+         */ fun `x25519GenerateKeypair`(): FfiX25519Keypair {
+            return FfiConverterTypeFfiX25519Keypair.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_x25519_generate_keypair(
+        _status)
+}
+    )
+    }
+    
+
+        /**
+         * Derive X25519 public key from a 32-byte secret key.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Ring` if secret is not 32 bytes.
+         */
+    @Throws(FfiNoiseException::class) fun `x25519PublicFromSecret`(`secret`: kotlin.ByteArray): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_x25519_public_from_secret(
         FfiConverterByteArray.lower(`secret`),_status)
 }
     )

@@ -1,5 +1,5 @@
 use crate::ffi::errors::FfiNoiseError;
-use crate::ffi::types::{FfiMobileConfig, FfiX25519Keypair};
+use crate::ffi::types::{FfiMobileConfig, FfiX25519Keypair, FfiEd25519Keypair, FfiAppCertResult};
 use crate::mobile_manager::MobileConfig;
 
 #[uniffi::export]
@@ -214,6 +214,114 @@ pub fn sealed_blob_decrypt(
         .map_err(FfiNoiseError::from)
 }
 
+/// Encrypt using Sealed Blob v2 with spec-compliant AAD construction.
+///
+/// This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5:
+/// ```text
+/// aad = "pubky-envelope/v2:" || owner_peerid_bytes || canonical_path_bytes || header_bytes
+/// ```
+///
+/// # Arguments
+///
+/// * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+/// * `plaintext` - Data to encrypt (max 64 KiB)
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path (e.g., "/pub/paykit.app/v0/handoff/{id}")
+/// * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+///
+/// # Returns
+///
+/// JSON-encoded sealed blob v2 envelope.
+#[uniffi::export]
+pub fn sealed_blob_encrypt_with_context(
+    recipient_pk: Vec<u8>,
+    plaintext: Vec<u8>,
+    owner_peerid: Vec<u8>,
+    canonical_path: String,
+    purpose: Option<String>,
+) -> Result<String, FfiNoiseError> {
+    if recipient_pk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Recipient public key must be 32 bytes, got {}",
+                recipient_pk.len()
+            ),
+        });
+    }
+    if owner_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Owner peerid must be 32 bytes, got {}",
+                owner_peerid.len()
+            ),
+        });
+    }
+    let mut pk_arr = [0u8; 32];
+    pk_arr.copy_from_slice(&recipient_pk);
+    let mut owner_arr = [0u8; 32];
+    owner_arr.copy_from_slice(&owner_peerid);
+    
+    crate::sealed_blob::sealed_blob_encrypt_with_context(
+        &pk_arr,
+        &plaintext,
+        &owner_arr,
+        &canonical_path,
+        purpose.as_deref(),
+    )
+    .map_err(FfiNoiseError::from)
+}
+
+/// Decrypt Sealed Blob v2 with spec-compliant AAD construction.
+///
+/// This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5.
+///
+/// # Arguments
+///
+/// * `recipient_sk` - Recipient's X25519 secret key (32 bytes)
+/// * `envelope_json` - JSON-encoded sealed blob v2 envelope
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path (must match encryption)
+///
+/// # Returns
+///
+/// Decrypted plaintext.
+#[uniffi::export]
+pub fn sealed_blob_decrypt_with_context(
+    recipient_sk: Vec<u8>,
+    envelope_json: String,
+    owner_peerid: Vec<u8>,
+    canonical_path: String,
+) -> Result<Vec<u8>, FfiNoiseError> {
+    if recipient_sk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Recipient secret key must be 32 bytes, got {}",
+                recipient_sk.len()
+            ),
+        });
+    }
+    if owner_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Owner peerid must be 32 bytes, got {}",
+                owner_peerid.len()
+            ),
+        });
+    }
+    let mut sk_arr = [0u8; 32];
+    sk_arr.copy_from_slice(&recipient_sk);
+    let mut owner_arr = [0u8; 32];
+    owner_arr.copy_from_slice(&owner_peerid);
+    
+    crate::sealed_blob::sealed_blob_decrypt_with_context(
+        &sk_arr,
+        &envelope_json,
+        &owner_arr,
+        &canonical_path,
+    )
+    .map_err(FfiNoiseError::from)
+}
+
 /// Check if a JSON string looks like a sealed blob envelope (v1 or v2).
 ///
 /// Requires both version field (`"v":1` or `"v":2`) AND ephemeral public key (`"epk":`).
@@ -221,6 +329,40 @@ pub fn sealed_blob_decrypt(
 #[uniffi::export]
 pub fn is_sealed_blob(json: String) -> bool {
     crate::sealed_blob::is_sealed_blob(&json)
+}
+
+/// Derive Ed25519 public key from secret key.
+///
+/// # Arguments
+///
+/// * `ed25519_secret_hex` - Ed25519 secret key (seed) as 64-char hex string (32 bytes)
+///
+/// # Returns
+///
+/// Ed25519 public key as 64-char hex string (32 bytes).
+#[uniffi::export]
+pub fn ed25519_public_from_secret(ed25519_secret_hex: String) -> Result<String, FfiNoiseError> {
+    let secret_bytes = hex::decode(&ed25519_secret_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for Ed25519 secret key: {}", e),
+    })?;
+
+    if secret_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!(
+                "Ed25519 secret key must be 32 bytes, got {}",
+                secret_bytes.len()
+            ),
+        });
+    }
+
+    let mut sk_arr = [0u8; 32];
+    sk_arr.copy_from_slice(&secret_bytes);
+
+    use ed25519_dalek::SigningKey;
+    let signing_key = SigningKey::from_bytes(&sk_arr);
+    let public_key = signing_key.verifying_key();
+    
+    Ok(hex::encode(public_key.as_bytes()))
 }
 
 /// Derive noise seed from Ed25519 secret key using HKDF-SHA256.
@@ -375,4 +517,338 @@ pub fn ed25519_verify(
         &message_bytes,
         &sig_arr,
     ))
+}
+
+// ============================================================================
+// UKD (Unified Key Delegation) Functions
+// ============================================================================
+
+/// Generate a new Ed25519 keypair for use as an AppKey.
+///
+/// # Returns
+///
+/// FfiEd25519Keypair with secret_key_hex and public_key_hex, each 64 chars (32 bytes).
+#[uniffi::export]
+pub fn generate_app_keypair() -> FfiEd25519Keypair {
+    let (sk, pk) = crate::ukd::generate_app_keypair();
+    FfiEd25519Keypair {
+        secret_key_hex: hex::encode(sk),
+        public_key_hex: hex::encode(pk),
+    }
+}
+
+/// Issue an AppCert by signing with the root Ed25519 secret key.
+///
+/// # Arguments
+///
+/// * `root_sk_hex` - Root PKARR Ed25519 secret key as hex (64 chars)
+/// * `app_id` - Application identifier (e.g., "pubky.app", "paykit")
+/// * `app_ed25519_pub_hex` - Delegated signing key as hex (64 chars)
+/// * `transport_x25519_pub_hex` - Delegated Noise static key as hex (64 chars)
+/// * `inbox_x25519_pub_hex` - Delegated inbox encryption key as hex (64 chars)
+/// * `device_id_hex` - Optional device ID as hex
+/// * `scopes` - Optional capability scopes
+/// * `expires_at` - Optional expiration timestamp (Unix seconds)
+///
+/// # Returns
+///
+/// FfiAppCertResult with cert_body_hex, sig_hex, and cert_id_hex.
+#[uniffi::export]
+#[allow(clippy::too_many_arguments)]
+pub fn issue_app_cert(
+    root_sk_hex: String,
+    app_id: String,
+    app_ed25519_pub_hex: String,
+    transport_x25519_pub_hex: String,
+    inbox_x25519_pub_hex: String,
+    device_id_hex: Option<String>,
+    scopes: Option<Vec<String>>,
+    expires_at: Option<u64>,
+) -> Result<FfiAppCertResult, FfiNoiseError> {
+    // Parse root secret key
+    let root_sk_bytes = hex::decode(&root_sk_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for root secret key: {}", e),
+    })?;
+    if root_sk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Root secret key must be 32 bytes, got {}", root_sk_bytes.len()),
+        });
+    }
+    let mut root_sk = [0u8; 32];
+    root_sk.copy_from_slice(&root_sk_bytes);
+    
+    // Derive issuer_peerid from root_sk
+    use ed25519_dalek::SigningKey;
+    let signing_key = SigningKey::from_bytes(&root_sk);
+    let issuer_peerid = *signing_key.verifying_key().as_bytes();
+    
+    // Parse app public key
+    let app_pk_bytes = hex::decode(&app_ed25519_pub_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for app public key: {}", e),
+    })?;
+    if app_pk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("App public key must be 32 bytes, got {}", app_pk_bytes.len()),
+        });
+    }
+    let mut app_ed25519_pub = [0u8; 32];
+    app_ed25519_pub.copy_from_slice(&app_pk_bytes);
+    
+    // Parse transport public key
+    let transport_pk_bytes = hex::decode(&transport_x25519_pub_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for transport public key: {}", e),
+    })?;
+    if transport_pk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Transport public key must be 32 bytes, got {}", transport_pk_bytes.len()),
+        });
+    }
+    let mut transport_x25519_pub = [0u8; 32];
+    transport_x25519_pub.copy_from_slice(&transport_pk_bytes);
+    
+    // Parse inbox public key
+    let inbox_pk_bytes = hex::decode(&inbox_x25519_pub_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for inbox public key: {}", e),
+    })?;
+    if inbox_pk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Inbox public key must be 32 bytes, got {}", inbox_pk_bytes.len()),
+        });
+    }
+    let mut inbox_x25519_pub = [0u8; 32];
+    inbox_x25519_pub.copy_from_slice(&inbox_pk_bytes);
+    
+    // Parse optional device_id
+    let device_id = if let Some(ref did_hex) = device_id_hex {
+        Some(hex::decode(did_hex).map_err(|e| FfiNoiseError::Ring {
+            msg: format!("Invalid hex for device ID: {}", e),
+        })?)
+    } else {
+        None
+    };
+    
+    let input = crate::ukd::AppCertInput {
+        issuer_peerid,
+        app_id,
+        device_id,
+        app_ed25519_pub,
+        transport_x25519_pub,
+        inbox_x25519_pub,
+        scopes,
+        not_before: None,
+        expires_at,
+        flags: None,
+    };
+    
+    let cert = crate::ukd::issue_app_cert(&root_sk, &input).map_err(FfiNoiseError::from)?;
+    
+    Ok(FfiAppCertResult {
+        cert_body_hex: hex::encode(&cert.cert_body),
+        sig_hex: hex::encode(cert.sig),
+        cert_id_hex: hex::encode(cert.cert_id),
+    })
+}
+
+/// Verify an AppCert signature.
+///
+/// # Arguments
+///
+/// * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+/// * `cert_body_hex` - Raw cert_body bytes as hex
+/// * `sig_hex` - Ed25519 signature as hex (128 chars)
+///
+/// # Returns
+///
+/// cert_id as hex (32 chars) if valid.
+#[uniffi::export]
+pub fn verify_app_cert(
+    issuer_peerid_hex: String,
+    cert_body_hex: String,
+    sig_hex: String,
+) -> Result<String, FfiNoiseError> {
+    let issuer_bytes = hex::decode(&issuer_peerid_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for issuer peerid: {}", e),
+    })?;
+    if issuer_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Issuer peerid must be 32 bytes, got {}", issuer_bytes.len()),
+        });
+    }
+    let mut issuer_peerid = [0u8; 32];
+    issuer_peerid.copy_from_slice(&issuer_bytes);
+    
+    let cert_body = hex::decode(&cert_body_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for cert body: {}", e),
+    })?;
+    
+    let sig_bytes = hex::decode(&sig_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for signature: {}", e),
+    })?;
+    if sig_bytes.len() != 64 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Signature must be 64 bytes, got {}", sig_bytes.len()),
+        });
+    }
+    let mut sig = [0u8; 64];
+    sig.copy_from_slice(&sig_bytes);
+    
+    let cert_id = crate::ukd::verify_app_cert(&issuer_peerid, &cert_body, &sig)
+        .map_err(FfiNoiseError::from)?;
+    
+    Ok(hex::encode(cert_id))
+}
+
+/// Sign typed content with an AppKey per UKD spec.
+///
+/// This is a TYPED signing function, not a generic "sign anything" API.
+/// The content_type parameter constrains what is being signed.
+///
+/// # Arguments
+///
+/// * `app_sk_hex` - AppKey Ed25519 secret key as hex (64 chars)
+/// * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+/// * `cert_id_hex` - AppCert identifier as hex (32 chars)
+/// * `content_type` - ASCII label describing what is signed (e.g., "pubky.post")
+/// * `payload_hex` - Content payload as hex
+///
+/// # Returns
+///
+/// 64-byte Ed25519 signature as hex (128 chars).
+#[uniffi::export]
+pub fn sign_typed_content(
+    app_sk_hex: String,
+    issuer_peerid_hex: String,
+    cert_id_hex: String,
+    content_type: String,
+    payload_hex: String,
+) -> Result<String, FfiNoiseError> {
+    let app_sk_bytes = hex::decode(&app_sk_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for app secret key: {}", e),
+    })?;
+    if app_sk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("App secret key must be 32 bytes, got {}", app_sk_bytes.len()),
+        });
+    }
+    let mut app_sk = [0u8; 32];
+    app_sk.copy_from_slice(&app_sk_bytes);
+    
+    let issuer_bytes = hex::decode(&issuer_peerid_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for issuer peerid: {}", e),
+    })?;
+    if issuer_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Issuer peerid must be 32 bytes, got {}", issuer_bytes.len()),
+        });
+    }
+    let mut issuer_peerid = [0u8; 32];
+    issuer_peerid.copy_from_slice(&issuer_bytes);
+    
+    let cert_id_bytes = hex::decode(&cert_id_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for cert ID: {}", e),
+    })?;
+    if cert_id_bytes.len() != 16 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Cert ID must be 16 bytes, got {}", cert_id_bytes.len()),
+        });
+    }
+    let mut cert_id = [0u8; 16];
+    cert_id.copy_from_slice(&cert_id_bytes);
+    
+    let payload = hex::decode(&payload_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for payload: {}", e),
+    })?;
+    
+    let sig = crate::ukd::sign_typed_content(
+        &app_sk,
+        &issuer_peerid,
+        &cert_id,
+        &content_type,
+        &payload,
+    ).map_err(FfiNoiseError::from)?;
+    
+    Ok(hex::encode(sig))
+}
+
+/// Verify typed content signature.
+///
+/// # Arguments
+///
+/// * `app_ed25519_pub_hex` - AppKey Ed25519 public key as hex (64 chars)
+/// * `issuer_peerid_hex` - Root PKARR Ed25519 public key as hex (64 chars)
+/// * `cert_id_hex` - AppCert identifier as hex (32 chars)
+/// * `content_type` - ASCII label describing what is signed
+/// * `payload_hex` - Content payload as hex
+/// * `sig_hex` - Signature to verify as hex (128 chars)
+///
+/// # Returns
+///
+/// true if valid.
+#[uniffi::export]
+pub fn verify_typed_content(
+    app_ed25519_pub_hex: String,
+    issuer_peerid_hex: String,
+    cert_id_hex: String,
+    content_type: String,
+    payload_hex: String,
+    sig_hex: String,
+) -> Result<bool, FfiNoiseError> {
+    let app_pk_bytes = hex::decode(&app_ed25519_pub_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for app public key: {}", e),
+    })?;
+    if app_pk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("App public key must be 32 bytes, got {}", app_pk_bytes.len()),
+        });
+    }
+    let mut app_ed25519_pub = [0u8; 32];
+    app_ed25519_pub.copy_from_slice(&app_pk_bytes);
+    
+    let issuer_bytes = hex::decode(&issuer_peerid_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for issuer peerid: {}", e),
+    })?;
+    if issuer_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Issuer peerid must be 32 bytes, got {}", issuer_bytes.len()),
+        });
+    }
+    let mut issuer_peerid = [0u8; 32];
+    issuer_peerid.copy_from_slice(&issuer_bytes);
+    
+    let cert_id_bytes = hex::decode(&cert_id_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for cert ID: {}", e),
+    })?;
+    if cert_id_bytes.len() != 16 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Cert ID must be 16 bytes, got {}", cert_id_bytes.len()),
+        });
+    }
+    let mut cert_id = [0u8; 16];
+    cert_id.copy_from_slice(&cert_id_bytes);
+    
+    let payload = hex::decode(&payload_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for payload: {}", e),
+    })?;
+    
+    let sig_bytes = hex::decode(&sig_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for signature: {}", e),
+    })?;
+    if sig_bytes.len() != 64 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Signature must be 64 bytes, got {}", sig_bytes.len()),
+        });
+    }
+    let mut sig = [0u8; 64];
+    sig.copy_from_slice(&sig_bytes);
+    
+    crate::ukd::verify_typed_content(
+        &app_ed25519_pub,
+        &issuer_peerid,
+        &cert_id,
+        &content_type,
+        &payload,
+        &sig,
+    ).map_err(FfiNoiseError::from)?;
+    
+    Ok(true)
 }
