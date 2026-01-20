@@ -4,7 +4,7 @@
 //! for proof-of-authorship without exposing generic "sign-anything" APIs.
 
 use crate::errors::NoiseError;
-use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 
 /// Length of cert_id in bytes (first 16 bytes of SHA256(cert_body)).
@@ -547,7 +547,7 @@ impl KeyBinding {
     /// Add an InboxKey entry.
     pub fn add_inbox_key(&mut self, x25519_pub: [u8; 32]) {
         // Compute inbox_kid from public key
-        let hash = Sha256::digest(&x25519_pub);
+        let hash = Sha256::digest(x25519_pub);
         let mut inbox_kid = [0u8; CERT_ID_LEN];
         inbox_kid.copy_from_slice(&hash[..CERT_ID_LEN]);
 
@@ -935,7 +935,7 @@ mod tests {
         let root_pk = *root_sk.verifying_key().as_bytes();
         
         // Generate delegated keys
-        let (app_sk, app_pk) = generate_app_keypair();
+        let (_app_sk, app_pk) = generate_app_keypair();
         let (_, transport_pk) = x25519_generate_keypair();
         let (_, inbox_pk) = x25519_generate_keypair();
         
@@ -1037,7 +1037,7 @@ mod tests {
         kb.add_inbox_key(inbox_pk);
 
         // Compute expected inbox_kid
-        let hash = Sha256::digest(&inbox_pk);
+        let hash = Sha256::digest(inbox_pk);
         let mut expected_kid = [0u8; CERT_ID_LEN];
         expected_kid.copy_from_slice(&hash[..CERT_ID_LEN]);
 

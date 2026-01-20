@@ -254,13 +254,20 @@ fn xchacha20poly1305_decrypt(
 /// AAD prefix for Sealed Blob v2 per PUBKY_CRYPTO_SPEC Section 7.5.
 const AAD_PREFIX: &[u8] = b"pubky-envelope/v2:";
 
-/// Build deterministic CBOR header bytes for AAD per PUBKY_CRYPTO_SPEC Section 7.12.
+/// Build minimal CBOR header bytes for AAD in JSON envelope mode.
+///
+/// This is a **subset** of the full SB2 header used in binary wire format.
+/// For JSON envelopes (sealed_blob_encrypt/decrypt), we include only the fields
+/// necessary to authenticate the encryption context:
 ///
 /// Uses integer keys in numeric order for deterministic encoding:
 /// - Key 3: inbox_kid (bytes 16)
 /// - Key 5: nonce (bytes 24)
 /// - Key 6: purpose (text, optional)
 /// - Key 8: sender_ephemeral_pub (bytes 32)
+///
+/// See `sealed_blob_v2.rs` for the full `Sb2Header` used in binary SB2 format,
+/// which includes additional fields like context_id, sender_peerid, timestamps, etc.
 fn build_cbor_header_bytes(
     ephemeral_pk: &[u8; 32],
     inbox_kid: &[u8; 16],
@@ -308,13 +315,14 @@ fn build_cbor_header_bytes(
     buf
 }
 
-/// Build AAD bytes per PUBKY_CRYPTO_SPEC Section 7.5 using deterministic CBOR.
+/// Build AAD bytes per PUBKY_CRYPTO_SPEC Section 7.5.
 ///
 /// ```text
 /// aad = aad_prefix || owner_peerid_bytes || canonical_path_bytes || header_bytes
 /// ```
 ///
-/// Uses deterministic CBOR encoding for header_bytes per Section 7.12.
+/// The `header_bytes` component uses a minimal CBOR encoding suitable for JSON
+/// envelopes (not the full SB2 binary header). See `build_cbor_header_bytes` docs.
 fn build_spec_aad(
     owner_peerid: &[u8; 32],
     canonical_path: &str,
@@ -461,9 +469,10 @@ pub fn sealed_blob_encrypt_with_context(
     serde_json::to_string(&envelope).map_err(|e| NoiseError::Serde(e.to_string()))
 }
 
-/// Decrypt sealed blob envelope using spec-compliant AAD construction.
+/// Decrypt sealed blob envelope using context-aware AAD construction.
 ///
-/// This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5.
+/// This function computes AAD internally using the `pubky-envelope/v2:` prefix,
+/// owner peerid, canonical path, and minimal CBOR header bytes.
 /// For backward compatibility, it tries CBOR-based AAD first, then falls back
 /// to legacy JSON-based AAD for older envelopes.
 ///
@@ -529,7 +538,7 @@ pub fn sealed_blob_decrypt_with_context(
     // Derive symmetric key (v2)
     let key = derive_symmetric_key_v2(&shared_secret, &ephemeral_pk, &recipient_pk);
     
-    // Try CBOR-based AAD first (new format per PUBKY_CRYPTO_SPEC v2.5)
+    // Try CBOR-based AAD first (minimal CBOR header format)
     let cbor_aad = build_spec_aad(
         owner_peerid,
         canonical_path,

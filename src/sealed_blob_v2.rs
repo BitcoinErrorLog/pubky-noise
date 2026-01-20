@@ -354,6 +354,7 @@ impl<'a> CborReader<'a> {
         self.data.len() - self.pos
     }
 
+    #[allow(dead_code)]
     fn peek(&self) -> Result<u8, NoiseError> {
         if self.pos >= self.data.len() {
             return Err(NoiseError::Decryption("CBOR: unexpected end of data".into()));

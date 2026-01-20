@@ -138,14 +138,14 @@ impl<const N: usize> LockedBytes<N> {
 #[cfg(feature = "secure-mem")]
 impl<const N: usize> AsRef<[u8; N]> for LockedBytes<N> {
     fn as_ref(&self) -> &[u8; N] {
-        &*self.data
+        &self.data
     }
 }
 
 #[cfg(feature = "secure-mem")]
 impl<const N: usize> AsMut<[u8; N]> for LockedBytes<N> {
     fn as_mut(&mut self) -> &mut [u8; N] {
-        &mut *self.data
+        &mut self.data
     }
 }
 
