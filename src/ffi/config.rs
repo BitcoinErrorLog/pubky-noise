@@ -1052,3 +1052,317 @@ pub fn sealed_blob_verify_signature(
     crate::sealed_blob::sealed_blob_verify_signature(&envelope_json, &pk_arr)
         .map_err(FfiNoiseError::from)
 }
+
+// ============================================================================
+// SB2 Binary Wire Format FFI Functions (per PUBKY_CRYPTO_SPEC v2.5 Section 7.2)
+// ============================================================================
+
+use crate::ffi::types::{FfiSb2Header, FfiSb2DecryptResult};
+
+/// Check if data starts with SB2 magic bytes ("SB2").
+///
+/// Use this to detect whether data is SB2 binary format or legacy JSON.
+///
+/// # Arguments
+///
+/// * `data` - Raw bytes to check
+///
+/// # Returns
+///
+/// `true` if data starts with "SB2" magic, `false` otherwise.
+#[uniffi::export]
+pub fn sb2_is_sb2(data: Vec<u8>) -> bool {
+    crate::sealed_blob_v2::Sb2::is_sb2(&data)
+}
+
+/// Encrypt plaintext to SB2 binary format (without signature).
+///
+/// This creates an SB2 envelope per PUBKY_CRYPTO_SPEC v2.5 Section 7.2.
+/// For signed messages, call `sb2_sign` after encryption.
+///
+/// # Arguments
+///
+/// * `recipient_inbox_pk` - Recipient's InboxKey X25519 public key (32 bytes)
+/// * `plaintext` - Data to encrypt (max 64 KiB)
+/// * `context_id` - Thread identifier (32 bytes, random for new threads)
+/// * `msg_id` - Optional idempotency key (ASCII, max 128 chars)
+/// * `purpose` - Optional purpose hint ("request", "proposal", "ack")
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `sender_peerid` - Sender's Ed25519 public key (32 bytes)
+/// * `recipient_peerid` - Recipient's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path (e.g., "/pub/paykit.app/v0/requests/abc/req_001")
+/// * `created_at` - Optional Unix timestamp (seconds)
+/// * `expires_at` - Optional Unix timestamp (seconds)
+/// * `cert_id` - Optional AppCert identifier (16 bytes) for delegated signing
+///
+/// # Returns
+///
+/// SB2 binary envelope bytes (magic + version + header_len + header + ciphertext).
+#[uniffi::export]
+#[allow(clippy::too_many_arguments)]
+pub fn sb2_encrypt(
+    recipient_inbox_pk: Vec<u8>,
+    plaintext: Vec<u8>,
+    context_id: Vec<u8>,
+    msg_id: Option<String>,
+    purpose: Option<String>,
+    owner_peerid: Vec<u8>,
+    sender_peerid: Vec<u8>,
+    recipient_peerid: Vec<u8>,
+    canonical_path: String,
+    created_at: Option<u64>,
+    expires_at: Option<u64>,
+    cert_id: Option<Vec<u8>>,
+) -> Result<Vec<u8>, FfiNoiseError> {
+    // Validate recipient_inbox_pk
+    if recipient_inbox_pk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Recipient inbox public key must be 32 bytes, got {}", recipient_inbox_pk.len()),
+        });
+    }
+    let mut recipient_inbox_pk_arr = [0u8; 32];
+    recipient_inbox_pk_arr.copy_from_slice(&recipient_inbox_pk);
+    
+    // Validate context_id
+    if context_id.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Context ID must be 32 bytes, got {}", context_id.len()),
+        });
+    }
+    let mut context_id_arr = [0u8; 32];
+    context_id_arr.copy_from_slice(&context_id);
+    
+    // Validate owner_peerid
+    if owner_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Owner peerid must be 32 bytes, got {}", owner_peerid.len()),
+        });
+    }
+    let mut owner_peerid_arr = [0u8; 32];
+    owner_peerid_arr.copy_from_slice(&owner_peerid);
+    
+    // Validate sender_peerid
+    if sender_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Sender peerid must be 32 bytes, got {}", sender_peerid.len()),
+        });
+    }
+    let mut sender_peerid_arr = [0u8; 32];
+    sender_peerid_arr.copy_from_slice(&sender_peerid);
+    
+    // Validate recipient_peerid
+    if recipient_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Recipient peerid must be 32 bytes, got {}", recipient_peerid.len()),
+        });
+    }
+    let mut recipient_peerid_arr = [0u8; 32];
+    recipient_peerid_arr.copy_from_slice(&recipient_peerid);
+    
+    // Validate and convert optional cert_id
+    let cert_id_arr = if let Some(cid) = cert_id {
+        if cid.len() != 16 {
+            return Err(FfiNoiseError::Ring {
+                msg: format!("Cert ID must be 16 bytes, got {}", cid.len()),
+            });
+        }
+        let mut arr = [0u8; 16];
+        arr.copy_from_slice(&cid);
+        Some(arr)
+    } else {
+        None
+    };
+    
+    let sb2 = crate::sealed_blob_v2::Sb2::encrypt_with_cert_id(
+        &recipient_inbox_pk_arr,
+        &plaintext,
+        context_id_arr,
+        msg_id,
+        purpose,
+        &owner_peerid_arr,
+        &sender_peerid_arr,
+        &recipient_peerid_arr,
+        &canonical_path,
+        created_at,
+        expires_at,
+        cert_id_arr,
+    ).map_err(FfiNoiseError::from)?;
+    
+    Ok(sb2.encode())
+}
+
+/// Decrypt an SB2 binary envelope.
+///
+/// # Arguments
+///
+/// * `envelope_bytes` - SB2 binary envelope (magic + version + header + ciphertext)
+/// * `recipient_inbox_sk` - Recipient's InboxKey X25519 secret key (32 bytes)
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path (must match encryption)
+///
+/// # Returns
+///
+/// FfiSb2DecryptResult containing the header and decrypted plaintext.
+#[uniffi::export]
+pub fn sb2_decrypt(
+    envelope_bytes: Vec<u8>,
+    recipient_inbox_sk: Vec<u8>,
+    owner_peerid: Vec<u8>,
+    canonical_path: String,
+) -> Result<FfiSb2DecryptResult, FfiNoiseError> {
+    // Validate recipient_inbox_sk
+    if recipient_inbox_sk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Recipient inbox secret key must be 32 bytes, got {}", recipient_inbox_sk.len()),
+        });
+    }
+    let mut recipient_inbox_sk_arr = [0u8; 32];
+    recipient_inbox_sk_arr.copy_from_slice(&recipient_inbox_sk);
+    
+    // Validate owner_peerid
+    if owner_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Owner peerid must be 32 bytes, got {}", owner_peerid.len()),
+        });
+    }
+    let mut owner_peerid_arr = [0u8; 32];
+    owner_peerid_arr.copy_from_slice(&owner_peerid);
+    
+    // Decode SB2 envelope
+    let sb2 = crate::sealed_blob_v2::Sb2::decode(&envelope_bytes)
+        .map_err(FfiNoiseError::from)?;
+    
+    // Decrypt
+    let plaintext = sb2.decrypt(&recipient_inbox_sk_arr, &owner_peerid_arr, &canonical_path)
+        .map_err(FfiNoiseError::from)?;
+    
+    Ok(FfiSb2DecryptResult {
+        header: sb2.header.into(),
+        plaintext,
+    })
+}
+
+/// Sign an SB2 envelope with sender's Ed25519 private key.
+///
+/// Per PUBKY_CRYPTO_SPEC Section 7.2.1, the signature input is:
+/// ```text
+/// sig_input = BLAKE3("pubky-envelope-sig/v2" || aad || header_no_sig || ciphertext)
+/// ```
+///
+/// # Arguments
+///
+/// * `envelope_bytes` - SB2 binary envelope (will be decoded, signed, and re-encoded)
+/// * `sender_ed25519_sk` - Sender's Ed25519 secret key (32 bytes)
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path
+///
+/// # Returns
+///
+/// Signed SB2 binary envelope bytes.
+#[uniffi::export]
+pub fn sb2_sign(
+    envelope_bytes: Vec<u8>,
+    sender_ed25519_sk: Vec<u8>,
+    owner_peerid: Vec<u8>,
+    canonical_path: String,
+) -> Result<Vec<u8>, FfiNoiseError> {
+    // Validate sender_ed25519_sk
+    if sender_ed25519_sk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Sender Ed25519 secret key must be 32 bytes, got {}", sender_ed25519_sk.len()),
+        });
+    }
+    let mut sender_sk_arr = [0u8; 32];
+    sender_sk_arr.copy_from_slice(&sender_ed25519_sk);
+    
+    // Validate owner_peerid
+    if owner_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Owner peerid must be 32 bytes, got {}", owner_peerid.len()),
+        });
+    }
+    let mut owner_peerid_arr = [0u8; 32];
+    owner_peerid_arr.copy_from_slice(&owner_peerid);
+    
+    // Decode SB2 envelope
+    let mut sb2 = crate::sealed_blob_v2::Sb2::decode(&envelope_bytes)
+        .map_err(FfiNoiseError::from)?;
+    
+    // Create signing key and sign
+    let signing_key = ed25519_dalek::SigningKey::from_bytes(&sender_sk_arr);
+    sb2.sign(&signing_key, &owner_peerid_arr, &canonical_path);
+    
+    Ok(sb2.encode())
+}
+
+/// Verify the signature on an SB2 envelope.
+///
+/// # Arguments
+///
+/// * `envelope_bytes` - SB2 binary envelope
+/// * `owner_peerid` - Storage owner's Ed25519 public key (32 bytes)
+/// * `canonical_path` - Canonical storage path
+///
+/// # Returns
+///
+/// `true` if signature is valid, `false` if no signature present.
+///
+/// # Errors
+///
+/// Returns error if signature is present but invalid.
+#[uniffi::export]
+pub fn sb2_verify_signature(
+    envelope_bytes: Vec<u8>,
+    owner_peerid: Vec<u8>,
+    canonical_path: String,
+) -> Result<bool, FfiNoiseError> {
+    // Validate owner_peerid
+    if owner_peerid.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Owner peerid must be 32 bytes, got {}", owner_peerid.len()),
+        });
+    }
+    let mut owner_peerid_arr = [0u8; 32];
+    owner_peerid_arr.copy_from_slice(&owner_peerid);
+    
+    // Decode SB2 envelope
+    let sb2 = crate::sealed_blob_v2::Sb2::decode(&envelope_bytes)
+        .map_err(FfiNoiseError::from)?;
+    
+    // Verify signature
+    sb2.verify_signature(&owner_peerid_arr, &canonical_path)
+        .map_err(FfiNoiseError::from)
+}
+
+/// Decode an SB2 envelope and return its header without decrypting.
+///
+/// This is useful for inspecting metadata (sender, expiry, etc.) before decryption.
+///
+/// # Arguments
+///
+/// * `envelope_bytes` - SB2 binary envelope
+///
+/// # Returns
+///
+/// FfiSb2Header with all metadata fields.
+#[uniffi::export]
+pub fn sb2_decode_header(envelope_bytes: Vec<u8>) -> Result<FfiSb2Header, FfiNoiseError> {
+    let sb2 = crate::sealed_blob_v2::Sb2::decode(&envelope_bytes)
+        .map_err(FfiNoiseError::from)?;
+    Ok(sb2.header.into())
+}
+
+/// Generate a random 32-byte context ID for new conversation threads.
+///
+/// Per Paykit protocol, new threads should use random context IDs
+/// rather than pair-derived IDs.
+///
+/// # Returns
+///
+/// 32 random bytes suitable for use as context_id.
+#[uniffi::export]
+pub fn sb2_generate_context_id() -> Vec<u8> {
+    let mut id = [0u8; 32];
+    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut id);
+    id.to_vec()
+}

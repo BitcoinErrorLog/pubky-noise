@@ -236,3 +236,66 @@ impl From<crate::ukd::KeyBinding> for FfiKeyBinding {
         }
     }
 }
+
+// ============================================================================
+// SB2 Binary Wire Format FFI Types (per PUBKY_CRYPTO_SPEC v2.5 Section 7.2)
+// ============================================================================
+
+/// FFI-safe SB2 header structure.
+///
+/// Contains all metadata from the SB2 binary envelope header.
+#[derive(uniffi::Record, Clone)]
+pub struct FfiSb2Header {
+    /// Thread identifier (32 bytes as hex, 64 chars).
+    pub context_id_hex: String,
+    /// Unix timestamp (seconds) when created. Optional.
+    pub created_at: Option<u64>,
+    /// Unix timestamp (seconds) when expires. Optional.
+    pub expires_at: Option<u64>,
+    /// Key identifier for recipient InboxKey (16 bytes as hex, 32 chars).
+    pub inbox_kid_hex: String,
+    /// Idempotency key (ASCII, max 128 chars). Optional.
+    pub msg_id: Option<String>,
+    /// XChaCha20-Poly1305 nonce (24 bytes as hex, 48 chars).
+    pub nonce_hex: String,
+    /// Purpose hint (e.g., "request", "proposal", "ack"). Optional.
+    pub purpose: Option<String>,
+    /// Recipient's Ed25519 public key (32 bytes as hex, 64 chars).
+    pub recipient_peerid_hex: String,
+    /// Sender's ephemeral X25519 public key (32 bytes as hex, 64 chars).
+    pub sender_ephemeral_pub_hex: String,
+    /// Sender's Ed25519 public key (32 bytes as hex, 64 chars).
+    pub sender_peerid_hex: String,
+    /// Ed25519 signature (64 bytes as hex, 128 chars). Optional.
+    pub sig_hex: Option<String>,
+    /// AppCert identifier (16 bytes as hex, 32 chars). Optional.
+    pub cert_id_hex: Option<String>,
+}
+
+impl From<crate::sealed_blob_v2::Sb2Header> for FfiSb2Header {
+    fn from(h: crate::sealed_blob_v2::Sb2Header) -> Self {
+        Self {
+            context_id_hex: hex::encode(h.context_id),
+            created_at: h.created_at,
+            expires_at: h.expires_at,
+            inbox_kid_hex: hex::encode(h.inbox_kid),
+            msg_id: h.msg_id,
+            nonce_hex: hex::encode(h.nonce),
+            purpose: h.purpose,
+            recipient_peerid_hex: hex::encode(h.recipient_peerid),
+            sender_ephemeral_pub_hex: hex::encode(h.sender_ephemeral_pub),
+            sender_peerid_hex: hex::encode(h.sender_peerid),
+            sig_hex: h.sig.map(|s| hex::encode(s)),
+            cert_id_hex: h.cert_id.map(|c| hex::encode(c)),
+        }
+    }
+}
+
+/// FFI-safe SB2 decrypt result containing header and plaintext.
+#[derive(uniffi::Record)]
+pub struct FfiSb2DecryptResult {
+    /// Decoded header with all metadata.
+    pub header: FfiSb2Header,
+    /// Decrypted plaintext bytes.
+    pub plaintext: Vec<u8>,
+}
