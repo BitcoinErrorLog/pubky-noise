@@ -629,6 +629,151 @@ pub fn sealed_blob_encrypt(
     serde_json::to_string(&envelope).map_err(|e| NoiseError::Serde(e.to_string()))
 }
 
+/// Encrypt plaintext with Ed25519 signature for authenticity.
+///
+/// Adds `sender` (z-base-32 pubkey) and `sig` (base64url signature) to the envelope.
+/// Signature is computed over: `"pubky-envelope-sig/v2:" || epk || nonce || ct`
+///
+/// # Arguments
+///
+/// * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+/// * `plaintext` - Data to encrypt (max 64 KiB)
+/// * `aad` - Associated authenticated data (bound to path/context)
+/// * `purpose` - Optional purpose hint ("handoff", "request", "proposal")
+/// * `sender_ed25519_sk` - Sender's Ed25519 secret key for signing (32 bytes)
+/// * `sender_peerid_z32` - Sender's PKARR pubkey in z-base-32 (52 chars)
+///
+/// # Returns
+///
+/// JSON-encoded sealed blob v2 envelope with `sender` and `sig` fields.
+pub fn sealed_blob_encrypt_signed(
+    recipient_pk: &[u8; 32],
+    plaintext: &[u8],
+    aad: &str,
+    purpose: Option<&str>,
+    sender_ed25519_sk: &[u8; 32],
+    sender_peerid_z32: &str,
+) -> Result<String, NoiseError> {
+    use ed25519_dalek::{Signer, SigningKey};
+    
+    if plaintext.len() > MAX_PLAINTEXT_SIZE {
+        return Err(NoiseError::Other(format!(
+            "{}: plaintext {} bytes exceeds max {}",
+            SealedBlobErrorCode::PlaintextTooLarge,
+            plaintext.len(),
+            MAX_PLAINTEXT_SIZE
+        )));
+    }
+    
+    // Generate ephemeral keypair
+    let (ephemeral_sk, ephemeral_pk) = x25519_generate_keypair();
+    let ephemeral_sk = Zeroizing::new(ephemeral_sk);
+    
+    // Compute shared secret
+    let shared_secret = x25519_shared_secret(&ephemeral_sk, recipient_pk);
+    
+    // Derive symmetric key (v2)
+    let key = derive_symmetric_key_v2(&shared_secret, &ephemeral_pk, recipient_pk);
+    
+    // Generate random 24-byte nonce for XChaCha20
+    let mut nonce = [0u8; NONCE_SIZE_V2];
+    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut nonce);
+    
+    // Encrypt with XChaCha20-Poly1305
+    let ciphertext = xchacha20poly1305_encrypt(&key, &nonce, plaintext, aad.as_bytes());
+    
+    // Compute signature: "pubky-envelope-sig/v2:" || epk || nonce || ct
+    let mut sign_input = Vec::with_capacity(22 + 32 + NONCE_SIZE_V2 + ciphertext.len());
+    sign_input.extend_from_slice(b"pubky-envelope-sig/v2:");
+    sign_input.extend_from_slice(&ephemeral_pk);
+    sign_input.extend_from_slice(&nonce);
+    sign_input.extend_from_slice(&ciphertext);
+    
+    let signing_key = SigningKey::from_bytes(sender_ed25519_sk);
+    let signature: ed25519_dalek::Signature = signing_key.sign(&sign_input);
+    
+    // Build envelope with signature
+    let envelope = SealedBlobEnvelope {
+        v: SEALED_BLOB_VERSION,
+        epk: base64url_encode(&ephemeral_pk),
+        nonce: base64url_encode(&nonce),
+        ct: base64url_encode(&ciphertext),
+        kid: Some(compute_kid(recipient_pk)),
+        purpose: purpose.map(String::from),
+        sender: Some(sender_peerid_z32.to_string()),
+        sig: Some(base64url_encode(&signature.to_bytes())),
+    };
+    
+    serde_json::to_string(&envelope).map_err(|e| NoiseError::Serde(e.to_string()))
+}
+
+/// Verify the signature on a sealed blob envelope.
+///
+/// # Arguments
+///
+/// * `envelope_json` - JSON-encoded sealed blob envelope
+/// * `sender_ed25519_pk` - Sender's Ed25519 public key (32 bytes)
+///
+/// # Returns
+///
+/// `true` if signature is valid, `false` if no signature present.
+///
+/// # Errors
+///
+/// Returns error if signature is present but invalid.
+pub fn sealed_blob_verify_signature(
+    envelope_json: &str,
+    sender_ed25519_pk: &[u8; 32],
+) -> Result<bool, NoiseError> {
+    use ed25519_dalek::{Signature, VerifyingKey};
+    
+    let envelope: SealedBlobEnvelope = serde_json::from_str(envelope_json)
+        .map_err(|_| NoiseError::Decryption(SealedBlobErrorCode::MalformedEnvelope.to_string()))?;
+    
+    // If no signature, return false (not an error, just unsigned)
+    let sig_b64 = match &envelope.sig {
+        Some(s) => s,
+        None => return Ok(false),
+    };
+    
+    // Decode signature
+    let sig_bytes = base64url_decode(sig_b64)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    if sig_bytes.len() != 64 {
+        return Err(NoiseError::Decryption(
+            "Invalid signature length".to_string(),
+        ));
+    }
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(&sig_bytes);
+    let signature = Signature::from_bytes(&sig_arr);
+    
+    // Decode envelope fields
+    let ephemeral_pk = base64url_decode(&envelope.epk)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    let nonce = base64url_decode(&envelope.nonce)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    let ciphertext = base64url_decode(&envelope.ct)
+        .map_err(|e| NoiseError::Decryption(e.to_string()))?;
+    
+    // Reconstruct sign_input
+    let mut sign_input = Vec::with_capacity(22 + ephemeral_pk.len() + nonce.len() + ciphertext.len());
+    sign_input.extend_from_slice(b"pubky-envelope-sig/v2:");
+    sign_input.extend_from_slice(&ephemeral_pk);
+    sign_input.extend_from_slice(&nonce);
+    sign_input.extend_from_slice(&ciphertext);
+    
+    // Verify
+    let verifying_key = VerifyingKey::from_bytes(sender_ed25519_pk)
+        .map_err(|_| NoiseError::Other("Invalid sender public key".to_string()))?;
+    
+    verifying_key
+        .verify_strict(&sign_input, &signature)
+        .map_err(|_| NoiseError::Decryption("Signature verification failed".to_string()))?;
+    
+    Ok(true)
+}
+
 /// Decrypt sealed blob envelope using recipient's secret key.
 /// Auto-detects v1 or v2 format.
 ///

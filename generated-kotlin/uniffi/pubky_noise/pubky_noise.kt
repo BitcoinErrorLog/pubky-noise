@@ -786,6 +786,16 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -802,6 +812,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 internal interface IntegrityCheckingUniffiLib : Library {
     // Integrity check functions only
     fun uniffi_pubky_noise_checksum_func_battery_saver_config(
+): Short
+fun uniffi_pubky_noise_checksum_func_compute_inbox_kid(
 ): Short
 fun uniffi_pubky_noise_checksum_func_default_config(
 ): Short
@@ -823,6 +835,10 @@ fun uniffi_pubky_noise_checksum_func_is_sealed_blob(
 ): Short
 fun uniffi_pubky_noise_checksum_func_issue_app_cert(
 ): Short
+fun uniffi_pubky_noise_checksum_func_keybinding_decode(
+): Short
+fun uniffi_pubky_noise_checksum_func_keybinding_encode(
+): Short
 fun uniffi_pubky_noise_checksum_func_performance_config(
 ): Short
 fun uniffi_pubky_noise_checksum_func_public_key_from_secret(
@@ -833,7 +849,11 @@ fun uniffi_pubky_noise_checksum_func_sealed_blob_decrypt_with_context(
 ): Short
 fun uniffi_pubky_noise_checksum_func_sealed_blob_encrypt(
 ): Short
+fun uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_signed(
+): Short
 fun uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context(
+): Short
+fun uniffi_pubky_noise_checksum_func_sealed_blob_verify_signature(
 ): Short
 fun uniffi_pubky_noise_checksum_func_sign_typed_content(
 ): Short
@@ -956,6 +976,8 @@ fun uniffi_pubky_noise_fn_method_ffinoisemanager_set_status(`ptr`: Pointer,`sess
 ): Unit
 fun uniffi_pubky_noise_fn_func_battery_saver_config(uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_compute_inbox_kid(`x25519PubHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_default_config(uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_derive_device_key(`seed`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`epoch`: Int,uniffi_out_err: UniffiRustCallStatus, 
@@ -976,6 +998,10 @@ fun uniffi_pubky_noise_fn_func_is_sealed_blob(`json`: RustBuffer.ByValue,uniffi_
 ): Byte
 fun uniffi_pubky_noise_fn_func_issue_app_cert(`rootSkHex`: RustBuffer.ByValue,`appId`: RustBuffer.ByValue,`appEd25519PubHex`: RustBuffer.ByValue,`transportX25519PubHex`: RustBuffer.ByValue,`inboxX25519PubHex`: RustBuffer.ByValue,`deviceIdHex`: RustBuffer.ByValue,`scopes`: RustBuffer.ByValue,`expiresAt`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_keybinding_decode(`cborBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_keybinding_encode(`keybinding`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_performance_config(uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_public_key_from_secret(`secret`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -986,8 +1012,12 @@ fun uniffi_pubky_noise_fn_func_sealed_blob_decrypt_with_context(`recipientSk`: R
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_sealed_blob_encrypt(`recipientPk`: RustBuffer.ByValue,`plaintext`: RustBuffer.ByValue,`aad`: RustBuffer.ByValue,`purpose`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sealed_blob_encrypt_signed(`recipientPk`: RustBuffer.ByValue,`plaintext`: RustBuffer.ByValue,`aad`: RustBuffer.ByValue,`purpose`: RustBuffer.ByValue,`senderEd25519Sk`: RustBuffer.ByValue,`senderPeeridZ32`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(`recipientPk`: RustBuffer.ByValue,`plaintext`: RustBuffer.ByValue,`ownerPeerid`: RustBuffer.ByValue,`canonicalPath`: RustBuffer.ByValue,`purpose`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
+fun uniffi_pubky_noise_fn_func_sealed_blob_verify_signature(`envelopeJson`: RustBuffer.ByValue,`senderEd25519Pk`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
 fun uniffi_pubky_noise_fn_func_sign_typed_content(`appSkHex`: RustBuffer.ByValue,`issuerPeeridHex`: RustBuffer.ByValue,`certIdHex`: RustBuffer.ByValue,`contentType`: RustBuffer.ByValue,`payloadHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
 ): RustBuffer.ByValue
 fun uniffi_pubky_noise_fn_func_verify_app_cert(`issuerPeeridHex`: RustBuffer.ByValue,`certBodyHex`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1127,6 +1157,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_pubky_noise_checksum_func_battery_saver_config() != 51578.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_pubky_noise_checksum_func_compute_inbox_kid() != 54982.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_pubky_noise_checksum_func_default_config() != 63887.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1157,6 +1190,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_pubky_noise_checksum_func_issue_app_cert() != 15978.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_pubky_noise_checksum_func_keybinding_decode() != 42453.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_keybinding_encode() != 26842.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_pubky_noise_checksum_func_performance_config() != 613.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1172,7 +1211,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_encrypt() != 19222.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_signed() != 15836.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context() != 39578.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pubky_noise_checksum_func_sealed_blob_verify_signature() != 57338.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pubky_noise_checksum_func_sign_typed_content() != 51008.toShort()) {
@@ -2072,6 +2117,47 @@ public object FfiConverterTypeFfiAppCertResult: FfiConverterRustBuffer<FfiAppCer
 
 
 /**
+ * FFI-safe AppKey entry from KeyBinding.
+ */
+data class FfiAppKeyEntry (
+    /**
+     * 16-byte cert_id as hex (32 chars).
+     */
+    var `certIdHex`: kotlin.String, 
+    /**
+     * 32-byte Ed25519 public key as hex (64 chars).
+     */
+    var `ed25519PubHex`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiAppKeyEntry: FfiConverterRustBuffer<FfiAppKeyEntry> {
+    override fun read(buf: ByteBuffer): FfiAppKeyEntry {
+        return FfiAppKeyEntry(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiAppKeyEntry) = (
+            FfiConverterString.allocationSize(value.`certIdHex`) +
+            FfiConverterString.allocationSize(value.`ed25519PubHex`)
+    )
+
+    override fun write(value: FfiAppKeyEntry, buf: ByteBuffer) {
+            FfiConverterString.write(value.`certIdHex`, buf)
+            FfiConverterString.write(value.`ed25519PubHex`, buf)
+    }
+}
+
+
+
+/**
  * FFI-safe Ed25519 keypair for UKD AppKey generation.
  */
 data class FfiEd25519Keypair (
@@ -2113,6 +2199,47 @@ public object FfiConverterTypeFfiEd25519Keypair: FfiConverterRustBuffer<FfiEd255
 
 
 /**
+ * FFI-safe InboxKey entry from KeyBinding.
+ */
+data class FfiInboxKeyEntry (
+    /**
+     * 16-byte inbox_kid as hex (32 chars).
+     */
+    var `inboxKidHex`: kotlin.String, 
+    /**
+     * 32-byte X25519 public key as hex (64 chars).
+     */
+    var `x25519PubHex`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiInboxKeyEntry: FfiConverterRustBuffer<FfiInboxKeyEntry> {
+    override fun read(buf: ByteBuffer): FfiInboxKeyEntry {
+        return FfiInboxKeyEntry(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiInboxKeyEntry) = (
+            FfiConverterString.allocationSize(value.`inboxKidHex`) +
+            FfiConverterString.allocationSize(value.`x25519PubHex`)
+    )
+
+    override fun write(value: FfiInboxKeyEntry, buf: ByteBuffer) {
+            FfiConverterString.write(value.`inboxKidHex`, buf)
+            FfiConverterString.write(value.`x25519PubHex`, buf)
+    }
+}
+
+
+
+/**
  * FFI-safe result for initiate_connection
  */
 data class FfiInitiateResult (
@@ -2142,6 +2269,57 @@ public object FfiConverterTypeFfiInitiateResult: FfiConverterRustBuffer<FfiIniti
     override fun write(value: FfiInitiateResult, buf: ByteBuffer) {
             FfiConverterString.write(value.`sessionId`, buf)
             FfiConverterByteArray.write(value.`firstMessage`, buf)
+    }
+}
+
+
+
+/**
+ * FFI-safe KeyBinding structure.
+ *
+ * Contains lists of InboxKeys (for stored delivery), TransportKeys (for Noise),
+ * and optional AppKeys (for delegated signing).
+ */
+data class FfiKeyBinding (
+    /**
+     * List of InboxKey entries (inbox_kid + X25519 public key).
+     */
+    var `inboxKeys`: List<FfiInboxKeyEntry>, 
+    /**
+     * List of TransportKey entries (X25519 public key).
+     */
+    var `transportKeys`: List<FfiTransportKeyEntry>, 
+    /**
+     * Optional list of AppKey entries (cert_id + Ed25519 public key).
+     */
+    var `appKeys`: List<FfiAppKeyEntry>?
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiKeyBinding: FfiConverterRustBuffer<FfiKeyBinding> {
+    override fun read(buf: ByteBuffer): FfiKeyBinding {
+        return FfiKeyBinding(
+            FfiConverterSequenceTypeFfiInboxKeyEntry.read(buf),
+            FfiConverterSequenceTypeFfiTransportKeyEntry.read(buf),
+            FfiConverterOptionalSequenceTypeFfiAppKeyEntry.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiKeyBinding) = (
+            FfiConverterSequenceTypeFfiInboxKeyEntry.allocationSize(value.`inboxKeys`) +
+            FfiConverterSequenceTypeFfiTransportKeyEntry.allocationSize(value.`transportKeys`) +
+            FfiConverterOptionalSequenceTypeFfiAppKeyEntry.allocationSize(value.`appKeys`)
+    )
+
+    override fun write(value: FfiKeyBinding, buf: ByteBuffer) {
+            FfiConverterSequenceTypeFfiInboxKeyEntry.write(value.`inboxKeys`, buf)
+            FfiConverterSequenceTypeFfiTransportKeyEntry.write(value.`transportKeys`, buf)
+            FfiConverterOptionalSequenceTypeFfiAppKeyEntry.write(value.`appKeys`, buf)
     }
 }
 
@@ -2236,6 +2414,40 @@ public object FfiConverterTypeFfiSessionState: FfiConverterRustBuffer<FfiSession
             FfiConverterULong.write(value.`writeCounter`, buf)
             FfiConverterULong.write(value.`readCounter`, buf)
             FfiConverterTypeFfiConnectionStatus.write(value.`status`, buf)
+    }
+}
+
+
+
+/**
+ * FFI-safe TransportKey entry from KeyBinding.
+ */
+data class FfiTransportKeyEntry (
+    /**
+     * 32-byte X25519 public key as hex (64 chars).
+     */
+    var `x25519PubHex`: kotlin.String
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFfiTransportKeyEntry: FfiConverterRustBuffer<FfiTransportKeyEntry> {
+    override fun read(buf: ByteBuffer): FfiTransportKeyEntry {
+        return FfiTransportKeyEntry(
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FfiTransportKeyEntry) = (
+            FfiConverterString.allocationSize(value.`x25519PubHex`)
+    )
+
+    override fun write(value: FfiTransportKeyEntry, buf: ByteBuffer) {
+            FfiConverterString.write(value.`x25519PubHex`, buf)
     }
 }
 
@@ -2834,6 +3046,38 @@ public object FfiConverterOptionalSequenceString: FfiConverterRustBuffer<List<ko
 /**
  * @suppress
  */
+public object FfiConverterOptionalSequenceTypeFfiAppKeyEntry: FfiConverterRustBuffer<List<FfiAppKeyEntry>?> {
+    override fun read(buf: ByteBuffer): List<FfiAppKeyEntry>? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterSequenceTypeFfiAppKeyEntry.read(buf)
+    }
+
+    override fun allocationSize(value: List<FfiAppKeyEntry>?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterSequenceTypeFfiAppKeyEntry.allocationSize(value)
+        }
+    }
+
+    override fun write(value: List<FfiAppKeyEntry>?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterSequenceTypeFfiAppKeyEntry.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
     override fun read(buf: ByteBuffer): List<kotlin.String> {
         val len = buf.getInt()
@@ -2854,11 +3098,118 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
             FfiConverterString.write(it, buf)
         }
     }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiAppKeyEntry: FfiConverterRustBuffer<List<FfiAppKeyEntry>> {
+    override fun read(buf: ByteBuffer): List<FfiAppKeyEntry> {
+        val len = buf.getInt()
+        return List<FfiAppKeyEntry>(len) {
+            FfiConverterTypeFfiAppKeyEntry.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiAppKeyEntry>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiAppKeyEntry.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiAppKeyEntry>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiAppKeyEntry.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiInboxKeyEntry: FfiConverterRustBuffer<List<FfiInboxKeyEntry>> {
+    override fun read(buf: ByteBuffer): List<FfiInboxKeyEntry> {
+        val len = buf.getInt()
+        return List<FfiInboxKeyEntry>(len) {
+            FfiConverterTypeFfiInboxKeyEntry.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiInboxKeyEntry>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiInboxKeyEntry.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiInboxKeyEntry>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiInboxKeyEntry.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeFfiTransportKeyEntry: FfiConverterRustBuffer<List<FfiTransportKeyEntry>> {
+    override fun read(buf: ByteBuffer): List<FfiTransportKeyEntry> {
+        val len = buf.getInt()
+        return List<FfiTransportKeyEntry>(len) {
+            FfiConverterTypeFfiTransportKeyEntry.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<FfiTransportKeyEntry>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeFfiTransportKeyEntry.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<FfiTransportKeyEntry>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeFfiTransportKeyEntry.write(it, buf)
+        }
+    }
 } fun `batterySaverConfig`(): FfiMobileConfig {
             return FfiConverterTypeFfiMobileConfig.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_battery_saver_config(
         _status)
+}
+    )
+    }
+    
+
+        /**
+         * Compute inbox_kid for a given X25519 public key.
+         *
+         * inbox_kid = first 16 bytes of SHA256(x25519_pub)
+         *
+         * # Arguments
+         *
+         * * `x25519_pub_hex` - X25519 public key as hex (64 chars / 32 bytes)
+         *
+         * # Returns
+         *
+         * inbox_kid as hex (32 chars / 16 bytes).
+         */
+    @Throws(FfiNoiseException::class) fun `computeInboxKid`(`x25519PubHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_compute_inbox_kid(
+        FfiConverterString.lower(`x25519PubHex`),_status)
 }
     )
     }
@@ -3072,6 +3423,54 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     )
     }
     
+
+        /**
+         * Decode a KeyBinding from CBOR bytes.
+         *
+         * KeyBinding contains InboxKeys (for SB2 stored delivery), TransportKeys (for Noise),
+         * and optional AppKeys (for delegated signing).
+         *
+         * # Arguments
+         *
+         * * `cbor_bytes` - CBOR-encoded KeyBinding (as returned by PKARR resolution)
+         *
+         * # Returns
+         *
+         * FfiKeyBinding with inbox_keys, transport_keys, and optional app_keys.
+         *
+         * # Errors
+         *
+         * Returns `FfiNoiseError::Decryption` if CBOR decoding fails.
+         */
+    @Throws(FfiNoiseException::class) fun `keybindingDecode`(`cborBytes`: kotlin.ByteArray): FfiKeyBinding {
+            return FfiConverterTypeFfiKeyBinding.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_keybinding_decode(
+        FfiConverterByteArray.lower(`cborBytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Encode a KeyBinding to CBOR bytes.
+         *
+         * # Arguments
+         *
+         * * `keybinding` - FfiKeyBinding to encode
+         *
+         * # Returns
+         *
+         * CBOR-encoded bytes suitable for publishing via PKARR.
+         */ fun `keybindingEncode`(`keybinding`: FfiKeyBinding): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_keybinding_encode(
+        FfiConverterTypeFfiKeyBinding.lower(`keybinding`),_status)
+}
+    )
+    }
+    
  fun `performanceConfig`(): FfiMobileConfig {
             return FfiConverterTypeFfiMobileConfig.lift(
     uniffiRustCall() { _status ->
@@ -3183,6 +3582,34 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     
 
         /**
+         * Encrypt plaintext with Ed25519 signature for authenticity.
+         *
+         * Adds `sender` and `sig` fields to the envelope for verification.
+         *
+         * # Arguments
+         *
+         * * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+         * * `plaintext` - Data to encrypt (max 64 KiB)
+         * * `aad` - Associated authenticated data
+         * * `purpose` - Optional purpose hint
+         * * `sender_ed25519_sk` - Sender's Ed25519 secret key (32 bytes)
+         * * `sender_peerid_z32` - Sender's PKARR pubkey in z-base-32 (52 chars)
+         *
+         * # Returns
+         *
+         * JSON-encoded sealed blob v2 envelope with signature.
+         */
+    @Throws(FfiNoiseException::class) fun `sealedBlobEncryptSigned`(`recipientPk`: kotlin.ByteArray, `plaintext`: kotlin.ByteArray, `aad`: kotlin.String, `purpose`: kotlin.String?, `senderEd25519Sk`: kotlin.ByteArray, `senderPeeridZ32`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_encrypt_signed(
+        FfiConverterByteArray.lower(`recipientPk`),FfiConverterByteArray.lower(`plaintext`),FfiConverterString.lower(`aad`),FfiConverterOptionalString.lower(`purpose`),FfiConverterByteArray.lower(`senderEd25519Sk`),FfiConverterString.lower(`senderPeeridZ32`),_status)
+}
+    )
+    }
+    
+
+        /**
          * Encrypt using Sealed Blob v2 with spec-compliant AAD construction.
          *
          * This function computes AAD internally per PUBKY_CRYPTO_SPEC Section 7.5:
@@ -3207,6 +3634,28 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
     uniffiRustCallWithError(FfiNoiseException) { _status ->
     UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(
         FfiConverterByteArray.lower(`recipientPk`),FfiConverterByteArray.lower(`plaintext`),FfiConverterByteArray.lower(`ownerPeerid`),FfiConverterString.lower(`canonicalPath`),FfiConverterOptionalString.lower(`purpose`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Verify the signature on a sealed blob envelope.
+         *
+         * # Arguments
+         *
+         * * `envelope_json` - JSON-encoded sealed blob envelope
+         * * `sender_ed25519_pk` - Sender's Ed25519 public key (32 bytes)
+         *
+         * # Returns
+         *
+         * `true` if signature is valid, `false` if no signature present.
+         */
+    @Throws(FfiNoiseException::class) fun `sealedBlobVerifySignature`(`envelopeJson`: kotlin.String, `senderEd25519Pk`: kotlin.ByteArray): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    uniffiRustCallWithError(FfiNoiseException) { _status ->
+    UniffiLib.INSTANCE.uniffi_pubky_noise_fn_func_sealed_blob_verify_signature(
+        FfiConverterString.lower(`envelopeJson`),FfiConverterByteArray.lower(`senderEd25519Pk`),_status)
 }
     )
     }

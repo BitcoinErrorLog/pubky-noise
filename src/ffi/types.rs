@@ -163,3 +163,76 @@ pub struct FfiAppCertResult {
     /// cert_id as hex (32 chars / 16 bytes).
     pub cert_id_hex: String,
 }
+
+// ============================================================================
+// KeyBinding FFI Types (per PUBKY_CRYPTO_SPEC v2.5 Section 7.3)
+// ============================================================================
+
+/// FFI-safe InboxKey entry from KeyBinding.
+#[derive(uniffi::Record, Clone)]
+pub struct FfiInboxKeyEntry {
+    /// 16-byte inbox_kid as hex (32 chars).
+    pub inbox_kid_hex: String,
+    /// 32-byte X25519 public key as hex (64 chars).
+    pub x25519_pub_hex: String,
+}
+
+/// FFI-safe TransportKey entry from KeyBinding.
+#[derive(uniffi::Record, Clone)]
+pub struct FfiTransportKeyEntry {
+    /// 32-byte X25519 public key as hex (64 chars).
+    pub x25519_pub_hex: String,
+}
+
+/// FFI-safe AppKey entry from KeyBinding.
+#[derive(uniffi::Record, Clone)]
+pub struct FfiAppKeyEntry {
+    /// 16-byte cert_id as hex (32 chars).
+    pub cert_id_hex: String,
+    /// 32-byte Ed25519 public key as hex (64 chars).
+    pub ed25519_pub_hex: String,
+}
+
+/// FFI-safe KeyBinding structure.
+///
+/// Contains lists of InboxKeys (for stored delivery), TransportKeys (for Noise),
+/// and optional AppKeys (for delegated signing).
+#[derive(uniffi::Record, Clone)]
+pub struct FfiKeyBinding {
+    /// List of InboxKey entries (inbox_kid + X25519 public key).
+    pub inbox_keys: Vec<FfiInboxKeyEntry>,
+    /// List of TransportKey entries (X25519 public key).
+    pub transport_keys: Vec<FfiTransportKeyEntry>,
+    /// Optional list of AppKey entries (cert_id + Ed25519 public key).
+    pub app_keys: Option<Vec<FfiAppKeyEntry>>,
+}
+
+impl From<crate::ukd::KeyBinding> for FfiKeyBinding {
+    fn from(kb: crate::ukd::KeyBinding) -> Self {
+        Self {
+            inbox_keys: kb
+                .inbox_keys
+                .into_iter()
+                .map(|e| FfiInboxKeyEntry {
+                    inbox_kid_hex: hex::encode(e.inbox_kid),
+                    x25519_pub_hex: hex::encode(e.x25519_pub),
+                })
+                .collect(),
+            transport_keys: kb
+                .transport_keys
+                .into_iter()
+                .map(|e| FfiTransportKeyEntry {
+                    x25519_pub_hex: hex::encode(e.x25519_pub),
+                })
+                .collect(),
+            app_keys: kb.app_keys.map(|keys| {
+                keys.into_iter()
+                    .map(|e| FfiAppKeyEntry {
+                        cert_id_hex: hex::encode(e.cert_id),
+                        ed25519_pub_hex: hex::encode(e.ed25519_pub),
+                    })
+                    .collect()
+            }),
+        }
+    }
+}

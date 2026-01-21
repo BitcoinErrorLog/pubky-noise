@@ -1,5 +1,5 @@
 use crate::ffi::errors::FfiNoiseError;
-use crate::ffi::types::{FfiMobileConfig, FfiX25519Keypair, FfiEd25519Keypair, FfiAppCertResult};
+use crate::ffi::types::{FfiMobileConfig, FfiX25519Keypair, FfiEd25519Keypair, FfiAppCertResult, FfiKeyBinding};
 use crate::mobile_manager::MobileConfig;
 
 #[uniffi::export]
@@ -851,4 +851,204 @@ pub fn verify_typed_content(
     ).map_err(FfiNoiseError::from)?;
     
     Ok(true)
+}
+
+// ============================================================================
+// KeyBinding FFI Functions (per PUBKY_CRYPTO_SPEC v2.5 Section 7.3)
+// ============================================================================
+
+/// Decode a KeyBinding from CBOR bytes.
+///
+/// KeyBinding contains InboxKeys (for SB2 stored delivery), TransportKeys (for Noise),
+/// and optional AppKeys (for delegated signing).
+///
+/// # Arguments
+///
+/// * `cbor_bytes` - CBOR-encoded KeyBinding (as returned by PKARR resolution)
+///
+/// # Returns
+///
+/// FfiKeyBinding with inbox_keys, transport_keys, and optional app_keys.
+///
+/// # Errors
+///
+/// Returns `FfiNoiseError::Decryption` if CBOR decoding fails.
+#[uniffi::export]
+pub fn keybinding_decode(cbor_bytes: Vec<u8>) -> Result<FfiKeyBinding, FfiNoiseError> {
+    let kb = crate::ukd::KeyBinding::decode(&cbor_bytes)
+        .map_err(FfiNoiseError::from)?;
+    Ok(kb.into())
+}
+
+/// Encode a KeyBinding to CBOR bytes.
+///
+/// # Arguments
+///
+/// * `keybinding` - FfiKeyBinding to encode
+///
+/// # Returns
+///
+/// CBOR-encoded bytes suitable for publishing via PKARR.
+#[uniffi::export]
+pub fn keybinding_encode(keybinding: FfiKeyBinding) -> Vec<u8> {
+    let mut kb = crate::ukd::KeyBinding::new();
+    
+    for entry in keybinding.inbox_keys {
+        if let (Ok(kid_bytes), Ok(pk_bytes)) = (
+            hex::decode(&entry.inbox_kid_hex),
+            hex::decode(&entry.x25519_pub_hex),
+        ) {
+            if kid_bytes.len() == 16 && pk_bytes.len() == 32 {
+                let mut inbox_kid = [0u8; 16];
+                let mut x25519_pub = [0u8; 32];
+                inbox_kid.copy_from_slice(&kid_bytes);
+                x25519_pub.copy_from_slice(&pk_bytes);
+                kb.inbox_keys.push(crate::ukd::InboxKeyEntry { inbox_kid, x25519_pub });
+            }
+        }
+    }
+    
+    for entry in keybinding.transport_keys {
+        if let Ok(pk_bytes) = hex::decode(&entry.x25519_pub_hex) {
+            if pk_bytes.len() == 32 {
+                let mut x25519_pub = [0u8; 32];
+                x25519_pub.copy_from_slice(&pk_bytes);
+                kb.transport_keys.push(crate::ukd::TransportKeyEntry { x25519_pub });
+            }
+        }
+    }
+    
+    if let Some(app_keys) = keybinding.app_keys {
+        for entry in app_keys {
+            if let (Ok(cid_bytes), Ok(pk_bytes)) = (
+                hex::decode(&entry.cert_id_hex),
+                hex::decode(&entry.ed25519_pub_hex),
+            ) {
+                if cid_bytes.len() == 16 && pk_bytes.len() == 32 {
+                    let mut cert_id = [0u8; 16];
+                    let mut ed25519_pub = [0u8; 32];
+                    cert_id.copy_from_slice(&cid_bytes);
+                    ed25519_pub.copy_from_slice(&pk_bytes);
+                    kb.add_app_key(cert_id, ed25519_pub);
+                }
+            }
+        }
+    }
+    
+    kb.encode()
+}
+
+/// Compute inbox_kid for a given X25519 public key.
+///
+/// inbox_kid = first 16 bytes of SHA256(x25519_pub)
+///
+/// # Arguments
+///
+/// * `x25519_pub_hex` - X25519 public key as hex (64 chars / 32 bytes)
+///
+/// # Returns
+///
+/// inbox_kid as hex (32 chars / 16 bytes).
+#[uniffi::export]
+pub fn compute_inbox_kid(x25519_pub_hex: String) -> Result<String, FfiNoiseError> {
+    use sha2::{Digest, Sha256};
+    
+    let pk_bytes = hex::decode(&x25519_pub_hex).map_err(|e| FfiNoiseError::Ring {
+        msg: format!("Invalid hex for public key: {}", e),
+    })?;
+    
+    if pk_bytes.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Public key must be 32 bytes, got {}", pk_bytes.len()),
+        });
+    }
+    
+    let hash = Sha256::digest(&pk_bytes);
+    let inbox_kid = &hash[..16];
+    Ok(hex::encode(inbox_kid))
+}
+
+// ============================================================================
+// Signed Sealed Blob FFI Functions (per PUBKY_CRYPTO_SPEC v2.5 Section 7.4)
+// ============================================================================
+
+/// Encrypt plaintext with Ed25519 signature for authenticity.
+///
+/// Adds `sender` and `sig` fields to the envelope for verification.
+///
+/// # Arguments
+///
+/// * `recipient_pk` - Recipient's X25519 public key (32 bytes)
+/// * `plaintext` - Data to encrypt (max 64 KiB)
+/// * `aad` - Associated authenticated data
+/// * `purpose` - Optional purpose hint
+/// * `sender_ed25519_sk` - Sender's Ed25519 secret key (32 bytes)
+/// * `sender_peerid_z32` - Sender's PKARR pubkey in z-base-32 (52 chars)
+///
+/// # Returns
+///
+/// JSON-encoded sealed blob v2 envelope with signature.
+#[uniffi::export]
+pub fn sealed_blob_encrypt_signed(
+    recipient_pk: Vec<u8>,
+    plaintext: Vec<u8>,
+    aad: String,
+    purpose: Option<String>,
+    sender_ed25519_sk: Vec<u8>,
+    sender_peerid_z32: String,
+) -> Result<String, FfiNoiseError> {
+    if recipient_pk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Recipient public key must be 32 bytes, got {}", recipient_pk.len()),
+        });
+    }
+    if sender_ed25519_sk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Sender secret key must be 32 bytes, got {}", sender_ed25519_sk.len()),
+        });
+    }
+    
+    let mut recipient_pk_arr = [0u8; 32];
+    recipient_pk_arr.copy_from_slice(&recipient_pk);
+    
+    let mut sender_sk_arr = [0u8; 32];
+    sender_sk_arr.copy_from_slice(&sender_ed25519_sk);
+    
+    crate::sealed_blob::sealed_blob_encrypt_signed(
+        &recipient_pk_arr,
+        &plaintext,
+        &aad,
+        purpose.as_deref(),
+        &sender_sk_arr,
+        &sender_peerid_z32,
+    )
+    .map_err(FfiNoiseError::from)
+}
+
+/// Verify the signature on a sealed blob envelope.
+///
+/// # Arguments
+///
+/// * `envelope_json` - JSON-encoded sealed blob envelope
+/// * `sender_ed25519_pk` - Sender's Ed25519 public key (32 bytes)
+///
+/// # Returns
+///
+/// `true` if signature is valid, `false` if no signature present.
+#[uniffi::export]
+pub fn sealed_blob_verify_signature(
+    envelope_json: String,
+    sender_ed25519_pk: Vec<u8>,
+) -> Result<bool, FfiNoiseError> {
+    if sender_ed25519_pk.len() != 32 {
+        return Err(FfiNoiseError::Ring {
+            msg: format!("Sender public key must be 32 bytes, got {}", sender_ed25519_pk.len()),
+        });
+    }
+    
+    let mut pk_arr = [0u8; 32];
+    pk_arr.copy_from_slice(&sender_ed25519_pk);
+    
+    crate::sealed_blob::sealed_blob_verify_signature(&envelope_json, &pk_arr)
+        .map_err(FfiNoiseError::from)
 }
