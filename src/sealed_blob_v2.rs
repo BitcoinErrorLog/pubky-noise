@@ -806,6 +806,41 @@ impl Sb2 {
         created_at: Option<u64>,
         expires_at: Option<u64>,
     ) -> Result<Self, NoiseError> {
+        Self::encrypt_with_cert_id(
+            recipient_inbox_pk,
+            plaintext,
+            context_id,
+            msg_id,
+            purpose,
+            owner_peerid,
+            sender_peerid,
+            recipient_peerid,
+            canonical_path,
+            created_at,
+            expires_at,
+            None,
+        )
+    }
+
+    /// Encrypt with optional cert_id for delegated signing.
+    ///
+    /// Same as `encrypt`, but allows specifying a `cert_id` for AppKey-based signing.
+    /// The `cert_id` is included in the AAD, so it must be set before encryption
+    /// if the message will be signed with an AppKey.
+    pub fn encrypt_with_cert_id(
+        recipient_inbox_pk: &[u8; 32],
+        plaintext: &[u8],
+        context_id: [u8; 32],
+        msg_id: Option<String>,
+        purpose: Option<String>,
+        owner_peerid: &[u8; 32],
+        sender_peerid: &[u8; 32],
+        recipient_peerid: &[u8; 32],
+        canonical_path: &str,
+        created_at: Option<u64>,
+        expires_at: Option<u64>,
+        cert_id: Option<[u8; 16]>,
+    ) -> Result<Self, NoiseError> {
         if plaintext.len() > MAX_PLAINTEXT_SIZE {
             return Err(NoiseError::Other(format!(
                 "Plaintext {} bytes exceeds max {}",
@@ -854,7 +889,7 @@ impl Sb2 {
             sender_ephemeral_pub: ephemeral_pk,
             sender_peerid: *sender_peerid,
             sig: None,
-            cert_id: None,
+            cert_id,
         };
 
         // Encode header_no_sig for AAD
