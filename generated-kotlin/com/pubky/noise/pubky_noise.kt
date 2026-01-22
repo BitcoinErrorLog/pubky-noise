@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package uniffi.pubky_noise
+package com.pubky.noise
 
 // Common helper code.
 //
