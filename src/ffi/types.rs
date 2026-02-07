@@ -285,8 +285,8 @@ impl From<crate::sealed_blob_v2::Sb2Header> for FfiSb2Header {
             recipient_peerid_hex: hex::encode(h.recipient_peerid),
             sender_ephemeral_pub_hex: hex::encode(h.sender_ephemeral_pub),
             sender_peerid_hex: hex::encode(h.sender_peerid),
-            sig_hex: h.sig.map(|s| hex::encode(s)),
-            cert_id_hex: h.cert_id.map(|c| hex::encode(c)),
+            sig_hex: h.sig.map(hex::encode),
+            cert_id_hex: h.cert_id.map(hex::encode),
         }
     }
 }

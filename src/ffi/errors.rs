@@ -62,6 +62,12 @@ pub enum FfiNoiseError {
     Other { msg: String },
 }
 
+impl From<pubky_crypto::CryptoError> for FfiNoiseError {
+    fn from(err: pubky_crypto::CryptoError) -> Self {
+        FfiNoiseError::from(NoiseError::from(err))
+    }
+}
+
 impl From<NoiseError> for FfiNoiseError {
     fn from(err: NoiseError) -> Self {
         match err {

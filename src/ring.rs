@@ -110,7 +110,7 @@ impl RingKeyProvider for DummyRing {
         device_id: &[u8],
         epoch: u32,
     ) -> Result<[u8; 32], NoiseError> {
-        crate::kdf::derive_x25519_for_device_epoch(&self.seed32, device_id, epoch)
+        Ok(crate::kdf::derive_x25519_for_device_epoch(&self.seed32, device_id, epoch)?)
     }
     fn ed25519_pubkey(&self, _kid: &str) -> Result<[u8; 32], NoiseError> {
         let signing = SigningKey::from_bytes(&self.seed32);

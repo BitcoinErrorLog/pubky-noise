@@ -141,10 +141,10 @@ fn test_noise_link_with_different_device_ids() {
 
     for device_id in devices {
         let client = NoiseClient::<_, ()>::new_direct("kid", device_id, ring.clone());
-        let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", ring.clone());
+        let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", ring.clone());
 
         // Using internal epoch 0
-        let server_sk = ring.derive_device_x25519("kid", b"server", 0).unwrap();
+        let server_sk = ring.derive_device_x25519("kid", b"server-device-00000", 0).unwrap();
         let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
         let result = client_start_ik_direct(&client, &server_pk, None);
@@ -157,11 +157,11 @@ fn test_noise_link_with_hint() {
     // Test Noise link creation with optional hint parameter
     let ring = Arc::new(DummyRing::new([77u8; 32], "kid"));
 
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", ring.clone());
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", ring.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", ring.clone());
 
     // Using internal epoch 0
-    let server_sk = ring.derive_device_x25519("kid", b"server", 0).unwrap();
+    let server_sk = ring.derive_device_x25519("kid", b"server-device-00000", 0).unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     // Without hint
@@ -247,10 +247,10 @@ fn test_handshake_message_size() {
     // Test that handshake messages are within reasonable size limits
     let ring = Arc::new(DummyRing::new([123u8; 32], "kid"));
     let client = NoiseClient::<_, ()>::new_direct("kid", b"device-minimum-16b", ring.clone());
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", ring.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", ring.clone());
 
     // Using internal epoch 0
-    let server_sk = ring.derive_device_x25519("kid", b"server", 0).unwrap();
+    let server_sk = ring.derive_device_x25519("kid", b"server-device-00000", 0).unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     let (_, first_msg) = client_start_ik_direct(&client, &server_pk, None).unwrap();
@@ -294,11 +294,11 @@ fn test_same_params_produce_same_keys() {
 fn test_noise_link_encryption_ready() {
     // Test that created links are ready for encryption
     let ring = Arc::new(DummyRing::new([42u8; 32], "kid"));
-    let client = NoiseClient::<_, ()>::new_direct("kid", b"client", ring.clone());
-    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server", ring.clone());
+    let client = NoiseClient::<_, ()>::new_direct("kid", b"client-device-00000", ring.clone());
+    let _server = NoiseServer::<_, ()>::new_direct("kid", b"server-device-00000", ring.clone());
 
     // Using internal epoch 0
-    let server_sk = ring.derive_device_x25519("kid", b"server", 0).unwrap();
+    let server_sk = ring.derive_device_x25519("kid", b"server-device-00000", 0).unwrap();
     let server_pk = pubky_noise::kdf::x25519_pk_from_sk(&server_sk);
 
     let (link, _) = client_start_ik_direct(&client, &server_pk, None).unwrap();

@@ -81,7 +81,7 @@ fn test_ffi_server_client_handshake() {
         client_config,
         client_seed.to_vec(),
         "client_kid".to_string(),
-        b"client_device".to_vec(),
+        b"client_device_00".to_vec(),
     )
     .expect("Failed to create client manager");
 

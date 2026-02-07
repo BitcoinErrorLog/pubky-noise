@@ -19,7 +19,7 @@ impl RingKeyProvider for TestRing {
         device_id: &[u8],
         epoch: u32,
     ) -> Result<[u8; 32], pubky_noise::NoiseError> {
-        pubky_noise::kdf::derive_x25519_for_device_epoch(&self.seed, device_id, epoch)
+        Ok(pubky_noise::kdf::derive_x25519_for_device_epoch(&self.seed, device_id, epoch)?)
     }
 
     fn ed25519_pubkey(&self, _kid: &str) -> Result<[u8; 32], pubky_noise::NoiseError> {

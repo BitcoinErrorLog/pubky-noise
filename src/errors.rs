@@ -231,3 +231,18 @@ impl From<serde_json::Error> for NoiseError {
         Self::Serde(e.to_string())
     }
 }
+
+impl From<pubky_crypto::CryptoError> for NoiseError {
+    fn from(e: pubky_crypto::CryptoError) -> Self {
+        match e {
+            pubky_crypto::CryptoError::KeyDerivation(msg) => Self::Ring(msg),
+            pubky_crypto::CryptoError::Serde(msg) => Self::Serde(msg),
+            pubky_crypto::CryptoError::InvalidPeerKey => Self::InvalidPeerKey,
+            pubky_crypto::CryptoError::Decryption(msg) => Self::Decryption(msg),
+            pubky_crypto::CryptoError::InvalidSignature => {
+                Self::Other("invalid signature".to_string())
+            }
+            pubky_crypto::CryptoError::Other(msg) => Self::Other(msg),
+        }
+    }
+}

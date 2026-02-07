@@ -27,7 +27,7 @@ impl RingKeyProvider for PubkyRingProvider {
         epoch: u32,
     ) -> Result<[u8; 32], NoiseError> {
         let seed = self.keypair.secret_key();
-        crate::kdf::derive_x25519_for_device_epoch(&seed, device_id, epoch)
+        Ok(crate::kdf::derive_x25519_for_device_epoch(&seed, device_id, epoch)?)
     }
 
     fn ed25519_pubkey(&self, _kid: &str) -> Result<[u8; 32], NoiseError> {

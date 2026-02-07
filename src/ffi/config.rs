@@ -453,7 +453,7 @@ pub fn ed25519_sign(
     let mut sk_arr = [0u8; 32];
     sk_arr.copy_from_slice(&secret_bytes);
 
-    let signature = crate::identity_payload::ed25519_sign(&sk_arr, &message_bytes)
+    let signature = pubky_crypto::ed25519_sign(&sk_arr, &message_bytes)
         .map_err(FfiNoiseError::from)?;
 
     Ok(hex::encode(signature))
@@ -512,7 +512,7 @@ pub fn ed25519_verify(
     let mut sig_arr = [0u8; 64];
     sig_arr.copy_from_slice(&signature_bytes);
 
-    Ok(crate::identity_payload::ed25519_verify(
+    Ok(pubky_crypto::ed25519_verify(
         &pk_arr,
         &message_bytes,
         &sig_arr,

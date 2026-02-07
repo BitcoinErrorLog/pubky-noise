@@ -337,6 +337,11 @@ RustBuffer uniffi_pubky_noise_fn_func_battery_saver_config(RustCallStatus *_Nonn
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_COMPUTE_INBOX_KID
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_COMPUTE_INBOX_KID
+RustBuffer uniffi_pubky_noise_fn_func_compute_inbox_kid(RustBuffer x25519_pub_hex, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_DEFAULT_CONFIG
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_DEFAULT_CONFIG
 RustBuffer uniffi_pubky_noise_fn_func_default_config(RustCallStatus *_Nonnull out_status
@@ -389,6 +394,16 @@ int8_t uniffi_pubky_noise_fn_func_is_sealed_blob(RustBuffer json, RustCallStatus
 RustBuffer uniffi_pubky_noise_fn_func_issue_app_cert(RustBuffer root_sk_hex, RustBuffer app_id, RustBuffer app_ed25519_pub_hex, RustBuffer transport_x25519_pub_hex, RustBuffer inbox_x25519_pub_hex, RustBuffer device_id_hex, RustBuffer scopes, RustBuffer expires_at, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_KEYBINDING_DECODE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_KEYBINDING_DECODE
+RustBuffer uniffi_pubky_noise_fn_func_keybinding_decode(RustBuffer cbor_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_KEYBINDING_ENCODE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_KEYBINDING_ENCODE
+RustBuffer uniffi_pubky_noise_fn_func_keybinding_encode(RustBuffer keybinding, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_PERFORMANCE_CONFIG
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_PERFORMANCE_CONFIG
 RustBuffer uniffi_pubky_noise_fn_func_performance_config(RustCallStatus *_Nonnull out_status
@@ -398,6 +413,42 @@ RustBuffer uniffi_pubky_noise_fn_func_performance_config(RustCallStatus *_Nonnul
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_PUBLIC_KEY_FROM_SECRET
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_PUBLIC_KEY_FROM_SECRET
 RustBuffer uniffi_pubky_noise_fn_func_public_key_from_secret(RustBuffer secret, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_DECODE_HEADER
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_DECODE_HEADER
+RustBuffer uniffi_pubky_noise_fn_func_sb2_decode_header(RustBuffer envelope_bytes, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_DECRYPT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_DECRYPT
+RustBuffer uniffi_pubky_noise_fn_func_sb2_decrypt(RustBuffer envelope_bytes, RustBuffer recipient_inbox_sk, RustBuffer owner_peerid, RustBuffer canonical_path, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_ENCRYPT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_ENCRYPT
+RustBuffer uniffi_pubky_noise_fn_func_sb2_encrypt(RustBuffer recipient_inbox_pk, RustBuffer plaintext, RustBuffer context_id, RustBuffer msg_id, RustBuffer purpose, RustBuffer owner_peerid, RustBuffer sender_peerid, RustBuffer recipient_peerid, RustBuffer canonical_path, RustBuffer created_at, RustBuffer expires_at, RustBuffer cert_id, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_GENERATE_CONTEXT_ID
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_GENERATE_CONTEXT_ID
+RustBuffer uniffi_pubky_noise_fn_func_sb2_generate_context_id(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_IS_SB2
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_IS_SB2
+int8_t uniffi_pubky_noise_fn_func_sb2_is_sb2(RustBuffer data, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_SIGN
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_SIGN
+RustBuffer uniffi_pubky_noise_fn_func_sb2_sign(RustBuffer envelope_bytes, RustBuffer sender_ed25519_sk, RustBuffer owner_peerid, RustBuffer canonical_path, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_VERIFY_SIGNATURE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SB2_VERIFY_SIGNATURE
+int8_t uniffi_pubky_noise_fn_func_sb2_verify_signature(RustBuffer envelope_bytes, RustBuffer owner_peerid, RustBuffer canonical_path, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_DECRYPT
@@ -415,9 +466,19 @@ RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_decrypt_with_context(RustBuffe
 RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_encrypt(RustBuffer recipient_pk, RustBuffer plaintext, RustBuffer aad, RustBuffer purpose, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT_SIGNED
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT_SIGNED
+RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_encrypt_signed(RustBuffer recipient_pk, RustBuffer plaintext, RustBuffer aad, RustBuffer purpose, RustBuffer sender_ed25519_sk, RustBuffer sender_peerid_z32, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
 RustBuffer uniffi_pubky_noise_fn_func_sealed_blob_encrypt_with_context(RustBuffer recipient_pk, RustBuffer plaintext, RustBuffer owner_peerid, RustBuffer canonical_path, RustBuffer purpose, RustCallStatus *_Nonnull out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_VERIFY_SIGNATURE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SEALED_BLOB_VERIFY_SIGNATURE
+int8_t uniffi_pubky_noise_fn_func_sealed_blob_verify_signature(RustBuffer envelope_json, RustBuffer sender_ed25519_pk, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_FN_FUNC_SIGN_TYPED_CONTENT
@@ -732,6 +793,12 @@ uint16_t uniffi_pubky_noise_checksum_func_battery_saver_config(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_COMPUTE_INBOX_KID
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_COMPUTE_INBOX_KID
+uint16_t uniffi_pubky_noise_checksum_func_compute_inbox_kid(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_DEFAULT_CONFIG
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_DEFAULT_CONFIG
 uint16_t uniffi_pubky_noise_checksum_func_default_config(void
@@ -792,6 +859,18 @@ uint16_t uniffi_pubky_noise_checksum_func_issue_app_cert(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_KEYBINDING_DECODE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_KEYBINDING_DECODE
+uint16_t uniffi_pubky_noise_checksum_func_keybinding_decode(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_KEYBINDING_ENCODE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_KEYBINDING_ENCODE
+uint16_t uniffi_pubky_noise_checksum_func_keybinding_encode(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_PERFORMANCE_CONFIG
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_PERFORMANCE_CONFIG
 uint16_t uniffi_pubky_noise_checksum_func_performance_config(void
@@ -801,6 +880,48 @@ uint16_t uniffi_pubky_noise_checksum_func_performance_config(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_PUBLIC_KEY_FROM_SECRET
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_PUBLIC_KEY_FROM_SECRET
 uint16_t uniffi_pubky_noise_checksum_func_public_key_from_secret(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_DECODE_HEADER
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_DECODE_HEADER
+uint16_t uniffi_pubky_noise_checksum_func_sb2_decode_header(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_DECRYPT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_DECRYPT
+uint16_t uniffi_pubky_noise_checksum_func_sb2_decrypt(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_ENCRYPT
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_ENCRYPT
+uint16_t uniffi_pubky_noise_checksum_func_sb2_encrypt(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_GENERATE_CONTEXT_ID
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_GENERATE_CONTEXT_ID
+uint16_t uniffi_pubky_noise_checksum_func_sb2_generate_context_id(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_IS_SB2
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_IS_SB2
+uint16_t uniffi_pubky_noise_checksum_func_sb2_is_sb2(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_SIGN
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_SIGN
+uint16_t uniffi_pubky_noise_checksum_func_sb2_sign(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_VERIFY_SIGNATURE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SB2_VERIFY_SIGNATURE
+uint16_t uniffi_pubky_noise_checksum_func_sb2_verify_signature(void
     
 );
 #endif
@@ -822,9 +943,21 @@ uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_encrypt(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT_SIGNED
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT_SIGNED
+uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_signed(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
 #define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_ENCRYPT_WITH_CONTEXT
 uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_encrypt_with_context(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_VERIFY_SIGNATURE
+#define UNIFFI_FFIDEF_UNIFFI_PUBKY_NOISE_CHECKSUM_FUNC_SEALED_BLOB_VERIFY_SIGNATURE
+uint16_t uniffi_pubky_noise_checksum_func_sealed_blob_verify_signature(void
     
 );
 #endif

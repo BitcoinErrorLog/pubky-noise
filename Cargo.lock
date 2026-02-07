@@ -1700,6 +1700,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pubky-crypto"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "blake3",
+ "chacha20poly1305",
+ "curve25519-dalek",
+ "ed25519-dalek",
+ "hex",
+ "hkdf",
+ "rand 0.8.5",
+ "region",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "pubky-noise"
 version = "1.2.0"
 dependencies = [
@@ -1717,6 +1739,7 @@ dependencies = [
  "hkdf",
  "loom",
  "pubky",
+ "pubky-crypto",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "region",
