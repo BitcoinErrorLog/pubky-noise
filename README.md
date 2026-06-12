@@ -2,6 +2,8 @@
 
 Direct client↔server Noise sessions for Pubky using `snow`. Default build is direct-only. PKARR is optional metadata behind a feature flag.
 
+> **Relationship to the official library** (recorded June 2026): the official [`pubky/pubky-noise`](https://github.com/pubky/pubky-noise) is an independent rewrite with **no shared git history** with this repository (84 commits here vs 101 there, no merge-base), so merging upstream is not possible. Decision: this fork is maintained **in parallel**. It carries assets the official library lacks — `THREAT_MODEL.md`, generated Kotlin/Swift UniFFI bindings, integration guides, and the Sealed Blob v2 implementation — which are candidates for upstreaming as patches, not merges. The Atomicity v1.1 specification treats the official library as the normative Noise transport and this fork as **Proposed upstream** for the assets listed above (see `atomicity-research/ATOMICITY_MESSAGING_PROFILE_PUBKY.md`).
+
 ## Goals
 
 * Direct transport first: XX for first contact, IK when the server static is pinned or delivered OOB.
