@@ -4,11 +4,7 @@ Direct client↔server Noise sessions for Pubky using `snow`. Default build is d
 
 > ⚠️ **DEPRECATED AS A DEPENDENCY** (June 2026, supersedes the earlier parallel-maintenance note): the official [`pubky/pubky-noise`](https://github.com/pubky/pubky-noise) is the normative base for the Noise layer. This legacy repository has **no shared git history** with it (84 commits here vs 101 there, no merge-base) and its Noise stack (`ChaChaPoly_BLAKE2s` suites, `pubky-noise-v1` prologue, direct TCP) **cannot interoperate** with the official library. Because everything is pre-production, **no backwards compatibility is maintained**: no new code may depend on this repository.
 >
-> What remains here, and where it goes:
->
-> - **Sealed Blob v2 implementation** — the only existing implementation of PUBKY_CRYPTO_SPEC §7; transitional dependency for `atomicity-mobile` until it is reimplemented on the official stack (in `atomicity-core` or via a *fresh fork* of `pubky/pubky-noise` carrying a PR-able patch)
-> - **Generated Kotlin/Swift UniFFI bindings** — transitional, Sealed Blob operations only; replaced when the reimplementation lands
-> - **`THREAT_MODEL.md`, integration guides, prologue + identity-binding design** — upstream proposal material for `pubky/pubky-noise` (see PUBKY_CRYPTO_SPEC §6.10 gap analysis)
+> **Zero dependents** as of June 2026: Sealed Blob v2 and its mobile bindings moved to `atomicity-core`/`atomicity-ffi` (cross-validated byte-compatible with the pubky-crypto reference this repo re-exports). What remains here is upstream proposal material only: `THREAT_MODEL.md`, integration guides, and the prologue + identity-binding design (see PUBKY_CRYPTO_SPEC §6.10 gap analysis).
 >
 > New patch work targets a fresh fork of the official repository, not this one.
 
